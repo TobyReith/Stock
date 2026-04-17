@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Stock
 
-## Getting Started
+Vorratskammer-PWA für deutschsprachige Haushalte: Barcode scannen, MHD im Blick behalten, weniger Lebensmittel wegwerfen.
 
-First, run the development server:
+> Status: **Phase 0** — Grundgerüst. Add-Flow (Barcode + MHD-OCR) folgt in Phase 1.
+
+## Tech-Stack
+
+- **Frontend:** Next.js (App Router, TypeScript strict, Turbopack) · React 19 · Tailwind CSS v4 · shadcn/ui (Base UI variant, neutral theme) · `next-themes`
+- **Backend:** Supabase (Postgres + RLS, Auth, Storage, Edge Functions) · Region `eu-central-1` (Frankfurt)
+- **Hosting:** Vercel (Preview je PR, Prod auf `main`)
+- **Scanner:** `@zxing/browser` (+ native `BarcodeDetector` fallback — Phase 1)
+- **Produktdaten:** Open Food Facts API v2
+- **MHD-OCR:** Multimodales LLM via Server Action, Abstraktion in `src/lib/vision/` (Default-Provider: Anthropic Claude)
+- **Validation:** Zod · **Forms:** React Hook Form · **Toasts:** Sonner
+
+## Setup
+
+Voraussetzungen: Node 20+, pnpm 10+, Supabase-Account, Vercel-Account.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+git clone git@github.com:TobyReith/Stock.git
+cd Stock
+pnpm install
+cp .env.example .env.local   # und Werte füllen
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Öffne [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Env-Vars
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Siehe [`.env.example`](./.env.example). Der Supabase-**Service-Role-Key** und der **Anthropic-API-Key** müssen manuell aus den jeweiligen Dashboards geholt werden; alle anderen sind entweder public oder werden per Script generiert.
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
+| Script | Zweck |
+| --- | --- |
+| `pnpm dev` | Dev-Server (Turbopack) |
+| `pnpm build` | Produktions-Build |
+| `pnpm start` | Produktions-Server lokal |
+| `pnpm lint` | ESLint |
+| `pnpm typecheck` | `tsc --noEmit` |
+| `pnpm supabase:types` | Supabase-Typen regenerieren |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Projektstruktur
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+  app/            Next.js App Router (routes, layouts, route handlers)
+  components/     UI-Komponenten (shadcn/ui in components/ui, eigenes daneben)
+  lib/
+    supabase/     Supabase-Clients (browser, server, session-refresh-helper)
+    vision/       MHD-OCR-Provider-Abstraktion (Phase 1)
+    constants/    Smart Defaults, Konfig
+supabase/
+  migrations/     versionierte SQL-Migrations
+public/
+  icons/          PWA-Icons
+  sw.js           Minimal Service Worker
+```
 
-## Deploy on Vercel
+## Entscheidungen
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Siehe [`ADR.md`](./ADR.md) für Architecture Decision Records.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Contributing
+
+Siehe [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+## Roadmap
+
+- **Phase 0** ✓ Repo, Auth-Grundgerüst, DB-Schema mit RLS, PWA-Basis, CI/Deploy
+- **Phase 1** Add-Flow (Barcode, MHD-Foto, Fallbacks), Hauptliste, Item-Detail, Basis-Stats
+- **Phase 2** Web Push, Haushalt teilen, Voice-Input, Einkaufsliste
+- **Phase 3** Rezept-Vorschläge, Batch-Modus, Dashboard, CSV-Export
