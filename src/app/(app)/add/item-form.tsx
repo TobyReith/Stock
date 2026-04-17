@@ -1,0 +1,360 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import { Loader2, Refrigerator, Package, Snowflake, Archive } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { addItem } from "@/lib/actions/items";
+import type { AddItemInput } from "@/lib/schemas/items";
+import {
+  CATEGORIES,
+  defaultBestBeforeDate,
+  getCategory,
+  type CategoryKey,
+} from "@/lib/constants/categories";
+import { MhdCapture } from "./mhd-capture";
+
+/**
+ * The actual "add item" form.
+ *
+ * Three seed shapes, all collapsed into one form:
+ *   - `known`   — product already in our cache or freshly resolved via OFF.
+ *                 Name/brand/image/category are fixed; user only fills
+ *                 item-specific fields (alias, qty, MHD, location, note).
+ *   - `off`     — same as `known` but productId doesn't exist yet; the
+ *                 server action will create the product row on submit.
+ *   - `unknown` — barcode was not found anywhere; user supplies product
+ *                 name + category manually, barcode is preserved.
+ *   - `manual`  — no barcode at all; like `unknown` minus the barcode.
+ *
+ * The MHD field is prefilled from the category default and can be
+ * replaced either manually or via an OCR photo (see `MhdCapture`).
+ */
+
+export type FormSeed =
+  | {
+      kind: "known";
+      productId: string;
+      productName: string;
+      brand: string | null;
+      imageUrl: string | null;
+      category: CategoryKey;
+      barcode: string | null;
+    }
+  | {
+      kind: "off";
+      productName: string;
+      brand: string | null;
+      imageUrl: string | null;
+      category: CategoryKey;
+      barcode: string;
+    }
+  | {
+      kind: "unknown";
+      barcode: string;
+    }
+  | {
+      kind: "manual";
+    };
+
+type Props = {
+  seed: FormSeed;
+  onCancel: () => void;
+  onSuccess: () => void;
+};
+
+const LOCATIONS: {
+  value: "fridge" | "pantry" | "freezer" | "other";
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { value: "fridge", label: "Kühlschrank", icon: Refrigerator },
+  { value: "pantry", label: "Vorrat", icon: Package },
+  { value: "freezer", label: "Gefrierer", icon: Snowflake },
+  { value: "other", label: "Sonstiges", icon: Archive },
+];
+
+export function ItemForm({ seed, onCancel, onSuccess }: Props) {
+  const needsProductFields = seed.kind === "unknown" || seed.kind === "manual";
+  const seedProduct = "productName" in seed ? seed : null;
+  const seedCategory: CategoryKey =
+    "category" in seed ? seed.category : "other";
+
+  // We manage form state with useState — the shape is small enough that
+  // react-hook-form is overkill and the controlled inputs play nicely with
+  // the MHD-capture callback that needs to update a single field.
+  const [productName, setProductName] = useState(
+    seedProduct?.productName ?? "",
+  );
+  const [category, setCategory] = useState<CategoryKey>(seedCategory);
+  const [customName, setCustomName] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [unit, setUnit] = useState("");
+  const [bestBefore, setBestBefore] = useState(() =>
+    defaultBestBeforeDate(seedCategory),
+  );
+  const [mhdSource, setMhdSource] = useState<"default" | "ocr" | "manual">(
+    "default",
+  );
+  const [mhdRaw, setMhdRaw] = useState<string | null>(null);
+  const [location, setLocation] = useState<(typeof LOCATIONS)[number]["value"]>(
+    getCategory(seedCategory).defaultLocation,
+  );
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  // When the user changes the category on an unknown/manual entry, bump
+  // the default MHD + location — but only if they haven't customized them.
+  function handleCategoryChange(next: CategoryKey) {
+    setCategory(next);
+    if (mhdSource === "default") {
+      setBestBefore(defaultBestBeforeDate(next));
+    }
+    setLocation(getCategory(next).defaultLocation);
+  }
+
+  const canSubmit = useMemo(() => {
+    const q = Number(quantity);
+    if (!(q > 0)) return false;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bestBefore)) return false;
+    if (needsProductFields && productName.trim().length === 0) return false;
+    return true;
+  }, [quantity, bestBefore, needsProductFields, productName]);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setError(null);
+
+    const barcode = "barcode" in seed ? seed.barcode : null;
+    const input: AddItemInput = {
+      productId: seed.kind === "known" ? seed.productId : undefined,
+      barcode: barcode ?? undefined,
+      productName: seedProduct?.productName ?? productName.trim(),
+      brand: seedProduct?.brand ?? null,
+      imageUrl: seedProduct?.imageUrl ?? null,
+      category,
+      customName: customName.trim() || undefined,
+      quantity: Number(quantity),
+      unit: unit.trim() || undefined,
+      bestBefore,
+      location,
+      note: note.trim() || undefined,
+    };
+
+    startTransition(async () => {
+      const res = await addItem(input);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      onSuccess();
+    });
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      {/* Product preview (known path) — read-only summary so user knows
+          what they're adding and where to tweak it (customName). */}
+      {seedProduct && (
+        <div className="flex items-start gap-3 rounded-lg border p-3">
+          {seedProduct.imageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={seedProduct.imageUrl}
+              alt=""
+              className="size-16 shrink-0 rounded border object-contain"
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium">{seedProduct.productName}</p>
+            {seedProduct.brand && (
+              <p className="truncate text-sm text-muted-foreground">
+                {seedProduct.brand}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {getCategory(seedProduct.category).label}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Product fields (unknown / manual path) */}
+      {needsProductFields && (
+        <>
+          <FieldRow>
+            <Label htmlFor="product-name">Produktname</Label>
+            <Input
+              id="product-name"
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
+              placeholder="z.B. Haferflocken"
+              autoFocus
+              required
+            />
+          </FieldRow>
+          <FieldRow>
+            <Label htmlFor="category">Kategorie</Label>
+            <select
+              id="category"
+              value={category}
+              onChange={(e) => handleCategoryChange(e.target.value as CategoryKey)}
+              className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </FieldRow>
+        </>
+      )}
+
+      {/* Alias — optional short name for the shelf ("Opas Honig"). */}
+      <FieldRow>
+        <Label htmlFor="custom-name">
+          Eigener Name <span className="text-muted-foreground">(optional)</span>
+        </Label>
+        <Input
+          id="custom-name"
+          value={customName}
+          onChange={(e) => setCustomName(e.target.value)}
+          placeholder={seedProduct?.productName ?? "z.B. Opas Honig"}
+        />
+      </FieldRow>
+
+      {/* Quantity + unit share a row */}
+      <div className="grid grid-cols-[1fr_1fr] gap-3">
+        <FieldRow>
+          <Label htmlFor="quantity">Menge</Label>
+          <Input
+            id="quantity"
+            type="number"
+            min="0.1"
+            step="0.1"
+            inputMode="decimal"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            required
+          />
+        </FieldRow>
+        <FieldRow>
+          <Label htmlFor="unit">
+            Einheit <span className="text-muted-foreground">(optional)</span>
+          </Label>
+          <Input
+            id="unit"
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+            placeholder="z.B. Stück, g, L"
+          />
+        </FieldRow>
+      </div>
+
+      {/* MHD: date input + OCR trigger. Default comes from category. */}
+      <FieldRow>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="best-before">Mindesthaltbarkeitsdatum</Label>
+          <MhdCapture
+            onDate={(iso, raw) => {
+              setBestBefore(iso);
+              setMhdSource("ocr");
+              setMhdRaw(raw);
+            }}
+          />
+        </div>
+        <Input
+          id="best-before"
+          type="date"
+          value={bestBefore}
+          onChange={(e) => {
+            setBestBefore(e.target.value);
+            setMhdSource("manual");
+            setMhdRaw(null);
+          }}
+          required
+        />
+        <p className="text-xs text-muted-foreground">
+          {mhdSource === "default" &&
+            `Standard für ${getCategory(category).label}. "MHD scannen" für Foto-Erkennung.`}
+          {mhdSource === "ocr" && mhdRaw && `Erkannt: "${mhdRaw}"`}
+          {mhdSource === "manual" && "Manuell eingegeben."}
+        </p>
+      </FieldRow>
+
+      {/* Location segmented control */}
+      <FieldRow>
+        <Label>Lagerort</Label>
+        <div className="grid grid-cols-4 gap-1 rounded-lg border p-1">
+          {LOCATIONS.map(({ value, label, icon: Icon }) => {
+            const active = location === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setLocation(value)}
+                aria-pressed={active}
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-md py-2 text-xs transition-colors",
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                <Icon className="size-5" aria-hidden />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </FieldRow>
+
+      <FieldRow>
+        <Label htmlFor="note">
+          Notiz <span className="text-muted-foreground">(optional)</span>
+        </Label>
+        <textarea
+          id="note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={2}
+          className="w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          placeholder="z.B. angebrochen, für Pizza"
+        />
+      </FieldRow>
+
+      {error && (
+        <div
+          role="alert"
+          className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {error}
+        </div>
+      )}
+
+      <div className="flex gap-2 pt-2">
+        <Button type="submit" className="flex-1" size="lg" disabled={!canSubmit || isPending}>
+          {isPending ? (
+            <>
+              <Loader2 className="animate-spin" aria-hidden /> Wird gespeichert…
+            </>
+          ) : (
+            "Hinzufügen"
+          )}
+        </Button>
+        <Button type="button" variant="ghost" size="lg" onClick={onCancel} disabled={isPending}>
+          Abbrechen
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function FieldRow({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-col gap-1.5">{children}</div>;
+}

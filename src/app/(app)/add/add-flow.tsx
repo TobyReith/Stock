@@ -1,86 +1,152 @@
 "use client";
 
 import { useCallback, useState, useTransition } from "react";
-import { CheckCircle2, Loader2, SearchX, XCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { CheckCircle2, Loader2, Pencil, SearchX, XCircle } from "lucide-react";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { lookupBarcode } from "@/lib/actions/items";
+import type { CategoryKey } from "@/lib/constants/categories";
+import { ItemForm, type FormSeed } from "./item-form";
 
 /**
- * PR 1.4 scope: prove the scan → lookup pipeline end-to-end.
+ * Top-level state machine for the Add-Flow page.
  *
- * The Add-Flow *form* (quantity, MHD via OCR, location, submit) lands in
- * PR 1.5 — this page today just:
- *   1. Scans or accepts manual barcode
- *   2. Calls `lookupBarcode` server action
- *   3. Shows cache / OFF / unknown result as a preview card
+ *   scanner ─scan/manual─▶ lookup ─known──▶ preview ─▶ form ─submit─▶ done
+ *        └─"ohne Barcode"────────────────────────────▶ form (manual)
+ *   lookup ─unknown─▶ preview ─▶ form (unknown)
  *
- * State machine lives in a single `mode` + `lookup` pair to keep the
- * scanner / manual-entry / result views mutually exclusive.
+ * We keep the preview step between lookup and form so the user can
+ * confirm "yes, that's the right product" before committing. For the
+ * manual-no-barcode path there's nothing to preview — skip straight to
+ * the form.
  */
 
-type LookupState =
-  | { kind: "idle" }
-  | { kind: "pending"; barcode: string }
-  | { kind: "error"; message: string; barcode: string }
-  | {
-      kind: "ok";
-      barcode: string;
-      result: Awaited<ReturnType<typeof lookupBarcode>>;
-    };
+type LookupResult = Awaited<ReturnType<typeof lookupBarcode>>;
 
-type Mode = "scanner" | "manual";
+type Stage =
+  | { kind: "scan" }
+  | { kind: "manual-barcode" }
+  | { kind: "looking-up"; barcode: string }
+  | { kind: "lookup-error"; message: string; barcode: string }
+  | { kind: "preview"; barcode: string; result: LookupResult }
+  | { kind: "form"; seed: FormSeed };
 
 export function AddFlow() {
-  const [mode, setMode] = useState<Mode>("scanner");
-  const [lookup, setLookup] = useState<LookupState>({ kind: "idle" });
-  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+  const [stage, setStage] = useState<Stage>({ kind: "scan" });
+  const [, startTransition] = useTransition();
 
   const runLookup = useCallback((barcode: string) => {
-    setLookup({ kind: "pending", barcode });
+    setStage({ kind: "looking-up", barcode });
     startTransition(async () => {
       const res = await lookupBarcode(barcode);
       if (!res.ok) {
-        setLookup({ kind: "error", message: res.error, barcode });
+        setStage({ kind: "lookup-error", message: res.error, barcode });
         return;
       }
-      setLookup({ kind: "ok", barcode, result: res });
+      setStage({ kind: "preview", barcode, result: res });
     });
   }, []);
 
-  // Scanner callback — dedup happens inside the detector, but we also guard
-  // against re-lookup while a previous one is in flight.
+  // Debounce during in-flight lookup so duplicate scan frames don't pile up.
   const handleDetected = useCallback(
     (barcode: string) => {
-      if (lookup.kind === "pending") return;
-      if (lookup.kind === "ok" && lookup.barcode === barcode) return;
+      if (stage.kind === "looking-up") return;
+      if (stage.kind === "preview" && stage.barcode === barcode) return;
       runLookup(barcode);
     },
-    [lookup, runLookup],
+    [stage, runLookup],
   );
+
+  const resetToScanner = useCallback(() => {
+    setStage({ kind: "scan" });
+  }, []);
+
+  const handleSubmitSuccess = useCallback(() => {
+    toast.success("Artikel hinzugefügt");
+    router.push("/");
+  }, [router]);
+
+  // FORM stage — dedicated branch to keep JSX compact.
+  if (stage.kind === "form") {
+    return (
+      <ItemForm
+        seed={stage.seed}
+        onCancel={resetToScanner}
+        onSuccess={handleSubmitSuccess}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
-      {mode === "scanner" ? (
-        <BarcodeScanner
-          onDetected={handleDetected}
-          onManualEntry={() => setMode("manual")}
-        />
-      ) : (
+      {stage.kind === "scan" && (
+        <>
+          <BarcodeScanner
+            onDetected={handleDetected}
+            onManualEntry={() => setStage({ kind: "manual-barcode" })}
+          />
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => setStage({ kind: "form", seed: { kind: "manual" } })}
+          >
+            <Pencil aria-hidden /> Ohne Barcode hinzufügen
+          </Button>
+        </>
+      )}
+
+      {stage.kind === "manual-barcode" && (
         <ManualBarcodeEntry
-          disabled={isPending}
+          disabled={false}
           onSubmit={runLookup}
-          onCancel={() => setMode("scanner")}
+          onCancel={resetToScanner}
         />
       )}
 
-      <LookupResult
-        state={lookup}
-        onReset={() => setLookup({ kind: "idle" })}
-      />
+      {stage.kind === "looking-up" && (
+        <Card>
+          <CardContent className="flex items-center gap-3 py-4">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" aria-hidden />
+            <div>
+              <p className="font-medium">Nachschlagen…</p>
+              <p className="text-xs text-muted-foreground">Barcode {stage.barcode}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {stage.kind === "lookup-error" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <XCircle className="size-5 text-destructive" aria-hidden />
+              Fehler
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm">{stage.message}</p>
+            <p className="text-xs text-muted-foreground">Barcode {stage.barcode}</p>
+            <Button variant="outline" size="sm" onClick={resetToScanner}>
+              Neu scannen
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {stage.kind === "preview" && (
+        <LookupPreview
+          barcode={stage.barcode}
+          result={stage.result}
+          onContinue={(seed) => setStage({ kind: "form", seed })}
+          onReset={resetToScanner}
+        />
+      )}
     </div>
   );
 }
@@ -131,53 +197,19 @@ function ManualBarcodeEntry({
   );
 }
 
-function LookupResult({
-  state,
+function LookupPreview({
+  barcode,
+  result,
+  onContinue,
   onReset,
 }: {
-  state: LookupState;
+  barcode: string;
+  result: LookupResult;
+  onContinue: (seed: FormSeed) => void;
   onReset: () => void;
 }) {
-  if (state.kind === "idle") return null;
-
-  if (state.kind === "pending") {
-    return (
-      <Card>
-        <CardContent className="flex items-center gap-3 py-4">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" aria-hidden />
-          <div>
-            <p className="font-medium">Nachschlagen…</p>
-            <p className="text-xs text-muted-foreground">Barcode {state.barcode}</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (state.kind === "error") {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <XCircle className="size-5 text-destructive" aria-hidden />
-            Fehler
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm">{state.message}</p>
-          <p className="text-xs text-muted-foreground">Barcode {state.barcode}</p>
-          <Button variant="outline" size="sm" onClick={onReset}>
-            Erneut versuchen
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // state.kind === "ok"
-  const { result, barcode } = state;
+  // Server action returned ok:false — treated as error here.
   if (!result.ok) {
-    // Server action returned ok:false — treated as an error here.
     return (
       <Card>
         <CardHeader>
@@ -199,6 +231,7 @@ function LookupResult({
 
   const { data } = result;
 
+  // Unknown barcode: hand the form the barcode + empty product fields.
   if (data.source === "unknown") {
     return (
       <Card>
@@ -210,13 +243,21 @@ function LookupResult({
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm">
-            Dieser Barcode ist weder im lokalen Cache noch bei Open Food Facts
-            bekannt. Manuelle Eingabe folgt in PR 1.5.
+            Weder im Cache noch bei Open Food Facts. Du kannst das Produkt
+            manuell anlegen — Barcode bleibt erhalten.
           </p>
           <p className="text-xs text-muted-foreground">Barcode {data.barcode}</p>
-          <Button variant="outline" size="sm" onClick={onReset}>
-            Neu scannen
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              className="flex-1"
+              onClick={() => onContinue({ kind: "unknown", barcode: data.barcode })}
+            >
+              Manuell anlegen
+            </Button>
+            <Button variant="ghost" onClick={onReset}>
+              Abbrechen
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -234,20 +275,22 @@ function LookupResult({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div>
-          <p className="font-medium">{product.name}</p>
-          {product.brand && (
-            <p className="text-sm text-muted-foreground">{product.brand}</p>
+        <div className="flex items-start gap-3">
+          {product.imageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.imageUrl}
+              alt=""
+              className="size-16 shrink-0 rounded border object-contain"
+            />
           )}
+          <div className="min-w-0">
+            <p className="truncate font-medium">{product.name}</p>
+            {product.brand && (
+              <p className="truncate text-sm text-muted-foreground">{product.brand}</p>
+            )}
+          </div>
         </div>
-        {product.imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="h-32 w-32 rounded border object-contain"
-          />
-        )}
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <dt>Kategorie</dt>
           <dd>{product.category ?? "—"}</dd>
@@ -256,12 +299,40 @@ function LookupResult({
           <dt>Barcode</dt>
           <dd>{barcode}</dd>
         </dl>
-        <p className="text-xs text-muted-foreground">
-          Add-Flow (Menge, MHD, Lagerort) folgt in PR 1.5.
-        </p>
-        <Button variant="outline" size="sm" onClick={onReset}>
-          Neu scannen
-        </Button>
+        <div className="flex gap-2 pt-1">
+          <Button
+            className="flex-1"
+            onClick={() => {
+              // Narrow `data` per branch so TS sees the right `product` shape
+              // (cache: string|null category, OFF: CategoryKey category).
+              const seed: FormSeed =
+                data.source === "cache"
+                  ? {
+                      kind: "known",
+                      productId: data.productId,
+                      productName: data.product.name,
+                      brand: data.product.brand,
+                      imageUrl: data.product.imageUrl,
+                      category: (data.product.category ?? "other") as CategoryKey,
+                      barcode,
+                    }
+                  : {
+                      kind: "off",
+                      productName: data.product.name,
+                      brand: data.product.brand,
+                      imageUrl: data.product.imageUrl,
+                      category: data.product.category,
+                      barcode,
+                    };
+              onContinue(seed);
+            }}
+          >
+            Weiter
+          </Button>
+          <Button variant="ghost" onClick={onReset}>
+            Neu scannen
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
