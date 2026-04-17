@@ -27,6 +27,14 @@ import { reasonMessage } from "@/lib/vision/messages";
 
 type SupportedMime = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 
+/**
+ * Must stay under `experimental.serverActions.bodySizeLimit` in
+ * `next.config.ts` (8 MB). We check the raw file size so the user gets a
+ * friendly hint instead of the generic "error in Server Components
+ * render" that Next.js throws when the payload is rejected.
+ */
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
 type Props = {
   onDate: (iso: string, raw: string) => void;
   className?: string;
@@ -47,6 +55,11 @@ export function MhdCapture({ onDate, className }: Props) {
     const mime = file.type as SupportedMime;
     if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mime)) {
       setHint("Format nicht unterstützt. Bitte JPEG/PNG verwenden.");
+      return;
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      const mb = (file.size / 1024 / 1024).toFixed(1);
+      setHint(`Bild zu groß (${mb} MB). Maximum: 5 MB.`);
       return;
     }
 
