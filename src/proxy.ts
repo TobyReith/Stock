@@ -1,7 +1,9 @@
+// Next.js 16: the `middleware` file convention is renamed to `proxy`.
+// See node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   return await updateSession(request);
 }
 

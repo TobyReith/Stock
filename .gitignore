@@ -32,6 +32,17 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# IDE / OS / tooling
+.idea/
+.vscode/
+Thumbs.db
+.claude/
+.DS_Store
+
+# Supabase CLI workspace (optional)
+supabase/.temp/
 
 # vercel
 .vercel
