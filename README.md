@@ -2,7 +2,7 @@
 
 Vorratskammer-PWA für deutschsprachige Haushalte: Barcode scannen, MHD im Blick behalten, weniger Lebensmittel wegwerfen.
 
-> Status: **Phase 0** — Grundgerüst. Add-Flow (Barcode + MHD-OCR) folgt in Phase 1.
+> Status: **Phase 2** — nach dem Abschluss der Basisfunktionen (Scannen, Listen, Stats) folgt jetzt der Push-Reminder-Loop und Multi-Haushalt. Plan: [`docs/PHASE2.md`](./docs/PHASE2.md).
 
 ## Tech-Stack
 
@@ -71,6 +71,6 @@ Siehe [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 ## Roadmap
 
 - **Phase 0** ✓ Repo, Auth-Grundgerüst, DB-Schema mit RLS, PWA-Basis, CI/Deploy
-- **Phase 1** Add-Flow (Barcode, MHD-Foto, Fallbacks), Hauptliste, Item-Detail, Basis-Stats
-- **Phase 2** Web Push, Haushalt teilen, Voice-Input, Einkaufsliste
-- **Phase 3** Rezept-Vorschläge, Batch-Modus, Dashboard, CSV-Export
+- **Phase 1** ✓ Add-Flow (Barcode, MHD-Foto, Fallbacks), Hauptliste, Item-Detail, Basis-Stats
+- **Phase 2** Web Push, Multi-Haushalt & Einladungen, Einkaufsliste, Qualitäts-Polish — siehe [`docs/PHASE2.md`](./docs/PHASE2.md)
+- **Phase 3** Rezept-Vorschläge, Kassenbon-OCR, Voice-Input, CSV-Export
