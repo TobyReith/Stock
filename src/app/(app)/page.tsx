@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Package, Plus } from "lucide-react";
+import { Package, Plus, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ItemsList, type ListItem } from "./_list/items-list";
 import { buttonVariants } from "@/components/ui/button";
@@ -62,11 +62,20 @@ export default async function ListPage() {
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
-      <header className="mb-4 flex items-baseline justify-between">
+      <header className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Vorrat</h1>
-        <span className="text-sm text-muted-foreground">
-          {items.length} {items.length === 1 ? "Artikel" : "Artikel"}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground">
+            {items.length} {items.length === 1 ? "Artikel" : "Artikel"}
+          </span>
+          <Link
+            href="/settings"
+            aria-label="Einstellungen"
+            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+          >
+            <Settings aria-hidden />
+          </Link>
+        </div>
       </header>
 
       {items.length === 0 ? <EmptyState /> : <ItemsList items={items} />}
