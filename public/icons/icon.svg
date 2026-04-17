@@ -1,11 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Stock">
-  <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
-  <g fill="none" stroke="#fafafa" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="112" y="128" width="288" height="288" rx="24"/>
-    <path d="M112 208 H400"/>
-    <path d="M112 288 H400"/>
-    <path d="M112 352 H400"/>
-    <path d="M176 96 V160"/>
-    <path d="M336 96 V160"/>
+  <!-- Background: full-bleed rounded square for maskable safe zone -->
+  <rect width="512" height="512" rx="112" fill="#09090b"/>
+
+  <!-- Jar lid -->
+  <rect x="148" y="120" width="216" height="56" rx="14" fill="#fafafa"/>
+  <!-- Lid-to-body seam -->
+  <rect x="148" y="168" width="216" height="8" fill="#a1a1aa"/>
+
+  <!-- Jar neck -->
+  <rect x="172" y="176" width="168" height="20" fill="#fafafa"/>
+
+  <!-- Jar body -->
+  <path d="M160 196 h192 a16 16 0 0 1 16 16 v196 a24 24 0 0 1 -24 24 h-176 a24 24 0 0 1 -24 -24 v-196 a16 16 0 0 1 16 -16 z" fill="#fafafa"/>
+
+  <!-- Contents: stacked berries/olives suggesting stored goods -->
+  <g fill="#09090b">
+    <circle cx="200" cy="260" r="22"/>
+    <circle cx="256" cy="260" r="22"/>
+    <circle cx="312" cy="260" r="22"/>
+    <circle cx="228" cy="308" r="22"/>
+    <circle cx="284" cy="308" r="22"/>
+    <circle cx="200" cy="356" r="22"/>
+    <circle cx="256" cy="356" r="22"/>
+    <circle cx="312" cy="356" r="22"/>
+    <circle cx="228" cy="404" r="22"/>
+    <circle cx="284" cy="404" r="22"/>
   </g>
 </svg>
