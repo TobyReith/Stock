@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,8 +16,19 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
+// Only allow same-origin relative paths so a hostile `?next=` can't
+// redirect users off-site. `/auth/callback` already re-validates the
+// `next` it receives, but belt-and-suspenders.
+function safeNext(raw: string | null): string {
+  if (!raw) return "/";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/";
+  return raw;
+}
+
 export function LoginForm() {
   const [sent, setSent] = useState(false);
+  const searchParams = useSearchParams();
+  const next = safeNext(searchParams.get("next"));
   const {
     register,
     handleSubmit,
@@ -25,10 +37,12 @@ export function LoginForm() {
 
   async function onSubmit({ email }: FormValues) {
     const supabase = createClient();
+    const callback = new URL("/auth/callback", window.location.origin);
+    if (next !== "/") callback.searchParams.set("next", next);
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: callback.toString(),
       },
     });
     if (error) {
