@@ -1,14 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-
-// Only allow relative, same-origin `next` paths. An absolute URL (even
-// one on our own host) or a protocol-relative `//host` would let a
-// tampered magic link redirect the user off-site after login.
-function safeNext(raw: string | null): string {
-  if (!raw) return "/";
-  if (!raw.startsWith("/") || raw.startsWith("//")) return "/";
-  return raw;
-}
+import { safeNext } from "@/lib/auth/safe-next";
+import { LOGIN_PATH } from "@/lib/auth/paths";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -23,5 +16,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(new URL("/login?error=auth", url.origin));
+  return NextResponse.redirect(new URL(`${LOGIN_PATH}?error=auth`, url.origin));
 }

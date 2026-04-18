@@ -1,87 +1,96 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/ui/form-field";
+import { loginSchema, type LoginInput } from "@/lib/schemas/auth";
+import { safeNext } from "@/lib/auth/safe-next";
+import { friendlyAuthError } from "@/lib/auth/errors";
+import { FORGOT_PASSWORD_PATH, SIGNUP_PATH } from "@/lib/auth/paths";
 
-const schema = z.object({
-  email: z.string().email("Bitte gültige E-Mail eingeben"),
-});
-type FormValues = z.infer<typeof schema>;
-
-// Only allow same-origin relative paths so a hostile `?next=` can't
-// redirect users off-site. `/auth/callback` already re-validates the
-// `next` it receives, but belt-and-suspenders.
-function safeNext(raw: string | null): string {
-  if (!raw) return "/";
-  if (!raw.startsWith("/") || raw.startsWith("//")) return "/";
-  return raw;
-}
-
+/**
+ * Email + password sign-in. Replaces the magic-link form — new users
+ * now go through `/signup`, existing users enter their chosen password
+ * here. Forgot-password link is right on the form so locked-out users
+ * don't have to hunt for it.
+ *
+ * The `?next=` param is preserved through signup and forgot links so an
+ * invite-triggered redirect survives any detour.
+ */
 export function LoginForm() {
-  const [sent, setSent] = useState(false);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNext(searchParams.get("next"));
+  const nextQuery = next === "/" ? "" : `?next=${encodeURIComponent(next)}`;
+
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
 
-  async function onSubmit({ email }: FormValues) {
+  async function onSubmit({ email, password }: LoginInput) {
     const supabase = createClient();
-    const callback = new URL("/auth/callback", window.location.origin);
-    if (next !== "/") callback.searchParams.set("next", next);
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: callback.toString(),
-      },
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      toast.error("Konnte Magic Link nicht senden", { description: error.message });
+      toast.error("Anmelden fehlgeschlagen", {
+        description: friendlyAuthError(error.message, "login"),
+      });
       return;
     }
-    setSent(true);
-    toast.success("Magic Link versendet — schau in dein Postfach.");
-  }
-
-  if (sent) {
-    return (
-      <div className="rounded-md border p-4 text-sm text-muted-foreground">
-        Wir haben dir einen Anmelde-Link geschickt. Klicke den Link in der E-Mail,
-        um dich einzuloggen. Du kannst dieses Fenster schließen.
-      </div>
-    );
+    toast.success("Willkommen zurück.");
+    router.push(next);
+    router.refresh();
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="email">E-Mail</Label>
-        <Input
-          id="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="du@beispiel.de"
-          aria-invalid={!!errors.email}
-          {...register("email")}
-        />
-        {errors.email && (
-          <p className="text-xs text-destructive">{errors.email.message}</p>
-        )}
-      </div>
+      <FormField
+        id="email"
+        label="E-Mail"
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        placeholder="du@beispiel.de"
+        error={errors.email?.message}
+        {...register("email")}
+      />
+
+      <FormField
+        id="password"
+        label="Passwort"
+        type="password"
+        autoComplete="current-password"
+        error={errors.password?.message}
+        labelAdornment={
+          <Link
+            href={`${FORGOT_PASSWORD_PATH}${nextQuery}`}
+            className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+          >
+            Passwort vergessen?
+          </Link>
+        }
+        {...register("password")}
+      />
+
       <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? "Wird gesendet…" : "Magic Link senden"}
+        {isSubmitting ? "Anmelden…" : "Anmelden"}
       </Button>
+
+      <p className="text-center text-xs text-muted-foreground">
+        Noch kein Konto?{" "}
+        <Link
+          href={`${SIGNUP_PATH}${nextQuery}`}
+          className="font-medium text-foreground hover:underline"
+        >
+          Konto erstellen
+        </Link>
+      </p>
     </form>
   );
 }
