@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import { CATEGORIES, getCategory, type CategoryKey } from "@/lib/constants/categories";
 import { TimeframeToggle, type RangeKey, RANGE_DAYS } from "./timeframe-toggle";
+import { ActiveHouseholdBadge } from "../_header/active-household-badge";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Statistik" };
@@ -87,6 +88,9 @@ export default async function StatsPage({
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
+      <div className="mb-3">
+        <ActiveHouseholdBadge />
+      </div>
       <header className="mb-4 flex items-baseline justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Statistik</h1>
       </header>
