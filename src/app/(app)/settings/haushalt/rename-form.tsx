@@ -67,7 +67,7 @@ export function RenameForm({ householdId, currentName }: Props) {
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Haushalt umbenennen"
+          aria-label={`„${currentName}” umbenennen`}
           onClick={startEdit}
         >
           <Pencil aria-hidden />
