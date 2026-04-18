@@ -315,3 +315,44 @@ export async function deleteItem(itemId: string): Promise<ActionResult> {
     return fail(err instanceof Error ? err.message : "Unbekannter Fehler");
   }
 }
+
+/**
+ * Reopen a closed item — clears both `consumed_at` and `discarded_at`.
+ *
+ * Powers the Undo-Toast on `consumeItem`/`discardItem`. We blanket-null
+ * both fields instead of restoring "the previous value" because the
+ * invariant is "one timestamp set at a time" — so a round-trip from
+ * open → consumed → open → discarded is indistinguishable from the same
+ * final states without the undo, which is the behaviour we want.
+ *
+ * Scoped to the active household for the same reason as the mark
+ * actions (see `markItem`).
+ */
+export async function unmarkItem(itemId: string): Promise<ActionResult> {
+  const id = itemIdSchema.safeParse(itemId);
+  if (!id.success) return fail("Ungültige Item-ID");
+
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return fail("Nicht angemeldet");
+
+    const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+    if (!activeHouseholdId) return fail("Kein aktiver Haushalt");
+
+    const { error } = await supabase
+      .from("items")
+      .update({ consumed_at: null, discarded_at: null })
+      .eq("id", id.data)
+      .eq("household_id", activeHouseholdId);
+    if (error) return fail(error.message);
+
+    revalidatePath("/");
+    revalidatePath("/stats");
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Unbekannter Fehler");
+  }
+}

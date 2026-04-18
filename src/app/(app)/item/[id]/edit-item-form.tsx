@@ -16,7 +16,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { consumeItem, discardItem, updateItem } from "@/lib/actions/items";
+import {
+  consumeItem,
+  discardItem,
+  unmarkItem,
+  updateItem,
+} from "@/lib/actions/items";
 import type { UpdateItemInput } from "@/lib/schemas/items";
 
 /**
@@ -124,6 +129,37 @@ export function EditItemForm({ item }: { item: DetailItem }) {
     });
   }
 
+  /**
+   * Shared post-close handler: push the user to the list, then show a
+   * toast with an "Rückgängig" action wired to `unmarkItem`. The toast
+   * lives in the root `<Toaster />` so it survives the navigation.
+   *
+   * We pop the toast *after* `router.push` intentionally — the toast
+   * is for the new page context, not the one we're leaving.
+   */
+  function showUndoToast(message: string) {
+    toast.success(message, {
+      duration: 5000,
+      action: {
+        label: "Rückgängig",
+        onClick: () => {
+          void (async () => {
+            const res = await unmarkItem(item.id);
+            if (!res.ok) {
+              toast.error(res.error);
+              return;
+            }
+            // Re-render the list so the item pops back into view. The
+            // server action already revalidated "/" and "/stats", so
+            // the refresh picks up the restored row.
+            router.refresh();
+            toast.success("Wieder im Vorrat");
+          })();
+        },
+      },
+    });
+  }
+
   function handleConsume() {
     setError(null);
     startTransition(async () => {
@@ -132,8 +168,8 @@ export function EditItemForm({ item }: { item: DetailItem }) {
         setError(res.error);
         return;
       }
-      toast.success("Als verbraucht markiert");
       router.push("/");
+      showUndoToast("Als verbraucht markiert");
     });
   }
 
@@ -148,8 +184,8 @@ export function EditItemForm({ item }: { item: DetailItem }) {
         setError(res.error);
         return;
       }
-      toast.success("Als entsorgt markiert");
       router.push("/");
+      showUndoToast("Als entsorgt markiert");
     });
   }
 
