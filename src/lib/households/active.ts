@@ -141,3 +141,41 @@ async function trySetCookie(id: string): Promise<void> {
     // fall back to re-resolving from memberships until then.
   }
 }
+
+export type MembershipSummary = {
+  /** Household id — the stable routing/scoping value. */
+  id: string;
+  name: string;
+  role: "owner" | "member";
+};
+
+/**
+ * List every household the user belongs to, with role + name. Used to
+ * populate the switcher and the settings member-list context.
+ *
+ * Safe from Server Components — read-only. We rely on the
+ * `household_members_select_peers` + `households_select_members`
+ * policies to keep the result scoped.
+ *
+ * The PostgREST single-row join (`households ( id, name )`) is typed as
+ * either an object or a single-entry array depending on generator
+ * version; we normalize both shapes here so callers get a flat list.
+ */
+export async function listMemberships(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<MembershipSummary[]> {
+  const { data, error } = await supabase
+    .from("household_members")
+    .select("role, household:households ( id, name )")
+    .eq("user_id", userId)
+    .order("joined_at", { ascending: true });
+  if (error) throw new Error(`Mitgliedschaften laden: ${error.message}`);
+
+  return (data ?? []).flatMap((row) => {
+    const h = Array.isArray(row.household) ? row.household[0] : row.household;
+    if (!h) return [];
+    const role: MembershipSummary["role"] = row.role === "owner" ? "owner" : "member";
+    return [{ id: h.id, name: h.name, role }];
+  });
+}

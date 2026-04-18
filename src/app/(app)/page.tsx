@@ -2,9 +2,10 @@ import Link from "next/link";
 import { Package, Plus, Settings } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveHouseholdId } from "@/lib/households/active";
+import { getActiveHouseholdId, listMemberships } from "@/lib/households/active";
 import type { Database } from "@/lib/supabase/database.types";
 import { ItemsList, type ListItem } from "./_list/items-list";
+import { HouseholdSwitcher } from "./_header/household-switcher";
 import { buttonVariants } from "@/components/ui/button";
 
 /**
@@ -33,7 +34,14 @@ export default async function ListPage() {
   // is defensive. We bail with a friendly state instead of throwing.
   if (!user) return <UnauthedState />;
 
-  const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+  // Parallel: active household id + the full membership list for the
+  // switcher. Both read `household_members`, but pulling them separately
+  // keeps each query focused and lets `getActiveHouseholdId` apply its
+  // cookie-validation logic without re-walking the join.
+  const [activeHouseholdId, memberships] = await Promise.all([
+    getActiveHouseholdId(supabase, user.id),
+    listMemberships(supabase, user.id),
+  ]);
   const result = activeHouseholdId
     ? await loadOpenItems(supabase, activeHouseholdId)
     : { items: [] as ListItem[], error: null };
@@ -43,6 +51,9 @@ export default async function ListPage() {
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
+      <div className="mb-3">
+        <HouseholdSwitcher memberships={memberships} activeId={activeHouseholdId} />
+      </div>
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Vorrat</h1>
         <div className="flex items-center gap-3">
