@@ -129,7 +129,8 @@ async function loadOpenItems(
     .from("items")
     .select(
       `
-      id, quantity, unit, best_before, location, custom_name, added_at,
+      id, quantity, unit, best_before, location, custom_name,
+      custom_brand, custom_category, added_at,
       product:products ( id, name, brand, category, image_url )
       `,
     )
@@ -140,6 +141,9 @@ async function loadOpenItems(
 
   if (error) return { items: [], error: error.message };
 
+  // Coalesce per-item overrides onto the list shape. Downstream
+  // components don't need to know about the override machinery — they
+  // just see the effective brand/category.
   const items: ListItem[] = (data ?? []).map((row) => ({
     id: row.id,
     quantity: Number(row.quantity),
@@ -148,8 +152,8 @@ async function loadOpenItems(
     location: row.location as ListItem["location"],
     customName: row.custom_name,
     productName: row.product?.name ?? "Unbekannt",
-    brand: row.product?.brand ?? null,
-    category: row.product?.category ?? null,
+    brand: row.custom_brand ?? row.product?.brand ?? null,
+    category: row.custom_category ?? row.product?.category ?? null,
     imageUrl: row.product?.image_url ?? null,
   }));
   return { items, error: null };

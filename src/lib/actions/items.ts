@@ -201,6 +201,8 @@ export async function updateItem(input: UpdateItemInput): Promise<ActionResult> 
 
     const patch: ItemUpdate = {};
     if (v.customName !== undefined) patch.custom_name = v.customName;
+    if (v.customBrand !== undefined) patch.custom_brand = v.customBrand;
+    if (v.customCategory !== undefined) patch.custom_category = v.customCategory;
     if (v.quantity !== undefined) patch.quantity = v.quantity;
     if (v.unit !== undefined) patch.unit = v.unit;
     if (v.bestBefore !== undefined) patch.best_before = v.bestBefore;
