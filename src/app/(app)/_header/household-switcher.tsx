@@ -28,23 +28,28 @@ type Props = {
  * switcher is always rendered alongside a list whose data is already
  * scoped to `activeId` — fetching again would duplicate the round-trip.
  *
- * Single-membership case: we render a plain read-only pill (no menu)
- * so the user isn't offered a "switch" action that does nothing.
- *
- * Multi-membership case: base-ui Menu. `useTransition` keeps the page
- * responsive while the server action re-validates the layout; on
- * failure we roll back via toast + router.refresh() (re-reads the
- * authoritative active cookie).
+ * Render states:
+ *   - **0 memberships** — render nothing. The parent page already shows
+ *     a fresh-user empty state; a static "Kein Haushalt" pill would be
+ *     duplicated noise.
+ *   - **1 membership** — static read-only pill. Offering a switcher
+ *     that has nothing to switch to is a dead affordance.
+ *   - **≥2 memberships** — base-ui Menu. `useTransition` keeps the page
+ *     responsive while the server action re-validates the layout; on
+ *     failure we surface a toast and skip the refresh.
  */
 export function HouseholdSwitcher({ memberships, activeId }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const active = memberships.find((m) => m.id === activeId) ?? null;
-  const label = active?.name ?? "Kein Haushalt";
+  // Nothing to render before the user has a household at all.
+  if (memberships.length === 0) return null;
 
-  // No memberships, or exactly one — nothing to switch to.
-  if (memberships.length <= 1) {
+  const active = memberships.find((m) => m.id === activeId) ?? null;
+  const label = active?.name ?? memberships[0].name;
+
+  // Exactly one membership — static pill.
+  if (memberships.length === 1) {
     return (
       <div
         className="inline-flex items-center gap-1.5 rounded-full bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground"
@@ -80,10 +85,15 @@ export function HouseholdSwitcher({ memberships, activeId }: Props) {
           "aria-expanded:bg-muted aria-expanded:text-foreground",
           pending && "opacity-60",
         )}
-        aria-label={`Haushalt wechseln — aktiv: ${label}`}
         disabled={pending}
       >
         <Users aria-hidden className="size-3.5" />
+        {/*
+         * SR-only prefix so the trigger announces "Haushalt wechseln, Flat
+         * 42, Menü" instead of just the household name. Visual layout is
+         * unchanged — the visible label stays the pill text.
+         */}
+        <span className="sr-only">Haushalt wechseln: </span>
         <span className="truncate max-w-[10rem]">{label}</span>
         <ChevronDown aria-hidden className="size-3.5" />
       </Menu.Trigger>
