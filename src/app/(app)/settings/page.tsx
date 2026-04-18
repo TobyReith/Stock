@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronRight, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { PushToggle } from "./push-toggle";
@@ -7,11 +7,12 @@ import { PushToggle } from "./push-toggle";
 export const metadata = { title: "Einstellungen" };
 
 /**
- * Settings page — Phase 2.1 scope: push opt-in only.
+ * Settings page — hub for everything that isn't the main list.
  *
- * Theme toggle, logout, and account deletion land in Phase 2.4; see
- * `docs/PHASE2.md`. Keeping this page single-section for now so each
- * later addition is a clean, reviewable diff.
+ * Each feature lives in its own section so additions (theme toggle,
+ * logout, account deletion in Phase 2.4; see `docs/PHASE2.md`) stay
+ * clean, reviewable diffs. Deeper flows like household management
+ * have their own sub-page.
  *
  * The VAPID public key is read here (server-side) and passed to the
  * client toggle as a prop. `NEXT_PUBLIC_*` env vars are also visible on
@@ -42,15 +43,41 @@ export default async function SettingsPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Einstellungen</h1>
       </header>
 
-      <section aria-labelledby="notifications-heading" className="flex flex-col gap-3">
-        <h2
-          id="notifications-heading"
-          className="text-sm font-medium text-muted-foreground"
-        >
-          Benachrichtigungen
-        </h2>
-        <PushToggle vapidPublicKey={vapidPublicKey} />
-      </section>
+      <div className="flex flex-col gap-6">
+        <section aria-labelledby="notifications-heading" className="flex flex-col gap-3">
+          <h2
+            id="notifications-heading"
+            className="text-sm font-medium text-muted-foreground"
+          >
+            Benachrichtigungen
+          </h2>
+          <PushToggle vapidPublicKey={vapidPublicKey} />
+        </section>
+
+        <section aria-labelledby="household-heading" className="flex flex-col gap-3">
+          <h2
+            id="household-heading"
+            className="text-sm font-medium text-muted-foreground"
+          >
+            Haushalt
+          </h2>
+          <Link
+            href="/settings/haushalt"
+            className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
+          >
+            <div className="flex items-center gap-3">
+              <Users aria-hidden className="size-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Haushalt verwalten</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Mitglieder einladen und Codes erzeugen.
+                </p>
+              </div>
+            </div>
+            <ChevronRight aria-hidden className="size-4 text-muted-foreground" />
+          </Link>
+        </section>
+      </div>
     </div>
   );
 }
