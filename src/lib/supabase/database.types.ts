@@ -47,19 +47,19 @@ export type Database = {
       households: {
         Row: {
           created_at: string
-          created_by: string
+          created_by: string | null
           id: string
           name: string
         }
         Insert: {
           created_at?: string
-          created_by: string
+          created_by?: string | null
           id?: string
           name: string
         }
         Update: {
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           id?: string
           name?: string
         }
@@ -130,7 +130,7 @@ export type Database = {
       items: {
         Row: {
           added_at: string
-          added_by: string
+          added_by: string | null
           best_before: string
           consumed_at: string | null
           custom_brand: string | null
@@ -147,7 +147,7 @@ export type Database = {
         }
         Insert: {
           added_at?: string
-          added_by: string
+          added_by: string | null
           best_before: string
           consumed_at?: string | null
           custom_brand?: string | null
@@ -164,7 +164,7 @@ export type Database = {
         }
         Update: {
           added_at?: string
-          added_by?: string
+          added_by?: string | null
           best_before?: string
           consumed_at?: string | null
           custom_brand?: string | null

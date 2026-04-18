@@ -3,16 +3,18 @@ import { ArrowLeft, ChevronRight, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { PushToggle } from "./push-toggle";
+import { ThemeToggle } from "./theme-toggle";
+import { LogoutButton } from "./logout-button";
+import { DeleteAccountButton } from "./delete-account-button";
 
 export const metadata = { title: "Einstellungen" };
 
 /**
  * Settings page — hub for everything that isn't the main list.
  *
- * Each feature lives in its own section so additions (theme toggle,
- * logout, account deletion in Phase 2.4; see `docs/PHASE2.md`) stay
- * clean, reviewable diffs. Deeper flows like household management
- * have their own sub-page.
+ * Each feature lives in its own section so additions stay clean,
+ * reviewable diffs. Deeper flows like household management have their
+ * own sub-page.
  *
  * The VAPID public key is read here (server-side) and passed to the
  * client toggle as a prop. `NEXT_PUBLIC_*` env vars are also visible on
@@ -44,6 +46,16 @@ export default async function SettingsPage() {
       </header>
 
       <div className="flex flex-col gap-6">
+        <section aria-labelledby="appearance-heading" className="flex flex-col gap-3">
+          <h2
+            id="appearance-heading"
+            className="text-sm font-medium text-muted-foreground"
+          >
+            Darstellung
+          </h2>
+          <ThemeToggle />
+        </section>
+
         <section aria-labelledby="notifications-heading" className="flex flex-col gap-3">
           <h2
             id="notifications-heading"
@@ -76,6 +88,22 @@ export default async function SettingsPage() {
             </div>
             <ChevronRight aria-hidden className="size-4 text-muted-foreground" />
           </Link>
+        </section>
+
+        <section aria-labelledby="account-heading" className="flex flex-col gap-3">
+          <h2
+            id="account-heading"
+            className="text-sm font-medium text-muted-foreground"
+          >
+            Konto
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Angemeldet als <span className="font-medium">{user.email}</span>.
+          </p>
+          <div className="flex flex-col gap-2">
+            <LogoutButton />
+            <DeleteAccountButton />
+          </div>
         </section>
       </div>
     </div>
