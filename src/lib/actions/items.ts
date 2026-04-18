@@ -274,3 +274,44 @@ export async function consumeItem(itemId: string): Promise<ActionResult> {
 export async function discardItem(itemId: string): Promise<ActionResult> {
   return markItem(itemId, "discarded_at");
 }
+
+/**
+ * Hard-delete an item. Unlike `consumeItem`/`discardItem` this removes
+ * the row entirely — used for the "falsch angelegt" case where the user
+ * never actually had the product. Discard-for-stats stays the right
+ * answer for items that *did* exist but got thrown away.
+ *
+ * RLS (`items_delete_members`) restricts deletes to household members;
+ * we additionally AND with the active household id so a stale item id
+ * from another household can't leak a delete through the switcher.
+ */
+export async function deleteItem(itemId: string): Promise<ActionResult> {
+  const id = itemIdSchema.safeParse(itemId);
+  if (!id.success) return fail("Ungültige Item-ID");
+
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return fail("Nicht angemeldet");
+
+    const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+    if (!activeHouseholdId) return fail("Kein aktiver Haushalt");
+
+    const { error } = await supabase
+      .from("items")
+      .delete()
+      .eq("id", id.data)
+      .eq("household_id", activeHouseholdId);
+    if (error) return fail(error.message);
+
+    // Stats doesn't care about deleted-never-closed items, but the list
+    // does. Revalidate both to keep navigation after delete boring.
+    revalidatePath("/");
+    revalidatePath("/stats");
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Unbekannter Fehler");
+  }
+}

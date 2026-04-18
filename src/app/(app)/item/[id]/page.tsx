@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import { buttonVariants } from "@/components/ui/button";
 import { EditItemForm, type DetailItem } from "./edit-item-form";
+import { DeleteItemButton } from "./delete-item-button";
 
 /**
  * Item detail page.
@@ -84,6 +85,20 @@ export default async function ItemDetailPage({
         </Link>
       </div>
       <EditItemForm item={item} />
+
+      {/*
+        Delete lives outside `EditItemForm` because it's an "undo the
+        add" escape hatch, not part of the normal edit → save → close
+        cycle. Keeping it below the form, below a divider, with ghost
+        styling, means users land here deliberately instead of by a
+        fat-thumb miss on the close actions.
+      */}
+      <div className="mt-6 flex justify-center border-t pt-4">
+        <DeleteItemButton
+          itemId={item.id}
+          itemName={item.customName ?? item.productName}
+        />
+      </div>
     </div>
   );
 }
