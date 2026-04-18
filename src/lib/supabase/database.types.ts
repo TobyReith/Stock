@@ -133,6 +133,8 @@ export type Database = {
           added_by: string
           best_before: string
           consumed_at: string | null
+          custom_brand: string | null
+          custom_category: string | null
           custom_name: string | null
           discarded_at: string | null
           household_id: string
@@ -148,6 +150,8 @@ export type Database = {
           added_by: string
           best_before: string
           consumed_at?: string | null
+          custom_brand?: string | null
+          custom_category?: string | null
           custom_name?: string | null
           discarded_at?: string | null
           household_id: string
@@ -163,6 +167,8 @@ export type Database = {
           added_by?: string
           best_before?: string
           consumed_at?: string | null
+          custom_brand?: string | null
+          custom_category?: string | null
           custom_name?: string | null
           discarded_at?: string | null
           household_id?: string

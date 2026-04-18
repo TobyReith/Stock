@@ -1,4 +1,31 @@
 import { z } from "zod";
+import type { CategoryKey } from "@/lib/constants/categories";
+
+/**
+ * The `CategoryKey` enum values, duplicated as a plain string array so
+ * zod can emit a useful error without forcing a runtime import of the
+ * constants module from schemas (which would pull the table of labels
+ * into every action that only wants to validate).
+ *
+ * Keep in sync with `CategoryKey` in `@/lib/constants/categories`.
+ */
+const CATEGORY_KEYS = [
+  "dairy",
+  "meat_fish",
+  "produce",
+  "frozen",
+  "canned",
+  "dry_pasta_rice",
+  "dry_baking",
+  "bread",
+  "spices",
+  "condiments",
+  "snacks",
+  "beverages",
+  "other",
+] as const satisfies readonly CategoryKey[];
+
+export const categoryKeySchema = z.enum(CATEGORY_KEYS);
 
 /** ISO date `YYYY-MM-DD`. Matches the Postgres `date` column on `items`. */
 export const isoDate = z
@@ -43,10 +70,20 @@ export const addItemSchema = z
 
 export type AddItemInput = z.infer<typeof addItemSchema>;
 
-/** Input for `updateItem`. All product-side fields are immutable from here. */
+/**
+ * Input for `updateItem`.
+ *
+ * Fields on the global `products` row remain immutable (ADR-0002). For
+ * the "Open Food Facts returned rubbish" case we allow per-item
+ * overrides: `customName` (existed since Phase 1), `customBrand` and
+ * `customCategory` (added in Phase 2.4). Readers coalesce
+ * `items.custom_* -> products.*`.
+ */
 export const updateItemSchema = z.object({
   id: z.string().uuid(),
   customName: z.string().max(200).nullable().optional(),
+  customBrand: z.string().max(120).nullable().optional(),
+  customCategory: categoryKeySchema.nullable().optional(),
   quantity: z.coerce.number().positive().optional(),
   unit: z.string().max(20).nullable().optional(),
   bestBefore: isoDate.optional(),

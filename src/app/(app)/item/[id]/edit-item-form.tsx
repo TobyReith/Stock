@@ -23,16 +23,16 @@ import {
   updateItem,
 } from "@/lib/actions/items";
 import type { UpdateItemInput } from "@/lib/schemas/items";
+import { CATEGORIES, type CategoryKey } from "@/lib/constants/categories";
 
 /**
  * Edit form + Consume/Discard actions for a single item.
  *
- * Only the per-item fields are editable — product name/brand/image live
- * on the global `products` cache and are frozen by design (ADR-0002).
- *
- * Actions wrap all three server actions (`updateItem`, `consumeItem`,
- * `discardItem`) in a single `useTransition` so the buttons share one
- * pending state. All three redirect back to the list on success.
+ * The product cache is global and admin-only (ADR-0002), so we expose
+ * per-item *overrides* rather than editing `products` directly:
+ * `customName`, `customBrand`, `customCategory`. Null means "fall
+ * through to the product value". This PR (Phase 2.4) added the brand &
+ * category overrides — the name override already existed.
  */
 
 export type DetailItem = {
@@ -42,6 +42,8 @@ export type DetailItem = {
   bestBefore: string;
   location: "fridge" | "pantry" | "freezer" | "other";
   customName: string | null;
+  customBrand: string | null;
+  customCategory: CategoryKey | null;
   note: string | null;
   productName: string;
   brand: string | null;
@@ -64,6 +66,13 @@ const LOCATIONS: {
 export function EditItemForm({ item }: { item: DetailItem }) {
   const router = useRouter();
   const [customName, setCustomName] = useState(item.customName ?? "");
+  const [customBrand, setCustomBrand] = useState(item.customBrand ?? "");
+  // `customCategory` defaults to the product's category when no override
+  // is set — that way a user who opens the dropdown to correct it sees
+  // the current effective value, not a confusing empty state.
+  const [customCategory, setCustomCategory] = useState<string>(
+    item.customCategory ?? item.category ?? "",
+  );
   const [quantity, setQuantity] = useState(String(item.quantity));
   const [unit, setUnit] = useState(item.unit ?? "");
   const [bestBefore, setBestBefore] = useState(item.bestBefore);
@@ -71,6 +80,15 @@ export function EditItemForm({ item }: { item: DetailItem }) {
   const [note, setNote] = useState(item.note ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  /**
+   * Effective category the user currently sees. Used to decide whether
+   * the select value represents an override vs. the cache value — the
+   * dirty-check compares against `item.customCategory`, not the
+   * effective one, so changing FROM "empty override, cache='produce'"
+   * TO "override='produce'" is *not* a write.
+   */
+  const effectiveCategory = item.customCategory ?? item.category;
 
   // "Dirty" check — we only POST if something changed. Keeps update
   // calls cheap and avoids unnecessary revalidations.
@@ -81,6 +99,25 @@ export function EditItemForm({ item }: { item: DetailItem }) {
     const nextCustom = customName.trim() || null;
     if (nextCustom !== (item.customName ?? null)) {
       patch.customName = nextCustom;
+      changed = true;
+    }
+    const nextBrand = customBrand.trim() || null;
+    if (nextBrand !== (item.customBrand ?? null)) {
+      patch.customBrand = nextBrand;
+      changed = true;
+    }
+    // `""` from the select means "no override"; the zod schema accepts
+    // null to unset the column. Only write when the user explicitly
+    // picked something different from the stored override.
+    const nextCategory = (customCategory || null) as CategoryKey | null;
+    const storedCategory = item.customCategory ?? null;
+    // Treat "override matches cache" the same as "no override" — the
+    // user hasn't actually personalized the row. This collapses one
+    // weird state and keeps `custom_category` sparse in the DB.
+    const collapsedNext =
+      nextCategory && nextCategory === item.category ? null : nextCategory;
+    if (collapsedNext !== storedCategory) {
+      patch.customCategory = collapsedNext;
       changed = true;
     }
     const qty = Number(quantity);
@@ -228,6 +265,44 @@ export function EditItemForm({ item }: { item: DetailItem }) {
           onChange={(e) => setCustomName(e.target.value)}
           placeholder={item.productName}
         />
+      </FieldRow>
+
+      <FieldRow>
+        <Label htmlFor="custom-brand">
+          Eigene Marke{" "}
+          <span className="text-muted-foreground">(überschreibt Datenbank)</span>
+        </Label>
+        <Input
+          id="custom-brand"
+          value={customBrand}
+          onChange={(e) => setCustomBrand(e.target.value)}
+          placeholder={item.brand ?? "z.B. Rewe Bio"}
+        />
+      </FieldRow>
+
+      <FieldRow>
+        <Label htmlFor="custom-category">
+          Eigene Kategorie{" "}
+          <span className="text-muted-foreground">(überschreibt Datenbank)</span>
+        </Label>
+        <select
+          id="custom-category"
+          value={customCategory}
+          onChange={(e) => setCustomCategory(e.target.value)}
+          className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <option value="">— keine Auswahl —</option>
+          {CATEGORIES.map((c) => (
+            <option key={c.key} value={c.key}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        {effectiveCategory && effectiveCategory !== customCategory && (
+          <p className="text-xs text-muted-foreground">
+            Aktuell: {effectiveCategory}
+          </p>
+        )}
       </FieldRow>
 
       <div className="grid grid-cols-[1fr_1fr] gap-3">

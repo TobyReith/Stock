@@ -44,7 +44,8 @@ export default async function ItemDetailPage({
     .from("items")
     .select(
       `
-      id, quantity, unit, best_before, location, custom_name, note,
+      id, quantity, unit, best_before, location, custom_name,
+      custom_brand, custom_category, note,
       consumed_at, discarded_at, added_at,
       product:products ( id, name, brand, category, image_url, barcode )
       `,
@@ -66,6 +67,8 @@ export default async function ItemDetailPage({
     bestBefore: data.best_before,
     location: data.location as DetailItem["location"],
     customName: data.custom_name,
+    customBrand: data.custom_brand,
+    customCategory: data.custom_category as DetailItem["customCategory"],
     note: data.note,
     productName: data.product?.name ?? "Unbekannt",
     brand: data.product?.brand ?? null,

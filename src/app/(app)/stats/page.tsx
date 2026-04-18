@@ -53,7 +53,9 @@ export default async function StatsPage({
   // fetch the closed rows with one `not.is.null` each and merge.
   const base = supabase
     .from("items")
-    .select("consumed_at, discarded_at, product:products ( category )")
+    .select(
+      "consumed_at, discarded_at, custom_category, product:products ( category )",
+    )
     .eq("household_id", activeHouseholdId)
     .or(`consumed_at.not.is.null,discarded_at.not.is.null`);
 
@@ -64,9 +66,13 @@ export default async function StatsPage({
   const { data, error } = await query;
   if (error) return <ErrorState message={error.message} />;
 
+  // Per-item `custom_category` override wins over `products.category`.
+  // That way a user who re-labelled "Alpro Soja" from `beverages` to
+  // `dairy` sees it in the right bucket without mutating the shared
+  // product cache.
   const rows = (data ?? []).map((r) => ({
     closed: closedKind(r.consumed_at, r.discarded_at, cutoffIso),
-    category: (r.product?.category ?? "other") as CategoryKey,
+    category: (r.custom_category ?? r.product?.category ?? "other") as CategoryKey,
   }));
 
   // Only keep rows that actually closed inside the window. `.or` with a
