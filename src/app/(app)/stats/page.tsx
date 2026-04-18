@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { BarChart3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveHouseholdId } from "@/lib/households/active";
 import { CATEGORIES, getCategory, type CategoryKey } from "@/lib/constants/categories";
 import { TimeframeToggle, type RangeKey, RANGE_DAYS } from "./timeframe-toggle";
 import { cn } from "@/lib/utils";
@@ -35,16 +36,24 @@ export default async function StatsPage({
   } = await supabase.auth.getUser();
   if (!user) return <EmptyState />;
 
+  // Stats are per-active-household. A user with memberships in several
+  // households sees the stats for whichever one the switcher has
+  // selected — merging across households here would conflate "my
+  // family's waste" with "my shared flat's waste", which isn't useful.
+  const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+  if (!activeHouseholdId) return <EmptyForRange range={range} />;
+
   // Cutoff ISO timestamp for the selected range, or null for "all time".
   const cutoffIso = rangeCutoff(range);
 
   // Pull all closed items (consumed OR discarded) with the category from
-  // the joined product row. RLS scopes this to the user's household.
+  // the joined product row, scoped to the active household.
   // `.or(...)` on the same column list is awkward in PostgREST — we just
   // fetch the closed rows with one `not.is.null` each and merge.
   const base = supabase
     .from("items")
     .select("consumed_at, discarded_at, product:products ( category )")
+    .eq("household_id", activeHouseholdId)
     .or(`consumed_at.not.is.null,discarded_at.not.is.null`);
 
   const query = cutoffIso

@@ -18,7 +18,10 @@ import {
   type AddItemInput,
   type UpdateItemInput,
 } from "@/lib/schemas/items";
-import { ensureHousehold } from "./households";
+import {
+  ensureActiveHousehold,
+  getActiveHouseholdId,
+} from "@/lib/households/active";
 
 type ItemUpdate = Database["public"]["Tables"]["items"]["Update"];
 
@@ -119,7 +122,7 @@ export async function addItem(input: AddItemInput): Promise<ActionResult<{ itemI
     } = await supabase.auth.getUser();
     if (!user) return fail("Nicht angemeldet");
 
-    const householdId = await ensureHousehold(supabase, user.id);
+    const householdId = await ensureActiveHousehold(supabase, user.id);
 
     // Resolve product: either provided, looked up by barcode, or created fresh.
     let productId = v.productId ?? null;
@@ -205,7 +208,19 @@ export async function updateItem(input: UpdateItemInput): Promise<ActionResult> 
     if (v.note !== undefined) patch.note = v.note;
     if (Object.keys(patch).length === 0) return { ok: true, data: undefined };
 
-    const { error } = await supabase.from("items").update(patch).eq("id", v.id);
+    // Scope the update to the active household. RLS already blocks
+    // non-members, but once a user belongs to multiple households we
+    // want edits to only affect the one currently shown in the UI —
+    // otherwise a stale client-side item id from household B could leak
+    // an edit through while the user thinks they're in household A.
+    const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+    if (!activeHouseholdId) return fail("Kein aktiver Haushalt");
+
+    const { error } = await supabase
+      .from("items")
+      .update(patch)
+      .eq("id", v.id)
+      .eq("household_id", activeHouseholdId);
     if (error) return fail(error.message);
 
     revalidatePath("/");
@@ -230,8 +245,16 @@ async function markItem(
     } = await supabase.auth.getUser();
     if (!user) return fail("Nicht angemeldet");
 
+    // See `updateItem` for why we AND with the active household id.
+    const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+    if (!activeHouseholdId) return fail("Kein aktiver Haushalt");
+
     const patch: ItemUpdate = { [field]: new Date().toISOString() };
-    const { error } = await supabase.from("items").update(patch).eq("id", id.data);
+    const { error } = await supabase
+      .from("items")
+      .update(patch)
+      .eq("id", id.data)
+      .eq("household_id", activeHouseholdId);
     if (error) return fail(error.message);
 
     revalidatePath("/");
