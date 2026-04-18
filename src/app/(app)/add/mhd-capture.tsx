@@ -8,6 +8,7 @@ import { extractBestBefore } from "@/lib/actions/vision";
 // transitive import of `anthropic.ts` tries to bundle `"server-only"` into
 // the client. We only need the sync helper, so we reach in directly.
 import { reasonMessage } from "@/lib/vision/messages";
+import { downscaleForVision } from "./mhd-downscale";
 
 /**
  * One-shot MHD photo → OCR helper.
@@ -20,20 +21,22 @@ import { reasonMessage } from "@/lib/vision/messages";
  *     for free (tap, shoot, confirm, return).
  *   - No permission gate we need to wire ourselves.
  *
+ * Photos are downscaled client-side to a 1600 px long edge + re-encoded
+ * as JPEG before hitting the server action (see `./mhd-downscale`).
+ * That keeps upload payloads under ~500 KB — well inside the 8 MB
+ * `serverActions.bodySizeLimit` — without degrading OCR accuracy.
+ *
  * On success → `onDate(iso)` pre-fills the form. On typed failure
  * (`not_found` / `ambiguous` / ...) → show a dismissible hint, user
  * enters the date manually. Network failures surface as a generic error.
  */
 
-type SupportedMime = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
-
 /**
- * Must stay under `experimental.serverActions.bodySizeLimit` in
- * `next.config.ts` (8 MB). We check the raw file size so the user gets a
- * friendly hint instead of the generic "error in Server Components
- * render" that Next.js throws when the payload is rejected.
+ * Sanity cap on the *input* file so we don't blow the tab's memory
+ * decoding a 50 MB DSLR RAW preview or similar. After downscale the
+ * actual upload is typically under 500 KB.
  */
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_INPUT_BYTES = 20 * 1024 * 1024;
 
 type Props = {
   onDate: (iso: string, raw: string) => void;
@@ -52,21 +55,31 @@ export function MhdCapture({ onDate, className }: Props) {
       setHint("Nur Bilddateien werden unterstützt.");
       return;
     }
-    const mime = file.type as SupportedMime;
-    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mime)) {
-      setHint("Format nicht unterstützt. Bitte JPEG/PNG verwenden.");
-      return;
-    }
-    if (file.size > MAX_FILE_BYTES) {
+    if (file.size > MAX_INPUT_BYTES) {
       const mb = (file.size / 1024 / 1024).toFixed(1);
-      setHint(`Bild zu groß (${mb} MB). Maximum: 5 MB.`);
+      setHint(`Bild zu groß (${mb} MB). Maximum: 20 MB.`);
       return;
     }
 
     setBusy(true);
     try {
-      const base64 = await fileToBase64(file);
-      const res = await extractBestBefore({ base64, mimeType: mime });
+      let base64: string;
+      try {
+        const shrunk = await downscaleForVision(file);
+        base64 = shrunk.base64;
+      } catch (decodeErr) {
+        // HEIC that iOS hasn't transcoded, or corrupt files, land here.
+        // The native file-input usually hands back JPEG even on iPhone,
+        // but it's worth a specific hint so the user knows *why*.
+        setHint(
+          decodeErr instanceof Error && /decode|bitmap|encode/i.test(decodeErr.message)
+            ? "Bild konnte nicht gelesen werden. Bitte JPEG/PNG verwenden."
+            : "Foto konnte nicht verarbeitet werden.",
+        );
+        return;
+      }
+
+      const res = await extractBestBefore({ base64, mimeType: "image/jpeg" });
 
       if (!res.ok) {
         setHint(`Vision-API: ${res.error}`);
@@ -120,22 +133,4 @@ export function MhdCapture({ onDate, className }: Props) {
       {hint && <p className="mt-2 text-xs text-destructive">{hint}</p>}
     </div>
   );
-}
-
-/** Read a Blob as base64 *without* the `data:...;base64,` prefix. */
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result !== "string") {
-        reject(new Error("FileReader lieferte kein String-Ergebnis"));
-        return;
-      }
-      const comma = result.indexOf(",");
-      resolve(comma >= 0 ? result.slice(comma + 1) : result);
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("Dateifehler"));
-    reader.readAsDataURL(file);
-  });
 }
