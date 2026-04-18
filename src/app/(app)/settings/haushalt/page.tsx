@@ -2,23 +2,32 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveHouseholdId } from "@/lib/households/active";
+import { listHouseholdMembers } from "@/lib/households/members";
 import { buttonVariants } from "@/components/ui/button";
 import { InviteGenerator } from "./invite-generator";
 import { ActiveInvites, type InviteRow } from "./active-invites";
+import { MemberList } from "./member-list";
+import { LeaveButton } from "./leave-button";
+import { RenameForm } from "./rename-form";
 
 export const metadata = { title: "Haushalt" };
 
 /**
- * Phase 2.2 household-management page.
+ * Household-management hub.
  *
- * This PR covers invite creation + revocation. Member listing and
- * leave/remove controls land in the next PR — we leave a visible stub
- * below so the page already looks like the final layout.
+ * Sections (all rendered server-side; the children opt into client
+ * interactivity where needed):
+ *   1. **Aktueller Haushalt** — name + role badge. Owners see a rename
+ *      form; non-owners just see the static name.
+ *   2. **Einladungen** (owner-only) — generator + revoke list.
+ *   3. **Mitglieder** — list with role + joined-at. Owners can remove
+ *      non-owner members via a confirm dialog. Everyone sees the leave
+ *      button, with a last-owner guard.
  *
- * Server-side: we resolve the active household, load its name (to show
- * who the invite is for) and fetch the owner-visible invite rows via
- * the user client. RLS (`invites_select_owner`) does the authorization
- * — non-owners see an empty list and a disabled create action.
+ * Data fetches are parallel so the page paints in one round-trip. We
+ * pull members via the admin client (see `listHouseholdMembers`) so we
+ * can resolve each member's email — `auth.users` isn't exposed through
+ * the user client.
  */
 export default async function HaushaltPage() {
   const supabase = await createClient();
@@ -30,40 +39,42 @@ export default async function HaushaltPage() {
 
   const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
 
-  // No household yet (fresh user) → show a hint. First add-flow bootstraps.
+  // Fresh user / no memberships yet.
   if (!activeHouseholdId) {
     return (
       <Shell>
         <p className="text-sm text-muted-foreground">
-          Du hast noch keinen Haushalt. Füge einen Artikel hinzu, um zu starten.
+          Du hast noch keinen Haushalt. Füge einen Artikel hinzu, um zu starten,
+          oder nutze einen Einladungscode.
         </p>
       </Shell>
     );
   }
 
-  // Pull household name + owner status + active invites in parallel.
-  const [householdResult, memberResult, invitesResult] = await Promise.all([
-    supabase
-      .from("households")
-      .select("id, name")
-      .eq("id", activeHouseholdId)
-      .maybeSingle(),
-    supabase
-      .from("household_members")
-      .select("role")
-      .eq("household_id", activeHouseholdId)
-      .eq("user_id", user.id)
-      .maybeSingle(),
-    // `invites_select_owner` returns rows only when the caller owns the
-    // household — non-owners get `[]` here without any branching on our
-    // side.
-    supabase
-      .from("invites")
-      .select("code, expires_at, redeemed_at")
-      .eq("household_id", activeHouseholdId)
-      .is("redeemed_at", null)
-      .order("created_at", { ascending: false }),
-  ]);
+  // Pull everything for the page in parallel.
+  const [householdResult, memberResult, invitesResult, members] =
+    await Promise.all([
+      supabase
+        .from("households")
+        .select("id, name")
+        .eq("id", activeHouseholdId)
+        .maybeSingle(),
+      supabase
+        .from("household_members")
+        .select("role")
+        .eq("household_id", activeHouseholdId)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      // `invites_select_owner` returns rows only when the caller owns
+      // the household — non-owners get `[]` here with no branching.
+      supabase
+        .from("invites")
+        .select("code, expires_at, redeemed_at")
+        .eq("household_id", activeHouseholdId)
+        .is("redeemed_at", null)
+        .order("created_at", { ascending: false }),
+      listHouseholdMembers(activeHouseholdId),
+    ]);
 
   const household = householdResult.data;
   const isOwner = memberResult.data?.role === "owner";
@@ -71,6 +82,11 @@ export default async function HaushaltPage() {
     code: row.code,
     expiresAt: row.expires_at,
   }));
+  // "Last owner" = only one owner in the household and it's the current
+  // user. `leaveHousehold` re-validates this server-side; the flag here
+  // just decides whether to disable the button in the UI.
+  const ownerCount = members.filter((m) => m.role === "owner").length;
+  const isLastOwner = isOwner && ownerCount <= 1;
 
   return (
     <Shell>
@@ -82,10 +98,17 @@ export default async function HaushaltPage() {
           Aktueller Haushalt
         </h2>
         <div className="rounded-lg border px-4 py-3">
-          <p className="text-sm font-medium">
-            {household?.name ?? "Unbekannter Haushalt"}
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
+          {isOwner && household ? (
+            <RenameForm
+              householdId={household.id}
+              currentName={household.name}
+            />
+          ) : (
+            <p className="text-sm font-medium">
+              {household?.name ?? "Unbekannter Haushalt"}
+            </p>
+          )}
+          <p className="mt-1 text-xs text-muted-foreground">
             {isOwner ? "Du bist Owner." : "Du bist Mitglied."}
           </p>
         </div>
@@ -106,13 +129,26 @@ export default async function HaushaltPage() {
         </section>
       )}
 
-      <section aria-labelledby="members-heading" className="flex flex-col gap-2">
+      <section aria-labelledby="members-heading" className="flex flex-col gap-3">
         <h2 id="members-heading" className="text-sm font-medium text-muted-foreground">
           Mitglieder
         </h2>
-        <div className="rounded-lg border border-dashed px-4 py-6 text-center text-xs text-muted-foreground">
-          Mitglieder-Verwaltung kommt im nächsten Update.
-        </div>
+        <MemberList
+          householdId={activeHouseholdId}
+          members={members.map((m) => ({
+            userId: m.userId,
+            email: m.email,
+            role: m.role,
+            joinedAt: m.joinedAt,
+          }))}
+          currentUserId={user.id}
+          isOwner={isOwner}
+        />
+        <LeaveButton
+          householdId={activeHouseholdId}
+          householdName={household?.name ?? "Haushalt"}
+          isLastOwner={isLastOwner}
+        />
       </section>
     </Shell>
   );
