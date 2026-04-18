@@ -130,7 +130,7 @@ async function loadOpenItems(
     .select(
       `
       id, quantity, unit, best_before, location, custom_name,
-      custom_brand, custom_category, added_at,
+      custom_brand, custom_category, added_at, updated_at,
       product:products ( id, name, brand, category, image_url )
       `,
     )
@@ -149,6 +149,7 @@ async function loadOpenItems(
     quantity: Number(row.quantity),
     unit: row.unit,
     bestBefore: row.best_before,
+    updatedAt: row.updated_at,
     location: row.location as ListItem["location"],
     customName: row.custom_name,
     productName: row.product?.name ?? "Unbekannt",
