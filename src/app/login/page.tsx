@@ -18,7 +18,7 @@ export default function LoginPage() {
         <div className="space-y-1 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">Anmelden</h1>
           <p className="text-sm text-muted-foreground">
-            Wir schicken dir einen Magic Link per E-Mail.
+            Melde dich mit deiner E-Mail und deinem Passwort an.
           </p>
         </div>
         <Suspense fallback={<LoginFormFallback />}>

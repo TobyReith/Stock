@@ -4,11 +4,15 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clearActiveHouseholdCookie } from "@/lib/households/active";
+import {
+  updateProfileSchema,
+  type UpdateProfileInput,
+} from "@/lib/schemas/auth";
 
 /**
- * Auth-scope server actions: sign out, delete account.
+ * Auth-scope server actions: sign out, delete account, profile edit.
  *
- * Both actions invalidate the user's session and clear the active-
+ * Sign-out / delete invalidate the user's session and clear the active-
  * household cookie so nothing leaks across refreshes. The caller is
  * expected to redirect the browser to `/login` after a successful call
  * (we don't redirect from the server action itself — keeping the
@@ -124,6 +128,43 @@ export async function deleteAccount(): Promise<ActionResult> {
     await supabase.auth.signOut();
     await clearActiveHouseholdCookie();
     revalidatePath("/", "layout");
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Unbekannter Fehler");
+  }
+}
+
+// ----- Update profile --------------------------------------------------
+
+/**
+ * Update the signed-in user's display name. Writes to Supabase's
+ * `user_metadata.full_name`; we don't keep a mirror `profiles` row yet,
+ * so this is the single source of truth for "what should we call them".
+ *
+ * Uses the user-scoped client on purpose — `updateUser` only touches
+ * the caller's own auth row, no admin escalation required.
+ */
+export async function updateProfile(
+  input: UpdateProfileInput,
+): Promise<ActionResult> {
+  const parsed = updateProfileSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Ungültige Eingabe");
+  }
+
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return fail("Nicht angemeldet");
+
+    const { error } = await supabase.auth.updateUser({
+      data: { full_name: parsed.data.name },
+    });
+    if (error) return fail(error.message);
+
+    revalidatePath("/settings");
     return { ok: true, data: undefined };
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Unbekannter Fehler");

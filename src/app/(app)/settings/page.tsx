@@ -6,6 +6,7 @@ import { PushToggle } from "./push-toggle";
 import { ThemeToggle } from "./theme-toggle";
 import { LogoutButton } from "./logout-button";
 import { DeleteAccountButton } from "./delete-account-button";
+import { ProfileForm } from "./profile-form";
 
 export const metadata = { title: "Einstellungen" };
 
@@ -46,6 +47,19 @@ export default async function SettingsPage() {
       </header>
 
       <div className="flex flex-col gap-6">
+        <section aria-labelledby="profile-heading" className="flex flex-col gap-3">
+          <h2
+            id="profile-heading"
+            className="text-sm font-medium text-muted-foreground"
+          >
+            Profil
+          </h2>
+          <ProfileForm
+            initialName={readFullName(user.user_metadata)}
+            email={user.email ?? ""}
+          />
+        </section>
+
         <section aria-labelledby="appearance-heading" className="flex flex-col gap-3">
           <h2
             id="appearance-heading"
@@ -97,9 +111,6 @@ export default async function SettingsPage() {
           >
             Konto
           </h2>
-          <p className="text-xs text-muted-foreground">
-            Angemeldet als <span className="font-medium">{user.email}</span>.
-          </p>
           <div className="flex flex-col gap-2">
             <LogoutButton />
             <DeleteAccountButton />
@@ -108,4 +119,14 @@ export default async function SettingsPage() {
       </div>
     </div>
   );
+}
+
+/**
+ * Safely pull `full_name` out of the user-metadata blob. Supabase types
+ * it as `{ [key: string]: unknown }`, so we do the runtime shape check
+ * ourselves rather than lie to TypeScript.
+ */
+function readFullName(meta: Record<string, unknown> | null | undefined): string {
+  const raw = meta?.full_name;
+  return typeof raw === "string" ? raw : "";
 }
