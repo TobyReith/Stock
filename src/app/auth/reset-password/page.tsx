@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { LOGIN_PATH } from "@/lib/auth/paths";
 import { ResetPasswordForm } from "./reset-password-form";
 
 export const metadata: Metadata = { title: "Passwort zurücksetzen" };
@@ -26,7 +27,7 @@ export default async function ResetPasswordPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(LOGIN_PATH);
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-12">

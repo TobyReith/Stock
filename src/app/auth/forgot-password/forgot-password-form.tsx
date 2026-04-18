@@ -8,13 +8,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/ui/form-field";
 import {
   forgotPasswordSchema,
   type ForgotPasswordInput,
 } from "@/lib/schemas/auth";
 import { safeNext } from "@/lib/auth/safe-next";
+import {
+  AUTH_CALLBACK_PATH,
+  LOGIN_PATH,
+  RESET_PASSWORD_PATH,
+} from "@/lib/auth/paths";
 
 /**
  * Password-reset request form.
@@ -46,8 +50,8 @@ export function ForgotPasswordForm() {
 
   async function onSubmit({ email }: ForgotPasswordInput) {
     const supabase = createClient();
-    const callback = new URL("/auth/callback", window.location.origin);
-    callback.searchParams.set("next", "/auth/reset-password");
+    const callback = new URL(AUTH_CALLBACK_PATH, window.location.origin);
+    callback.searchParams.set("next", RESET_PASSWORD_PATH);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: callback.toString(),
@@ -69,7 +73,7 @@ export function ForgotPasswordForm() {
         </div>
         <p className="text-center text-xs text-muted-foreground">
           <Link
-            href={`/login${nextQuery}`}
+            href={`${LOGIN_PATH}${nextQuery}`}
             className="font-medium text-foreground hover:underline"
           >
             Zurück zum Anmelden
@@ -81,21 +85,16 @@ export function ForgotPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="email">E-Mail</Label>
-        <Input
-          id="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="du@beispiel.de"
-          aria-invalid={!!errors.email}
-          {...register("email")}
-        />
-        {errors.email && (
-          <p className="text-xs text-destructive">{errors.email.message}</p>
-        )}
-      </div>
+      <FormField
+        id="email"
+        label="E-Mail"
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        placeholder="du@beispiel.de"
+        error={errors.email?.message}
+        {...register("email")}
+      />
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
         {isSubmitting ? "Wird gesendet…" : "Link senden"}
@@ -103,7 +102,7 @@ export function ForgotPasswordForm() {
 
       <p className="text-center text-xs text-muted-foreground">
         <Link
-          href={`/login${nextQuery}`}
+          href={`${LOGIN_PATH}${nextQuery}`}
           className="font-medium text-foreground hover:underline"
         >
           Zurück zum Anmelden

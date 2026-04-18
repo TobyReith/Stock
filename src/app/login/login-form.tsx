@@ -7,10 +7,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/ui/form-field";
 import { loginSchema, type LoginInput } from "@/lib/schemas/auth";
 import { safeNext } from "@/lib/auth/safe-next";
+import { friendlyAuthError } from "@/lib/auth/errors";
+import { FORGOT_PASSWORD_PATH, SIGNUP_PATH } from "@/lib/auth/paths";
 
 /**
  * Email + password sign-in. Replaces the magic-link form — new users
@@ -37,7 +38,9 @@ export function LoginForm() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      toast.error("Anmelden fehlgeschlagen", { description: friendlyAuthError(error.message) });
+      toast.error("Anmelden fehlgeschlagen", {
+        description: friendlyAuthError(error.message, "login"),
+      });
       return;
     }
     toast.success("Willkommen zurück.");
@@ -47,43 +50,33 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="email">E-Mail</Label>
-        <Input
-          id="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="du@beispiel.de"
-          aria-invalid={!!errors.email}
-          {...register("email")}
-        />
-        {errors.email && (
-          <p className="text-xs text-destructive">{errors.email.message}</p>
-        )}
-      </div>
+      <FormField
+        id="email"
+        label="E-Mail"
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        placeholder="du@beispiel.de"
+        error={errors.email?.message}
+        {...register("email")}
+      />
 
-      <div className="space-y-2">
-        <div className="flex items-baseline justify-between gap-2">
-          <Label htmlFor="password">Passwort</Label>
+      <FormField
+        id="password"
+        label="Passwort"
+        type="password"
+        autoComplete="current-password"
+        error={errors.password?.message}
+        labelAdornment={
           <Link
-            href={`/auth/forgot-password${nextQuery}`}
+            href={`${FORGOT_PASSWORD_PATH}${nextQuery}`}
             className="text-xs text-muted-foreground hover:text-foreground hover:underline"
           >
             Passwort vergessen?
           </Link>
-        </div>
-        <Input
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          aria-invalid={!!errors.password}
-          {...register("password")}
-        />
-        {errors.password && (
-          <p className="text-xs text-destructive">{errors.password.message}</p>
-        )}
-      </div>
+        }
+        {...register("password")}
+      />
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
         {isSubmitting ? "Anmelden…" : "Anmelden"}
@@ -92,7 +85,7 @@ export function LoginForm() {
       <p className="text-center text-xs text-muted-foreground">
         Noch kein Konto?{" "}
         <Link
-          href={`/signup${nextQuery}`}
+          href={`${SIGNUP_PATH}${nextQuery}`}
           className="font-medium text-foreground hover:underline"
         >
           Konto erstellen
@@ -100,18 +93,4 @@ export function LoginForm() {
       </p>
     </form>
   );
-}
-
-/**
- * Map the common Supabase auth error strings to human copy. We don't
- * enumerate every branch — anything unmapped falls through unchanged so
- * the user at least sees a hint rather than silence.
- */
-function friendlyAuthError(raw: string): string {
-  const msg = raw.toLowerCase();
-  if (msg.includes("invalid login")) return "E-Mail oder Passwort stimmen nicht.";
-  if (msg.includes("email not confirmed"))
-    return "Bitte bestätige zuerst deine E-Mail-Adresse.";
-  if (msg.includes("rate limit")) return "Zu viele Versuche. Bitte später erneut.";
-  return raw;
 }

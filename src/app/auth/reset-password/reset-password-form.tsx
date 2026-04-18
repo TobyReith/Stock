@@ -6,8 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/ui/form-field";
 import {
   resetPasswordSchema,
   type ResetPasswordInput,
@@ -37,41 +36,36 @@ export function ResetPasswordForm() {
       return;
     }
     toast.success("Passwort aktualisiert.");
+    // Deliberately pushing to `/` rather than propagating a `?next=`
+    // here: the recovery flow doesn't carry the original intent (the
+    // email link always routes through `/auth/callback?next=/auth/
+    // reset-password`), so any `next` we'd have is our own constant.
+    // Sending the user home after a successful reset is the least
+    // surprising default.
     router.push("/");
     router.refresh();
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="password">Neues Passwort</Label>
-        <Input
-          id="password"
-          type="password"
-          autoComplete="new-password"
-          aria-invalid={!!errors.password}
-          {...register("password")}
-        />
-        {errors.password ? (
-          <p className="text-xs text-destructive">{errors.password.message}</p>
-        ) : (
-          <p className="text-xs text-muted-foreground">Mindestens 8 Zeichen.</p>
-        )}
-      </div>
+      <FormField
+        id="password"
+        label="Neues Passwort"
+        type="password"
+        autoComplete="new-password"
+        error={errors.password?.message}
+        hint="Mindestens 8 Zeichen."
+        {...register("password")}
+      />
 
-      <div className="space-y-2">
-        <Label htmlFor="confirm">Passwort bestätigen</Label>
-        <Input
-          id="confirm"
-          type="password"
-          autoComplete="new-password"
-          aria-invalid={!!errors.confirm}
-          {...register("confirm")}
-        />
-        {errors.confirm && (
-          <p className="text-xs text-destructive">{errors.confirm.message}</p>
-        )}
-      </div>
+      <FormField
+        id="confirm"
+        label="Passwort bestätigen"
+        type="password"
+        autoComplete="new-password"
+        error={errors.confirm?.message}
+        {...register("confirm")}
+      />
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
         {isSubmitting ? "Speichern…" : "Passwort speichern"}

@@ -6,8 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/ui/form-field";
 import {
   updateProfileSchema,
   type UpdateProfileInput,
@@ -55,24 +54,23 @@ export function ProfileForm({ initialName, email }: Props) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-      <div className="space-y-2">
-        <Label htmlFor="profile-name">Name</Label>
-        <Input
-          id="profile-name"
-          type="text"
-          autoComplete="name"
-          aria-invalid={!!errors.name}
-          {...register("name")}
-        />
-        {errors.name && (
-          <p className="text-xs text-destructive">{errors.name.message}</p>
-        )}
-      </div>
+      <FormField
+        id="profile-name"
+        label="Name"
+        type="text"
+        autoComplete="name"
+        error={errors.name?.message}
+        {...register("name")}
+      />
 
-      <div className="space-y-2">
-        <Label htmlFor="profile-email">E-Mail</Label>
-        <Input id="profile-email" type="email" value={email} disabled readOnly />
-      </div>
+      <FormField
+        id="profile-email"
+        label="E-Mail"
+        type="email"
+        value={email}
+        disabled
+        readOnly
+      />
 
       <Button type="submit" disabled={!isDirty || pending}>
         {pending ? "Speichern…" : "Speichern"}

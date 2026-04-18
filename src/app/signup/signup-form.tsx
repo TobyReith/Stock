@@ -8,10 +8,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/ui/form-field";
 import { signupSchema, type SignupInput } from "@/lib/schemas/auth";
 import { safeNext } from "@/lib/auth/safe-next";
+import { friendlyAuthError } from "@/lib/auth/errors";
+import { AUTH_CALLBACK_PATH, LOGIN_PATH } from "@/lib/auth/paths";
 
 /**
  * Account creation — name, email, password. Name lands in Supabase's
@@ -41,7 +42,7 @@ export function SignupForm() {
 
   async function onSubmit({ name, email, password }: SignupInput) {
     const supabase = createClient();
-    const callback = new URL("/auth/callback", window.location.origin);
+    const callback = new URL(AUTH_CALLBACK_PATH, window.location.origin);
     if (next !== "/") callback.searchParams.set("next", next);
 
     const { data, error } = await supabase.auth.signUp({
@@ -54,7 +55,7 @@ export function SignupForm() {
     });
     if (error) {
       toast.error("Registrierung fehlgeschlagen", {
-        description: friendlySignupError(error.message),
+        description: friendlyAuthError(error.message, "signup"),
       });
       return;
     }
@@ -82,7 +83,7 @@ export function SignupForm() {
         </div>
         <p className="text-center text-xs text-muted-foreground">
           <Link
-            href={`/login${nextQuery}`}
+            href={`${LOGIN_PATH}${nextQuery}`}
             className="font-medium text-foreground hover:underline"
           >
             Zurück zum Anmelden
@@ -94,52 +95,36 @@ export function SignupForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">Name</Label>
-        <Input
-          id="name"
-          type="text"
-          autoComplete="name"
-          placeholder="Wie sollen wir dich nennen?"
-          aria-invalid={!!errors.name}
-          {...register("name")}
-        />
-        {errors.name && (
-          <p className="text-xs text-destructive">{errors.name.message}</p>
-        )}
-      </div>
+      <FormField
+        id="name"
+        label="Name"
+        type="text"
+        autoComplete="name"
+        placeholder="Wie sollen wir dich nennen?"
+        error={errors.name?.message}
+        {...register("name")}
+      />
 
-      <div className="space-y-2">
-        <Label htmlFor="email">E-Mail</Label>
-        <Input
-          id="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="du@beispiel.de"
-          aria-invalid={!!errors.email}
-          {...register("email")}
-        />
-        {errors.email && (
-          <p className="text-xs text-destructive">{errors.email.message}</p>
-        )}
-      </div>
+      <FormField
+        id="email"
+        label="E-Mail"
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        placeholder="du@beispiel.de"
+        error={errors.email?.message}
+        {...register("email")}
+      />
 
-      <div className="space-y-2">
-        <Label htmlFor="password">Passwort</Label>
-        <Input
-          id="password"
-          type="password"
-          autoComplete="new-password"
-          aria-invalid={!!errors.password}
-          {...register("password")}
-        />
-        {errors.password ? (
-          <p className="text-xs text-destructive">{errors.password.message}</p>
-        ) : (
-          <p className="text-xs text-muted-foreground">Mindestens 8 Zeichen.</p>
-        )}
-      </div>
+      <FormField
+        id="password"
+        label="Passwort"
+        type="password"
+        autoComplete="new-password"
+        error={errors.password?.message}
+        hint="Mindestens 8 Zeichen."
+        {...register("password")}
+      />
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
         {isSubmitting ? "Wird angelegt…" : "Konto erstellen"}
@@ -148,7 +133,7 @@ export function SignupForm() {
       <p className="text-center text-xs text-muted-foreground">
         Schon registriert?{" "}
         <Link
-          href={`/login${nextQuery}`}
+          href={`${LOGIN_PATH}${nextQuery}`}
           className="font-medium text-foreground hover:underline"
         >
           Anmelden
@@ -156,14 +141,4 @@ export function SignupForm() {
       </p>
     </form>
   );
-}
-
-function friendlySignupError(raw: string): string {
-  const msg = raw.toLowerCase();
-  if (msg.includes("already registered") || msg.includes("user already"))
-    return "Diese E-Mail ist bereits registriert. Melde dich stattdessen an.";
-  if (msg.includes("weak password") || msg.includes("password"))
-    return "Passwort ist zu schwach. Mindestens 8 Zeichen wählen.";
-  if (msg.includes("rate limit")) return "Zu viele Versuche. Bitte später erneut.";
-  return raw;
 }
