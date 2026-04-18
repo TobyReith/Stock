@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import {
+  emailSchema,
   forgotPasswordSchema,
   type ForgotPasswordInput,
 } from "@/lib/schemas/auth";
@@ -38,6 +39,12 @@ export function ForgotPasswordForm() {
   const next = safeNext(searchParams.get("next"));
   const nextQuery = next === "/" ? "" : `?next=${encodeURIComponent(next)}`;
 
+  // Accept an `?email=` hint from the signup "no mail arrived?" link so
+  // the user doesn't have to retype the address. Run it through the
+  // same schema the form uses — a junk value (or nothing) just leaves
+  // the field empty, no thrown error.
+  const prefilledEmail = emailSchema.safeParse(searchParams.get("email") ?? "");
+
   const [sent, setSent] = useState<string | null>(null);
 
   const {
@@ -46,6 +53,9 @@ export function ForgotPasswordForm() {
     formState: { errors, isSubmitting },
   } = useForm<ForgotPasswordInput>({
     resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: prefilledEmail.success ? prefilledEmail.data : "",
+    },
   });
 
   async function onSubmit({ email }: ForgotPasswordInput) {

@@ -12,7 +12,11 @@ import { FormField } from "@/components/ui/form-field";
 import { signupSchema, type SignupInput } from "@/lib/schemas/auth";
 import { safeNext } from "@/lib/auth/safe-next";
 import { friendlyAuthError } from "@/lib/auth/errors";
-import { AUTH_CALLBACK_PATH, LOGIN_PATH } from "@/lib/auth/paths";
+import {
+  AUTH_CALLBACK_PATH,
+  FORGOT_PASSWORD_PATH,
+  LOGIN_PATH,
+} from "@/lib/auth/paths";
 
 /**
  * Account creation — name, email, password. Name lands in Supabase's
@@ -73,6 +77,18 @@ export function SignupForm() {
   }
 
   if (confirmSent) {
+    // Supabase returns 200-with-null-session for both "new user, mail
+    // queued" *and* "email already registered" — the API deliberately
+    // hides that distinction to prevent account enumeration. Which
+    // means this success branch covers a case where *no* mail goes
+    // out. The recovery-link hint below gives the user a way forward
+    // without us having to leak that fact: anyone who already owned
+    // that email reads it as "oh right, I already have an account",
+    // a genuinely new user reads it as "useful if the mail doesn't
+    // arrive." The `email` query pre-fills the forgot-password form.
+    const forgotHref =
+      `${FORGOT_PASSWORD_PATH}?email=${encodeURIComponent(confirmSent)}` +
+      (next === "/" ? "" : `&next=${encodeURIComponent(next)}`);
     return (
       <div className="space-y-4">
         <div className="rounded-md border p-4 text-sm text-muted-foreground">
@@ -81,6 +97,16 @@ export function SignupForm() {
           geschickt. Klicke den Link in der E-Mail, um dein Konto zu
           aktivieren.
         </div>
+        <p className="text-xs text-muted-foreground">
+          Keine Mail erhalten oder bereits ein Konto?{" "}
+          <Link
+            href={forgotHref}
+            className="font-medium text-foreground hover:underline"
+          >
+            Passwort zurücksetzen
+          </Link>
+          .
+        </p>
         <p className="text-center text-xs text-muted-foreground">
           <Link
             href={`${LOGIN_PATH}${nextQuery}`}
