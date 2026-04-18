@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveHouseholdId } from "@/lib/households/active";
 import { buttonVariants } from "@/components/ui/button";
 import { EditItemForm, type DetailItem } from "./edit-item-form";
 
@@ -9,10 +10,14 @@ import { EditItemForm, type DetailItem } from "./edit-item-form";
  * Item detail page.
  *
  * Server component — fetch the item (with joined product) in one hop,
- * hand a flat, JSON-friendly object to the client form. RLS
- * (`items_select_member`) is our authorization boundary; if the user
- * doesn't belong to the item's household, the row won't come back and
- * we 404.
+ * hand a flat, JSON-friendly object to the client form.
+ *
+ * Authorization: we filter on the **active household** id in addition
+ * to the item id. RLS (`items_select_members`) already blocks rows from
+ * households the user doesn't belong to, but once a user joins more
+ * than one household, pasting a URL for an item in the inactive one
+ * should 404 — otherwise edits from this page would silently apply to
+ * a household the user isn't currently viewing.
  *
  * We also refuse to load closed items (consumed / discarded) so users
  * can't accidentally edit "historical" rows. Phase 1 has no history
@@ -26,6 +31,13 @@ export default async function ItemDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return notFound();
+
+  const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+  if (!activeHouseholdId) return notFound();
 
   const { data, error } = await supabase
     .from("items")
@@ -37,6 +49,7 @@ export default async function ItemDetailPage({
       `,
     )
     .eq("id", id)
+    .eq("household_id", activeHouseholdId)
     .maybeSingle();
 
   // Either not found, not allowed by RLS, or fetch error — all collapse

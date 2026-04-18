@@ -1,21 +1,28 @@
 import Link from "next/link";
 import { Package, Plus, Settings } from "lucide-react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveHouseholdId } from "@/lib/households/active";
+import type { Database } from "@/lib/supabase/database.types";
 import { ItemsList, type ListItem } from "./_list/items-list";
 import { buttonVariants } from "@/components/ui/button";
 
 /**
  * Main "Vorrat" list.
  *
- * Server component — we fetch the open items (not yet consumed or
- * discarded) for the user's household on every request. Supabase RLS
- * automatically scopes to the household the user belongs to
- * (`items_select_member` policy), so no explicit householdId filter
- * needed here.
+ * Server component — fetches the open items (not yet consumed or
+ * discarded) scoped to the user's **active** household.
  *
- * The interactive bits (search, grouping header collapsing later on)
- * live in the client `ItemsList` — this component just hands it the
- * already-materialized row array.
+ * Why the explicit `household_id` filter (vs leaning on RLS): once a
+ * user joins more than one household, `items_select_members` would
+ * return rows from every household they belong to. The list needs to
+ * match whatever the household switcher has selected, so we scope
+ * explicitly here.
+ *
+ * Fresh-user path: if the user has no household yet, we render the
+ * empty state instead of bootstrapping from a Server Component. The
+ * first `addItem` call takes care of creating "Mein Haushalt" via
+ * `ensureActiveHousehold`.
  */
 export default async function ListPage() {
   const supabase = await createClient();
@@ -26,39 +33,13 @@ export default async function ListPage() {
   // is defensive. We bail with a friendly state instead of throwing.
   if (!user) return <UnauthedState />;
 
-  // PostgREST nested select: pulls the joined product row in the same
-  // trip. We alias it as `product` via the `products!inner` style — but
-  // we stay with the default `product:products(...)` because items from
-  // pre-cache manual paths still have a product row (addItem always
-  // resolves or creates one before inserting).
-  const { data, error } = await supabase
-    .from("items")
-    .select(
-      `
-      id, quantity, unit, best_before, location, custom_name, added_at,
-      product:products ( id, name, brand, category, image_url )
-      `,
-    )
-    .is("consumed_at", null)
-    .is("discarded_at", null)
-    .order("best_before", { ascending: true });
+  const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+  const result = activeHouseholdId
+    ? await loadOpenItems(supabase, activeHouseholdId)
+    : { items: [] as ListItem[], error: null };
 
-  if (error) {
-    return <ErrorState message={error.message} />;
-  }
-
-  const items: ListItem[] = (data ?? []).map((row) => ({
-    id: row.id,
-    quantity: Number(row.quantity),
-    unit: row.unit,
-    bestBefore: row.best_before,
-    location: row.location as ListItem["location"],
-    customName: row.custom_name,
-    productName: row.product?.name ?? "Unbekannt",
-    brand: row.product?.brand ?? null,
-    category: row.product?.category ?? null,
-    imageUrl: row.product?.image_url ?? null,
-  }));
+  if (result.error) return <ErrorState message={result.error} />;
+  const items = result.items;
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
@@ -121,4 +102,44 @@ function ErrorState({ message }: { message: string }) {
       </div>
     </div>
   );
+}
+
+/**
+ * Pull open items for the given household + flatten the joined product
+ * row into the `ListItem` shape the client list expects. Returns an
+ * `error` string instead of throwing so the caller can pick between
+ * error UI and the empty state.
+ */
+async function loadOpenItems(
+  supabase: SupabaseClient<Database>,
+  householdId: string,
+): Promise<{ items: ListItem[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from("items")
+    .select(
+      `
+      id, quantity, unit, best_before, location, custom_name, added_at,
+      product:products ( id, name, brand, category, image_url )
+      `,
+    )
+    .eq("household_id", householdId)
+    .is("consumed_at", null)
+    .is("discarded_at", null)
+    .order("best_before", { ascending: true });
+
+  if (error) return { items: [], error: error.message };
+
+  const items: ListItem[] = (data ?? []).map((row) => ({
+    id: row.id,
+    quantity: Number(row.quantity),
+    unit: row.unit,
+    bestBefore: row.best_before,
+    location: row.location as ListItem["location"],
+    customName: row.custom_name,
+    productName: row.product?.name ?? "Unbekannt",
+    brand: row.product?.brand ?? null,
+    category: row.product?.category ?? null,
+    imageUrl: row.product?.image_url ?? null,
+  }));
+  return { items, error: null };
 }
