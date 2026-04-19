@@ -59,8 +59,21 @@ export type FormSeed =
       kind: "manual";
     };
 
+/**
+ * Optional field pre-fill. Used by the Einkaufsliste → Vorrat handover,
+ * which knows the user's preferred customName / quantity / unit for the
+ * item they're about to move — we carry those values across rather than
+ * forcing the user to retype them.
+ */
+export type ItemFormPrefill = {
+  customName?: string;
+  quantity?: number;
+  unit?: string;
+};
+
 type Props = {
   seed: FormSeed;
+  prefill?: ItemFormPrefill;
   onCancel: () => void;
   onSuccess: () => void;
 };
@@ -76,7 +89,7 @@ const LOCATIONS: {
   { value: "other", label: "Sonstiges", icon: Archive },
 ];
 
-export function ItemForm({ seed, onCancel, onSuccess }: Props) {
+export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
   const needsProductFields = seed.kind === "unknown" || seed.kind === "manual";
   const seedProduct = "productName" in seed ? seed : null;
   const seedCategory: CategoryKey =
@@ -85,13 +98,28 @@ export function ItemForm({ seed, onCancel, onSuccess }: Props) {
   // We manage form state with useState — the shape is small enough that
   // react-hook-form is overkill and the controlled inputs play nicely with
   // the MHD-capture callback that needs to update a single field.
+  //
+  // When `prefill` is set (e.g. Einkaufsliste → Vorrat), its values seed
+  // the initial state; the user still edits normally from there. We treat
+  // prefill as a **mount-time hint** rather than a reactive prop — React
+  // state would otherwise desync if the caller swapped prefills mid-form.
   const [productName, setProductName] = useState(
-    seedProduct?.productName ?? "",
+    seedProduct?.productName ?? prefill?.customName ?? "",
   );
   const [category, setCategory] = useState<CategoryKey>(seedCategory);
-  const [customName, setCustomName] = useState("");
-  const [quantity, setQuantity] = useState("1");
-  const [unit, setUnit] = useState("");
+  const [customName, setCustomName] = useState(
+    // Only pre-fill `customName` when we *have* a product — otherwise the
+    // shopping-list text already lives in `productName` above and dupli-
+    // cating it as an alias would create a confusing "Butter / Butter"
+    // rendering on the list.
+    seedProduct && prefill?.customName ? prefill.customName : "",
+  );
+  const [quantity, setQuantity] = useState(
+    prefill?.quantity != null && prefill.quantity > 0
+      ? String(prefill.quantity)
+      : "1",
+  );
+  const [unit, setUnit] = useState(prefill?.unit ?? "");
   const [bestBefore, setBestBefore] = useState(() =>
     defaultBestBeforeDate(seedCategory),
   );

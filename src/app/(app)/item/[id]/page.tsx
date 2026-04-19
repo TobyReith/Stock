@@ -6,6 +6,7 @@ import { getActiveHouseholdId } from "@/lib/households/active";
 import { buttonVariants } from "@/components/ui/button";
 import { EditItemForm, type DetailItem } from "./edit-item-form";
 import { DeleteItemButton } from "./delete-item-button";
+import { AddToShoppingButton } from "./add-to-shopping-button";
 
 /**
  * Item detail page.
@@ -70,6 +71,7 @@ export default async function ItemDetailPage({
     customBrand: data.custom_brand,
     customCategory: data.custom_category as DetailItem["customCategory"],
     note: data.note,
+    productId: data.product?.id ?? null,
     productName: data.product?.name ?? "Unbekannt",
     brand: data.product?.brand ?? null,
     category: data.product?.category ?? null,
@@ -90,13 +92,20 @@ export default async function ItemDetailPage({
       <EditItemForm item={item} />
 
       {/*
-        Delete lives outside `EditItemForm` because it's an "undo the
-        add" escape hatch, not part of the normal edit → save → close
-        cycle. Keeping it below the form, below a divider, with ghost
-        styling, means users land here deliberately instead of by a
-        fat-thumb miss on the close actions.
+        Secondary actions live outside `EditItemForm` because they're
+        escape hatches, not part of the normal edit → save → close
+        cycle. Two buttons side by side, ghost-styled, below a divider
+        so users land here deliberately instead of by a fat-thumb miss
+        on the close actions.
       */}
-      <div className="mt-6 flex justify-center border-t pt-4">
+      <div className="mt-6 flex justify-center gap-2 border-t pt-4">
+        <AddToShoppingButton
+          productId={item.productId}
+          productName={item.productName}
+          customName={item.customName}
+          quantity={item.quantity}
+          unit={item.unit}
+        />
         <DeleteItemButton
           itemId={item.id}
           itemName={item.customName ?? item.productName}

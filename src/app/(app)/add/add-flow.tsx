@@ -10,8 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { lookupBarcode } from "@/lib/actions/items";
+import { markShoppingItemBought } from "@/lib/actions/shopping";
 import type { CategoryKey } from "@/lib/constants/categories";
-import { ItemForm, type FormSeed } from "./item-form";
+import { ItemForm, type FormSeed, type ItemFormPrefill } from "./item-form";
 
 /**
  * Top-level state machine for the Add-Flow page.
@@ -36,9 +37,25 @@ type Stage =
   | { kind: "preview"; barcode: string; result: LookupResult }
   | { kind: "form"; seed: FormSeed };
 
-export function AddFlow() {
+/**
+ * Bootstrap payload for the "Einkaufsliste → Vorrat" handover.
+ *
+ * When this prop is set, the flow skips scanner/preview and drops the
+ * user straight into the form pre-filled from the shopping-list row.
+ * On a successful submit we call `markShoppingItemBought` so the
+ * source row closes out of the "offen" bucket without a second action.
+ */
+export type AddFlowInitial = {
+  seed: FormSeed;
+  prefill?: ItemFormPrefill;
+  shoppingListItemId: string;
+};
+
+export function AddFlow({ initial }: { initial?: AddFlowInitial } = {}) {
   const router = useRouter();
-  const [stage, setStage] = useState<Stage>({ kind: "scan" });
+  const [stage, setStage] = useState<Stage>(
+    initial ? { kind: "form", seed: initial.seed } : { kind: "scan" },
+  );
   const [, startTransition] = useTransition();
 
   const runLookup = useCallback((barcode: string) => {
@@ -68,15 +85,24 @@ export function AddFlow() {
   }, []);
 
   const handleSubmitSuccess = useCallback(() => {
+    // Fire-and-forget when we came from the shopping list: the server
+    // action idempotently sets `bought_at` and revalidates /shopping, so
+    // when the user eventually navigates there the row is already in the
+    // "zuletzt gekauft" bucket. We don't await it — the `/` navigation
+    // below shouldn't block on a secondary write.
+    if (initial?.shoppingListItemId) {
+      void markShoppingItemBought(initial.shoppingListItemId);
+    }
     toast.success("Artikel hinzugefügt");
     router.push("/");
-  }, [router]);
+  }, [router, initial]);
 
   // FORM stage — dedicated branch to keep JSX compact.
   if (stage.kind === "form") {
     return (
       <ItemForm
         seed={stage.seed}
+        prefill={initial?.prefill}
         onCancel={resetToScanner}
         onSuccess={handleSubmitSuccess}
       />
