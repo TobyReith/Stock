@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Package, Plus } from "lucide-react";
+import { BarChart3, Package, Plus, ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -16,6 +16,7 @@ type NavItem = {
 const items: NavItem[] = [
   { href: "/", label: "Vorrat", icon: Package, exact: true },
   { href: "/add", label: "Hinzufügen", icon: Plus },
+  { href: "/shopping", label: "Einkauf", icon: ShoppingCart },
   { href: "/stats", label: "Statistik", icon: BarChart3 },
 ];
 

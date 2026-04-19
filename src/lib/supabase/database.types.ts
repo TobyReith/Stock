@@ -259,6 +259,60 @@ export type Database = {
         }
         Relationships: []
       }
+      shopping_list_items: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          bought_at: string | null
+          custom_name: string | null
+          household_id: string
+          id: string
+          note: string | null
+          product_id: string | null
+          quantity: number | null
+          unit: string | null
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          bought_at?: string | null
+          custom_name?: string | null
+          household_id: string
+          id?: string
+          note?: string | null
+          product_id?: string | null
+          quantity?: number | null
+          unit?: string | null
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          bought_at?: string | null
+          custom_name?: string | null
+          household_id?: string
+          id?: string
+          note?: string | null
+          product_id?: string | null
+          quantity?: number | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_list_items_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

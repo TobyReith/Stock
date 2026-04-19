@@ -22,6 +22,7 @@ import {
   unmarkItem,
   updateItem,
 } from "@/lib/actions/items";
+import { addShoppingItem } from "@/lib/actions/shopping";
 import type { UpdateItemInput } from "@/lib/schemas/items";
 import { CATEGORIES, type CategoryKey } from "@/lib/constants/categories";
 
@@ -45,6 +46,7 @@ export type DetailItem = {
   customBrand: string | null;
   customCategory: CategoryKey | null;
   note: string | null;
+  productId: string | null;
   productName: string;
   brand: string | null;
   category: string | null;
@@ -168,11 +170,17 @@ export function EditItemForm({ item }: { item: DetailItem }) {
 
   /**
    * Shared post-close handler: push the user to the list, then show a
-   * toast with an "Rückgängig" action wired to `unmarkItem`. The toast
-   * lives in the root `<Toaster />` so it survives the navigation.
+   * toast with two actions — "Rückgängig" (primary, wired to
+   * `unmarkItem`) and "Nachkaufen" (secondary, adds the same product to
+   * the shopping list). The toast lives in the root `<Toaster />` so it
+   * survives the navigation.
    *
    * We pop the toast *after* `router.push` intentionally — the toast
    * is for the new page context, not the one we're leaving.
+   *
+   * Sonner renders `action` and `cancel` as a two-button row. The label
+   * "Nachkaufen" reads as a positive action even though it lives in the
+   * `cancel` slot; the slot name is internal styling, not user-visible.
    */
   function showUndoToast(message: string) {
     toast.success(message, {
@@ -191,6 +199,25 @@ export function EditItemForm({ item }: { item: DetailItem }) {
             // the refresh picks up the restored row.
             router.refresh();
             toast.success("Wieder im Vorrat");
+          })();
+        },
+      },
+      cancel: {
+        label: "Nachkaufen",
+        onClick: () => {
+          void (async () => {
+            const displayName = (item.customName ?? item.productName).trim();
+            const res = await addShoppingItem({
+              productId: item.productId ?? undefined,
+              customName: displayName || undefined,
+              quantity: item.quantity > 0 ? item.quantity : undefined,
+              unit: item.unit ?? undefined,
+            });
+            if (!res.ok) {
+              toast.error(res.error);
+              return;
+            }
+            toast.success("Zur Einkaufsliste hinzugefügt");
           })();
         },
       },
