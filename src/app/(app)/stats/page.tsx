@@ -1,63 +1,75 @@
 import type { Metadata } from "next";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { BarChart3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/session";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import { CATEGORIES, getCategory, type CategoryKey } from "@/lib/constants/categories";
+import type { Database } from "@/lib/supabase/database.types";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import { TimeframeToggle, type RangeKey, RANGE_DAYS } from "./timeframe-toggle";
+import { ViewToggle, type ViewKey } from "./view-toggle";
+import { HistoryView, type HistoryEvent } from "./history-view";
 import { ActiveHouseholdBadge } from "../_header/active-household-badge";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Statistik" };
+export const metadata: Metadata = { title: "Historie" };
 
-/**
- * Phase 1 stats page.
- *
- * Three KPI cards + a per-category breakdown. Timeframe is toggled via
- * a URL query param (`?range=30|90|all`) so the page stays a pure
- * server component — no client state, no useSWR, no shimmering
- * dashboards. Picks the param in the server fetch, done.
- *
- * The "closed" items population (rows with consumed_at OR discarded_at)
- * is small per household (dozens to a few hundred over time), so we
- * fetch the whole set inside the selected window and do the grouping
- * in memory. Much simpler than juggling SQL aggregates and future-proof
- * enough for a household-scale app.
- */
 export default async function StatsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; view?: string }>;
 }) {
   const params = await searchParams;
   const range = parseRange(params.range);
+  const view: ViewKey = params.view === "stats" ? "stats" : "history";
 
-  // Both helpers are `cache()`-wrapped — the layout already resolved the
-  // user, so this call is free; same for `createClient()`.
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
-  if (!user) return <EmptyState />;
+  if (!user) return <AuthPrompt />;
 
-  // Stats are per-active-household. A user with memberships in several
-  // households sees the stats for whichever one the switcher has
-  // selected — merging across households here would conflate "my
-  // family's waste" with "my shared flat's waste", which isn't useful.
   const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
-  if (!activeHouseholdId) return <EmptyForRange range={range} />;
+  if (!activeHouseholdId) {
+    return (
+      <PageShell>
+        <ViewToggle current={view} range={range} />
+        <EmptyForRange range={range} />
+      </PageShell>
+    );
+  }
 
-  // Cutoff ISO timestamp for the selected range, or null for "all time".
   const cutoffIso = rangeCutoff(range);
 
-  // Pull all closed items (consumed OR discarded) with the category from
-  // the joined product row, scoped to the active household.
-  // `.or(...)` on the same column list is awkward in PostgREST — we just
-  // fetch the closed rows with one `not.is.null` each and merge.
+  if (view === "history") {
+    const [events, categories, storageLocations] = await Promise.all([
+      loadHistory(supabase, activeHouseholdId, cutoffIso),
+      loadCategories(supabase, activeHouseholdId),
+      loadStorageLocations(supabase, activeHouseholdId),
+    ]);
+
+    return (
+      <PageShell>
+        <ViewToggle current={view} range={range} />
+        <TimeframeToggle current={range} view={view} />
+        {events.length === 0 ? (
+          <EmptyForRange range={range} />
+        ) : (
+          <HistoryView
+            events={events}
+            categories={categories}
+            storageLocations={storageLocations}
+          />
+        )}
+      </PageShell>
+    );
+  }
+
+  // ── Stats view ──────────────────────────────────────────────────────────────
   const base = supabase
     .from("items")
-    .select(
-      "consumed_at, discarded_at, custom_category, product:products ( category )",
-    )
+    .select("consumed_at, discarded_at, custom_category, product:products ( category )")
     .eq("household_id", activeHouseholdId)
-    .or(`consumed_at.not.is.null,discarded_at.not.is.null`);
+    .or("consumed_at.not.is.null,discarded_at.not.is.null");
 
   const query = cutoffIso
     ? base.or(`consumed_at.gte.${cutoffIso},discarded_at.gte.${cutoffIso}`)
@@ -66,46 +78,28 @@ export default async function StatsPage({
   const { data, error } = await query;
   if (error) return <ErrorState message={error.message} />;
 
-  // Per-item `custom_category` override wins over `products.category`.
-  // That way a user who re-labelled "Alpro Soja" from `beverages` to
-  // `dairy` sees it in the right bucket without mutating the shared
-  // product cache.
   const rows = (data ?? []).map((r) => ({
     closed: closedKind(r.consumed_at, r.discarded_at, cutoffIso),
     category: (r.custom_category ?? r.product?.category ?? "other") as CategoryKey,
   }));
-
-  // Only keep rows that actually closed inside the window. `.or` with a
-  // timestamp gte is a *row-level* filter — a row can satisfy the outer
-  // "not null" check via consumed_at while its discarded_at (or vice
-  // versa) falls outside the window. We recomputed the effective closing
-  // event in `closedKind`, which returns null when neither side lands in
-  // the window. Drop those.
   const effective = rows.filter((r) => r.closed !== null);
-
   const totals = {
     consumed: effective.filter((r) => r.closed === "consumed").length,
     discarded: effective.filter((r) => r.closed === "discarded").length,
   };
   const closedTotal = totals.consumed + totals.discarded;
   const wasteRate = closedTotal === 0 ? 0 : totals.discarded / closedTotal;
-
   const byCategory = aggregateByCategory(effective);
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-6">
-      <div className="mb-3">
-        <ActiveHouseholdBadge />
-      </div>
-      <header className="mb-4 flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Statistik</h1>
-      </header>
-      <TimeframeToggle current={range} />
+    <PageShell>
+      <ViewToggle current={view} range={range} />
+      <TimeframeToggle current={range} view={view} />
 
       {closedTotal === 0 ? (
         <EmptyForRange range={range} />
       ) : (
-        <div className="mt-5 flex flex-col gap-5">
+        <div className="flex flex-col gap-5">
           <section className="grid grid-cols-3 gap-2">
             <Kpi label="Verbraucht" value={totals.consumed} tone="positive" />
             <Kpi label="Entsorgt" value={totals.discarded} tone="negative" />
@@ -134,9 +128,7 @@ export default async function StatsPage({
                     <tr key={key} className="border-t">
                       <td className="px-3 py-2">{getCategory(key).label}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{consumed}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {discarded}
-                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">{discarded}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -145,11 +137,145 @@ export default async function StatsPage({
           </section>
         </div>
       )}
+    </PageShell>
+  );
+}
+
+// ── Data loaders ─────────────────────────────────────────────────────────────
+
+async function loadHistory(
+  supabase: SupabaseClient<Database>,
+  householdId: string,
+  cutoffIso: string | null,
+): Promise<HistoryEvent[]> {
+  let q = supabase
+    .from("inventory_events")
+    .select("id, type, product_name, custom_name, category, location, quantity, unit, happened_at")
+    .eq("household_id", householdId)
+    .order("happened_at", { ascending: false })
+    .limit(500);
+
+  if (cutoffIso) q = q.gte("happened_at", cutoffIso);
+
+  const { data } = await q;
+  return (data ?? []).map((e) => ({
+    id: e.id,
+    type: e.type as HistoryEvent["type"],
+    productName: e.product_name,
+    customName: e.custom_name,
+    category: e.category,
+    location: e.location,
+    quantity: e.quantity != null ? Number(e.quantity) : null,
+    unit: e.unit,
+    happenedAt: e.happened_at,
+  }));
+}
+
+async function loadCategories(
+  supabase: SupabaseClient<Database>,
+  householdId: string,
+): Promise<CategoryDisplay[]> {
+  const { data } = await supabase
+    .from("categories")
+    .select("id, name, icon, color, sort_order, is_system, slug")
+    .eq("household_id", householdId)
+    .order("sort_order", { ascending: true });
+  return (data ?? []).map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    name: c.name,
+    icon: c.icon,
+    color: c.color,
+    sortOrder: c.sort_order,
+    isSystem: c.is_system,
+  }));
+}
+
+async function loadStorageLocations(
+  supabase: SupabaseClient<Database>,
+  householdId: string,
+): Promise<StorageLocationDisplay[]> {
+  const { data } = await supabase
+    .from("storage_locations")
+    .select("id, name, icon, slug, sort_order, is_system, temperature_hint")
+    .eq("household_id", householdId)
+    .order("sort_order", { ascending: true });
+  return (data ?? []).map((l) => ({
+    id: l.id,
+    slug: l.slug,
+    name: l.name,
+    icon: l.icon,
+    sortOrder: l.sort_order,
+    isSystem: l.is_system,
+    temperatureHint: l.temperature_hint as StorageLocationDisplay["temperatureHint"],
+  }));
+}
+
+// ── Layout helpers ─────────────────────────────────────────────────────────
+
+function PageShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mx-auto w-full max-w-md px-4 py-6">
+      <div className="mb-3">
+        <ActiveHouseholdBadge />
+      </div>
+      <header className="mb-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Historie</h1>
+      </header>
+      <div className="flex flex-col gap-4">{children}</div>
     </div>
   );
 }
 
-/* ---------- KPI card --------------------------------------------------- */
+// ── Stats helpers ─────────────────────────────────────────────────────────
+
+function parseRange(raw: string | undefined): RangeKey {
+  if (raw === "90") return "90";
+  if (raw === "all") return "all";
+  return "30";
+}
+
+function rangeCutoff(range: RangeKey): string | null {
+  if (range === "all") return null;
+  const days = RANGE_DAYS[range];
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
+function closedKind(
+  consumedAt: string | null,
+  discardedAt: string | null,
+  cutoffIso: string | null,
+): "consumed" | "discarded" | null {
+  if (consumedAt) {
+    if (!cutoffIso || consumedAt >= cutoffIso) return "consumed";
+    return null;
+  }
+  if (discardedAt) {
+    if (!cutoffIso || discardedAt >= cutoffIso) return "discarded";
+    return null;
+  }
+  return null;
+}
+
+type CategoryAggregate = { key: CategoryKey; consumed: number; discarded: number };
+
+function aggregateByCategory(
+  rows: { closed: "consumed" | "discarded" | null; category: CategoryKey }[],
+): CategoryAggregate[] {
+  const seed = new Map<CategoryKey, CategoryAggregate>();
+  for (const { key } of CATEGORIES) seed.set(key, { key, consumed: 0, discarded: 0 });
+  for (const r of rows) {
+    if (!r.closed) continue;
+    const agg = seed.get(r.category) ?? seed.get("other")!;
+    if (r.closed === "consumed") agg.consumed += 1;
+    else agg.discarded += 1;
+  }
+  return [...seed.values()]
+    .filter((a) => a.consumed + a.discarded > 0)
+    .sort((a, b) => b.consumed + b.discarded - (a.consumed + a.discarded));
+}
+
+// ── KPI card ────────────────────────────────────────────────────────────────
 
 function Kpi({
   label,
@@ -175,88 +301,13 @@ function Kpi({
   );
 }
 
-/* ---------- Helpers: range + aggregation ------------------------------- */
+// ── Empty / error states ─────────────────────────────────────────────────────
 
-function parseRange(raw: string | undefined): RangeKey {
-  if (raw === "90") return "90";
-  if (raw === "all") return "all";
-  return "30"; // default
-}
-
-/**
- * ISO timestamp floor for the selected range, or null for all-time.
- * Uses now - N days at the time of the request — good enough; we're
- * not a financial ledger.
- */
-function rangeCutoff(range: RangeKey): string | null {
-  if (range === "all") return null;
-  const days = RANGE_DAYS[range];
-  const d = new Date(Date.now() - days * 86_400_000);
-  return d.toISOString();
-}
-
-/**
- * Return which event effectively closed this row inside the window.
- *
- * Returns `null` when the closing event we'd attribute to (whichever
- * timestamp is set) happens to sit *before* the window cutoff. That
- * filters out rows that slipped through the PostgREST `.or` because the
- * *other* (null) timestamp couldn't help the filter.
- */
-function closedKind(
-  consumedAt: string | null,
-  discardedAt: string | null,
-  cutoffIso: string | null,
-): "consumed" | "discarded" | null {
-  if (consumedAt) {
-    if (!cutoffIso || consumedAt >= cutoffIso) return "consumed";
-    return null;
-  }
-  if (discardedAt) {
-    if (!cutoffIso || discardedAt >= cutoffIso) return "discarded";
-    return null;
-  }
-  return null;
-}
-
-type CategoryAggregate = {
-  key: CategoryKey;
-  consumed: number;
-  discarded: number;
-};
-
-/**
- * Aggregate closed rows by category key, sorted by total desc.
- *
- * Categories with zero activity are omitted — the table shouldn't list
- * twelve rows of zeroes when the user has only cooked through yoghurt
- * and bread.
- */
-function aggregateByCategory(
-  rows: { closed: "consumed" | "discarded" | null; category: CategoryKey }[],
-): CategoryAggregate[] {
-  const seed = new Map<CategoryKey, CategoryAggregate>();
-  for (const { key } of CATEGORIES) {
-    seed.set(key, { key, consumed: 0, discarded: 0 });
-  }
-  for (const r of rows) {
-    if (!r.closed) continue;
-    const agg = seed.get(r.category) ?? seed.get("other")!;
-    if (r.closed === "consumed") agg.consumed += 1;
-    else agg.discarded += 1;
-  }
-  return [...seed.values()]
-    .filter((a) => a.consumed + a.discarded > 0)
-    .sort((a, b) => b.consumed + b.discarded - (a.consumed + a.discarded));
-}
-
-/* ---------- Empty / error states --------------------------------------- */
-
-function EmptyState() {
+function AuthPrompt() {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
       <p className="text-sm text-muted-foreground">
-        Bitte melde dich an, um deine Statistik zu sehen.
+        Bitte melde dich an, um die Historie zu sehen.
       </p>
     </div>
   );
@@ -266,10 +317,10 @@ function EmptyForRange({ range }: { range: RangeKey }) {
   const label =
     range === "all" ? "insgesamt" : `in den letzten ${RANGE_DAYS[range]} Tagen`;
   return (
-    <div className="mt-5 flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-12 text-center">
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-12 text-center">
       <BarChart3 className="size-10 text-muted-foreground" aria-hidden />
       <p className="mt-3 text-sm text-muted-foreground">
-        Noch keine abgeschlossenen Artikel {label}.
+        Noch keine Einträge {label}.
       </p>
     </div>
   );
@@ -278,12 +329,11 @@ function EmptyForRange({ range }: { range: RangeKey }) {
 function ErrorState({ message }: { message: string }) {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
-      <h1 className="mb-4 text-2xl font-semibold tracking-tight">Statistik</h1>
       <div
         role="alert"
         className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
       >
-        Konnte Statistik nicht laden: {message}
+        Konnte Daten nicht laden: {message}
       </div>
     </div>
   );

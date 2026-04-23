@@ -181,6 +181,7 @@ export async function addItem(input: AddItemInput): Promise<ActionResult<{ itemI
     }
 
     revalidatePath("/");
+    revalidatePath("/stats");
     return { ok: true, data: { itemId: item.id } };
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Unbekannter Fehler");

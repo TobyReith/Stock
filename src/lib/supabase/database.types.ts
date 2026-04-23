@@ -15,6 +15,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      inventory_events: {
+        Row: {
+          actor_id: string | null
+          category: string | null
+          custom_name: string | null
+          happened_at: string
+          household_id: string
+          id: string
+          item_id: string | null
+          location: string | null
+          product_name: string
+          quantity: number | null
+          reason: string | null
+          type: string
+          unit: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          category?: string | null
+          custom_name?: string | null
+          happened_at?: string
+          household_id: string
+          id?: string
+          item_id?: string | null
+          location?: string | null
+          product_name: string
+          quantity?: number | null
+          reason?: string | null
+          type: string
+          unit?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          category?: string | null
+          custom_name?: string | null
+          happened_at?: string
+          household_id?: string
+          id?: string
+          item_id?: string | null
+          location?: string | null
+          product_name?: string
+          quantity?: number | null
+          reason?: string | null
+          type?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_events_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       household_members: {
         Row: {
           household_id: string

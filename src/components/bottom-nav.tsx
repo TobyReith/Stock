@@ -17,7 +17,7 @@ const items: NavItem[] = [
   { href: "/", label: "Vorrat", icon: Package, exact: true },
   { href: "/add", label: "Hinzufügen", icon: Plus },
   { href: "/shopping", label: "Einkauf", icon: ShoppingCart },
-  { href: "/stats", label: "Statistik", icon: BarChart3 },
+  { href: "/stats", label: "Historie", icon: BarChart3 },
 ];
 
 export function BottomNav() {
