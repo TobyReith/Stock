@@ -6,6 +6,7 @@ import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ItemRow } from "./item-row";
 import { FiltersSheet } from "./filters-sheet";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
 import { daysUntil, mhdUrgency, type MhdUrgency } from "@/lib/date";
 import { useFilterState } from "@/lib/hooks/use-filter-state";
 import { applyItemFilters, applyItemSort } from "@/lib/filters/items";
@@ -32,6 +33,7 @@ export type ListItem = {
 
 type Props = {
   items: ListItem[];
+  categories: CategoryDisplay[];
 };
 
 /**
@@ -56,7 +58,7 @@ type Props = {
  * filter chips, a shared link with a half-typed query in it would be
  * more confusing than useful.
  */
-export function ItemsList({ items }: Props) {
+export function ItemsList({ items, categories }: Props) {
   const { state } = useFilterState();
   const [query, setQuery] = useState("");
 
@@ -117,7 +119,7 @@ export function ItemsList({ items }: Props) {
             </button>
           )}
         </div>
-        <FiltersSheet />
+        <FiltersSheet categories={categories} />
       </div>
 
       {showNoResults && (

@@ -12,7 +12,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { CATEGORIES, type CategoryKey } from "@/lib/constants/categories";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { ItemLocation } from "@/lib/schemas/items";
 import {
   EMPTY_FILTER_STATE,
@@ -57,7 +57,7 @@ const URGENCIES: readonly UrgencyKey[] = ["expired", "soon", "later"];
 
 const SORTS: readonly SortKey[] = ["mhd", "updated", "name", "brand"];
 
-export function FiltersSheet() {
+export function FiltersSheet({ categories }: { categories: CategoryDisplay[] }) {
   const { state, setState, patch } = useFilterState();
   const [open, setOpen] = useState(false);
 
@@ -98,7 +98,7 @@ export function FiltersSheet() {
         <div className="flex flex-col gap-5 px-4 pt-2">
           <FilterAxis label="Kategorie">
             <ChipGroup
-              options={CATEGORIES.map((c) => ({ value: c.key, label: c.label }))}
+              options={categories.map((c) => ({ value: c.slug, label: `${c.icon} ${c.name}` }))}
               selected={state.categories}
               onToggle={(value) =>
                 patch({ categories: toggleValue(state.categories, value) })
@@ -275,6 +275,3 @@ function toggleValue<T extends string>(current: readonly T[], value: T): T[] {
     : [...current, value];
 }
 
-// Re-exported for sites that need the CategoryKey type without pulling
-// CATEGORIES itself — the Sheet is the canonical consumer.
-export type { CategoryKey };

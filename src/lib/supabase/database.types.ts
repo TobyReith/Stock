@@ -65,6 +65,50 @@ export type Database = {
         }
         Relationships: []
       }
+      categories: {
+        Row: {
+          color: string
+          created_at: string
+          household_id: string
+          icon: string
+          id: string
+          is_system: boolean
+          name: string
+          slug: string
+          sort_order: number
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          household_id: string
+          icon: string
+          id?: string
+          is_system?: boolean
+          name: string
+          slug: string
+          sort_order?: number
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          household_id?: string
+          icon?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          slug?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categories_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invite_attempts: {
         Row: {
           attempted_at: string

@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/supabase/session";
 import { getActiveHouseholdId, listMemberships } from "@/lib/households/active";
 import type { Database } from "@/lib/supabase/database.types";
 import { ItemsList, type ListItem } from "./_list/items-list";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
 import { HouseholdSwitcher } from "./_header/household-switcher";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -42,9 +43,12 @@ export default async function ListPage() {
     getActiveHouseholdId(supabase, user.id),
     listMemberships(supabase, user.id),
   ]);
-  const result = activeHouseholdId
-    ? await loadOpenItems(supabase, activeHouseholdId)
-    : { items: [] as ListItem[], error: null };
+  const [result, categories] = activeHouseholdId
+    ? await Promise.all([
+        loadOpenItems(supabase, activeHouseholdId),
+        loadCategories(supabase, activeHouseholdId),
+      ])
+    : [{ items: [] as ListItem[], error: null }, [] as CategoryDisplay[]];
 
   if (result.error) return <ErrorState message={result.error} />;
   const items = result.items;
@@ -70,7 +74,7 @@ export default async function ListPage() {
         </div>
       </header>
 
-      {items.length === 0 ? <EmptyState /> : <ItemsList items={items} />}
+      {items.length === 0 ? <EmptyState /> : <ItemsList items={items} categories={categories} />}
     </div>
   );
 }
@@ -113,6 +117,26 @@ function ErrorState({ message }: { message: string }) {
       </div>
     </div>
   );
+}
+
+async function loadCategories(
+  supabase: SupabaseClient<Database>,
+  householdId: string,
+): Promise<CategoryDisplay[]> {
+  const { data } = await supabase
+    .from("categories")
+    .select("id, name, icon, color, sort_order, is_system, slug")
+    .eq("household_id", householdId)
+    .order("sort_order", { ascending: true });
+  return (data ?? []).map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    name: c.name,
+    icon: c.icon,
+    color: c.color,
+    sortOrder: c.sort_order,
+    isSystem: c.is_system,
+  }));
 }
 
 /**

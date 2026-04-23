@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { lookupBarcode } from "@/lib/actions/items";
 import { markShoppingItemBought } from "@/lib/actions/shopping";
-import type { CategoryKey } from "@/lib/constants/categories";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
 import { ItemForm, type FormSeed, type ItemFormPrefill } from "./item-form";
 
 /**
@@ -82,7 +82,13 @@ export type AddFlowInitial = {
   shoppingListItemId: string;
 };
 
-export function AddFlow({ initial }: { initial?: AddFlowInitial } = {}) {
+export function AddFlow({
+  initial,
+  categories,
+}: {
+  initial?: AddFlowInitial;
+  categories: CategoryDisplay[];
+}) {
   const router = useRouter();
   const [stage, setStage] = useState<Stage>(
     initial ? { kind: "form", seed: initial.seed } : { kind: "scan" },
@@ -134,6 +140,7 @@ export function AddFlow({ initial }: { initial?: AddFlowInitial } = {}) {
       <ItemForm
         seed={stage.seed}
         prefill={initial?.prefill}
+        categories={categories}
         onCancel={resetToScanner}
         onSuccess={handleSubmitSuccess}
       />
@@ -370,7 +377,7 @@ function LookupPreview({
                       productName: data.product.name,
                       brand: data.product.brand,
                       imageUrl: data.product.imageUrl,
-                      category: (data.product.category ?? "other") as CategoryKey,
+                      category: data.product.category ?? "other",
                       barcode,
                     }
                   : {

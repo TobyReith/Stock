@@ -9,11 +9,10 @@ import { cn } from "@/lib/utils";
 import { addItem } from "@/lib/actions/items";
 import type { AddItemInput } from "@/lib/schemas/items";
 import {
-  CATEGORIES,
   defaultBestBeforeDate,
   getCategory,
-  type CategoryKey,
 } from "@/lib/constants/categories";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
 import { MhdCapture } from "./mhd-capture";
 
 /**
@@ -40,7 +39,7 @@ export type FormSeed =
       productName: string;
       brand: string | null;
       imageUrl: string | null;
-      category: CategoryKey;
+      category: string;
       barcode: string | null;
     }
   | {
@@ -48,7 +47,7 @@ export type FormSeed =
       productName: string;
       brand: string | null;
       imageUrl: string | null;
-      category: CategoryKey;
+      category: string;
       barcode: string;
     }
   | {
@@ -74,6 +73,7 @@ export type ItemFormPrefill = {
 type Props = {
   seed: FormSeed;
   prefill?: ItemFormPrefill;
+  categories: CategoryDisplay[];
   onCancel: () => void;
   onSuccess: () => void;
 };
@@ -89,10 +89,10 @@ const LOCATIONS: {
   { value: "other", label: "Sonstiges", icon: Archive },
 ];
 
-export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
+export function ItemForm({ seed, prefill, categories, onCancel, onSuccess }: Props) {
   const needsProductFields = seed.kind === "unknown" || seed.kind === "manual";
   const seedProduct = "productName" in seed ? seed : null;
-  const seedCategory: CategoryKey =
+  const seedCategory: string =
     "category" in seed ? seed.category : "other";
 
   // We manage form state with useState — the shape is small enough that
@@ -106,7 +106,7 @@ export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
   const [productName, setProductName] = useState(
     seedProduct?.productName ?? prefill?.customName ?? "",
   );
-  const [category, setCategory] = useState<CategoryKey>(seedCategory);
+  const [category, setCategory] = useState<string>(seedCategory);
   const [customName, setCustomName] = useState(
     // Only pre-fill `customName` when we *have* a product — otherwise the
     // shopping-list text already lives in `productName` above and dupli-
@@ -136,7 +136,7 @@ export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
 
   // When the user changes the category on an unknown/manual entry, bump
   // the default MHD + location — but only if they haven't customized them.
-  function handleCategoryChange(next: CategoryKey) {
+  function handleCategoryChange(next: string) {
     setCategory(next);
     if (mhdSource === "default") {
       setBestBefore(defaultBestBeforeDate(next));
@@ -205,7 +205,8 @@ export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              {getCategory(seedProduct.category).label}
+              {categories.find((c) => c.slug === seedProduct.category)?.name ??
+                getCategory(seedProduct.category).label}
             </p>
           </div>
         </div>
@@ -230,12 +231,12 @@ export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
             <select
               id="category"
               value={category}
-              onChange={(e) => handleCategoryChange(e.target.value as CategoryKey)}
+              onChange={(e) => handleCategoryChange(e.target.value)}
               className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              {CATEGORIES.map((c) => (
-                <option key={c.key} value={c.key}>
-                  {c.label}
+              {categories.map((c) => (
+                <option key={c.slug} value={c.slug}>
+                  {c.icon} {c.name}
                 </option>
               ))}
             </select>

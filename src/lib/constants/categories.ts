@@ -52,17 +52,18 @@ export const CATEGORIES: readonly Category[] = [
 
 const byKey = new Map<CategoryKey, Category>(CATEGORIES.map((c) => [c.key, c]));
 
-export function getCategory(key: CategoryKey | null | undefined): Category {
+export function getCategory(key: string | null | undefined): Category {
   if (!key) return byKey.get("other")!;
-  return byKey.get(key) ?? byKey.get("other")!;
+  return byKey.get(key as CategoryKey) ?? byKey.get("other")!;
 }
 
 /**
- * Given today's date and a category, compute the fallback best-before date.
+ * Given today's date and a category slug, compute the fallback best-before date.
+ * Custom category slugs (not in CATEGORIES) fall back to the "other" default.
  * Returns an ISO date string (YYYY-MM-DD).
  */
 export function defaultBestBeforeDate(
-  category: CategoryKey | null | undefined,
+  category: string | null | undefined,
   today: Date = new Date(),
 ): string {
   const { defaultShelfLifeDays } = getCategory(category);

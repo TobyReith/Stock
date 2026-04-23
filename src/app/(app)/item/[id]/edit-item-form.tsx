@@ -24,7 +24,7 @@ import {
 } from "@/lib/actions/items";
 import { addShoppingItem } from "@/lib/actions/shopping";
 import type { UpdateItemInput } from "@/lib/schemas/items";
-import { CATEGORIES, type CategoryKey } from "@/lib/constants/categories";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
 
 /**
  * Edit form + Consume/Discard actions for a single item.
@@ -44,7 +44,7 @@ export type DetailItem = {
   location: "fridge" | "pantry" | "freezer" | "other";
   customName: string | null;
   customBrand: string | null;
-  customCategory: CategoryKey | null;
+  customCategory: string | null;
   note: string | null;
   productId: string | null;
   productName: string;
@@ -65,7 +65,13 @@ const LOCATIONS: {
   { value: "other", label: "Sonstiges", icon: Archive },
 ];
 
-export function EditItemForm({ item }: { item: DetailItem }) {
+export function EditItemForm({
+  item,
+  categories,
+}: {
+  item: DetailItem;
+  categories: CategoryDisplay[];
+}) {
   const router = useRouter();
   const [customName, setCustomName] = useState(item.customName ?? "");
   const [customBrand, setCustomBrand] = useState(item.customBrand ?? "");
@@ -111,7 +117,7 @@ export function EditItemForm({ item }: { item: DetailItem }) {
     // `""` from the select means "no override"; the zod schema accepts
     // null to unset the column. Only write when the user explicitly
     // picked something different from the stored override.
-    const nextCategory = (customCategory || null) as CategoryKey | null;
+    const nextCategory = customCategory || null;
     const storedCategory = item.customCategory ?? null;
     // Treat "override matches cache" the same as "no override" — the
     // user hasn't actually personalized the row. This collapses one
@@ -319,15 +325,17 @@ export function EditItemForm({ item }: { item: DetailItem }) {
           className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <option value="">— keine Auswahl —</option>
-          {CATEGORIES.map((c) => (
-            <option key={c.key} value={c.key}>
-              {c.label}
+          {categories.map((c) => (
+            <option key={c.slug} value={c.slug}>
+              {c.icon} {c.name}
             </option>
           ))}
         </select>
         {effectiveCategory && effectiveCategory !== customCategory && (
           <p className="text-xs text-muted-foreground">
-            Aktuell: {effectiveCategory}
+            Aktuell:{" "}
+            {categories.find((c) => c.slug === effectiveCategory)?.name ??
+              effectiveCategory}
           </p>
         )}
       </FieldRow>

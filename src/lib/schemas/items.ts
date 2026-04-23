@@ -83,7 +83,7 @@ export const updateItemSchema = z.object({
   id: z.string().uuid(),
   customName: z.string().max(200).nullable().optional(),
   customBrand: z.string().max(120).nullable().optional(),
-  customCategory: categoryKeySchema.nullable().optional(),
+  customCategory: z.string().max(80).nullable().optional(),
   quantity: z.coerce.number().positive().optional(),
   unit: z.string().max(20).nullable().optional(),
   bestBefore: isoDate.optional(),
