@@ -357,6 +357,50 @@ export type Database = {
           },
         ]
       }
+      storage_locations: {
+        Row: {
+          created_at: string
+          household_id: string
+          icon: string
+          id: string
+          is_system: boolean
+          name: string
+          slug: string
+          sort_order: number
+          temperature_hint: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          icon?: string
+          id?: string
+          is_system?: boolean
+          name: string
+          slug: string
+          sort_order?: number
+          temperature_hint?: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          icon?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          slug?: string
+          sort_order?: number
+          temperature_hint?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storage_locations_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -364,6 +408,8 @@ export type Database = {
     Functions: {
       is_household_member: { Args: { h_id: string }; Returns: boolean }
       is_household_owner: { Args: { h_id: string }; Returns: boolean }
+      seed_household_categories: { Args: { p_household_id: string }; Returns: undefined }
+      seed_household_storage_locations: { Args: { p_household_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

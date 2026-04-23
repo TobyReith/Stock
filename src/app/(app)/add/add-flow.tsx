@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { lookupBarcode } from "@/lib/actions/items";
 import { markShoppingItemBought } from "@/lib/actions/shopping";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import { ItemForm, type FormSeed, type ItemFormPrefill } from "./item-form";
 
 /**
@@ -85,9 +86,11 @@ export type AddFlowInitial = {
 export function AddFlow({
   initial,
   categories,
+  storageLocations,
 }: {
   initial?: AddFlowInitial;
   categories: CategoryDisplay[];
+  storageLocations: StorageLocationDisplay[];
 }) {
   const router = useRouter();
   const [stage, setStage] = useState<Stage>(
@@ -141,6 +144,7 @@ export function AddFlow({
         seed={stage.seed}
         prefill={initial?.prefill}
         categories={categories}
+        storageLocations={storageLocations}
         onCancel={resetToScanner}
         onSuccess={handleSubmitSuccess}
       />

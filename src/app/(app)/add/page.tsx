@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/supabase/session";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import type { FormSeed } from "./item-form";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 
 export const metadata: Metadata = { title: "Hinzufügen" };
 
@@ -29,9 +30,10 @@ export default async function AddPage({
   searchParams: Promise<{ fromShopping?: string }>;
 }) {
   const { fromShopping } = await searchParams;
-  const [initial, categories] = await Promise.all([
+  const [initial, categories, storageLocations] = await Promise.all([
     fromShopping ? resolveShoppingSeed(fromShopping) : Promise.resolve(null),
     loadPageCategories(),
+    loadPageStorageLocations(),
   ]);
 
   return (
@@ -56,9 +58,30 @@ export default async function AddPage({
         </p>
       </header>
 
-      <AddFlow initial={initial ?? undefined} categories={categories} />
+      <AddFlow initial={initial ?? undefined} categories={categories} storageLocations={storageLocations} />
     </div>
   );
+}
+
+async function loadPageStorageLocations(): Promise<StorageLocationDisplay[]> {
+  const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
+  if (!user) return [];
+  const householdId = await getActiveHouseholdId(supabase, user.id);
+  if (!householdId) return [];
+  const { data } = await supabase
+    .from("storage_locations")
+    .select("id, name, icon, slug, sort_order, is_system, temperature_hint")
+    .eq("household_id", householdId)
+    .order("sort_order", { ascending: true });
+  return (data ?? []).map((l) => ({
+    id: l.id,
+    slug: l.slug,
+    name: l.name,
+    icon: l.icon,
+    sortOrder: l.sort_order,
+    isSystem: l.is_system,
+    temperatureHint: l.temperature_hint as StorageLocationDisplay["temperatureHint"],
+  }));
 }
 
 async function loadPageCategories(): Promise<CategoryDisplay[]> {

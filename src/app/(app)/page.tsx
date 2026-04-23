@@ -7,6 +7,7 @@ import { getActiveHouseholdId, listMemberships } from "@/lib/households/active";
 import type { Database } from "@/lib/supabase/database.types";
 import { ItemsList, type ListItem } from "./_list/items-list";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import { HouseholdSwitcher } from "./_header/household-switcher";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -43,12 +44,17 @@ export default async function ListPage() {
     getActiveHouseholdId(supabase, user.id),
     listMemberships(supabase, user.id),
   ]);
-  const [result, categories] = activeHouseholdId
+  const [result, categories, storageLocations] = activeHouseholdId
     ? await Promise.all([
         loadOpenItems(supabase, activeHouseholdId),
         loadCategories(supabase, activeHouseholdId),
+        loadStorageLocations(supabase, activeHouseholdId),
       ])
-    : [{ items: [] as ListItem[], error: null }, [] as CategoryDisplay[]];
+    : [
+        { items: [] as ListItem[], error: null },
+        [] as CategoryDisplay[],
+        [] as StorageLocationDisplay[],
+      ];
 
   if (result.error) return <ErrorState message={result.error} />;
   const items = result.items;
@@ -74,7 +80,7 @@ export default async function ListPage() {
         </div>
       </header>
 
-      {items.length === 0 ? <EmptyState /> : <ItemsList items={items} categories={categories} />}
+      {items.length === 0 ? <EmptyState /> : <ItemsList items={items} categories={categories} storageLocations={storageLocations} />}
     </div>
   );
 }
@@ -117,6 +123,26 @@ function ErrorState({ message }: { message: string }) {
       </div>
     </div>
   );
+}
+
+async function loadStorageLocations(
+  supabase: SupabaseClient<Database>,
+  householdId: string,
+): Promise<StorageLocationDisplay[]> {
+  const { data } = await supabase
+    .from("storage_locations")
+    .select("id, name, icon, slug, sort_order, is_system, temperature_hint")
+    .eq("household_id", householdId)
+    .order("sort_order", { ascending: true });
+  return (data ?? []).map((l) => ({
+    id: l.id,
+    slug: l.slug,
+    name: l.name,
+    icon: l.icon,
+    sortOrder: l.sort_order,
+    isSystem: l.is_system,
+    temperatureHint: l.temperature_hint as StorageLocationDisplay["temperatureHint"],
+  }));
 }
 
 async function loadCategories(

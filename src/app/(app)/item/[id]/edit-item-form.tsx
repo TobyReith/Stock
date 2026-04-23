@@ -5,10 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Loader2,
-  Refrigerator,
   Package,
-  Snowflake,
-  Archive,
   CheckCircle2,
   Trash2,
 } from "lucide-react";
@@ -25,6 +22,7 @@ import {
 import { addShoppingItem } from "@/lib/actions/shopping";
 import type { UpdateItemInput } from "@/lib/schemas/items";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 
 /**
  * Edit form + Consume/Discard actions for a single item.
@@ -41,7 +39,7 @@ export type DetailItem = {
   quantity: number;
   unit: string | null;
   bestBefore: string;
-  location: "fridge" | "pantry" | "freezer" | "other";
+  location: string;
   customName: string | null;
   customBrand: string | null;
   customCategory: string | null;
@@ -54,23 +52,14 @@ export type DetailItem = {
   barcode: string | null;
 };
 
-const LOCATIONS: {
-  value: DetailItem["location"];
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}[] = [
-  { value: "fridge", label: "Kühlschrank", icon: Refrigerator },
-  { value: "pantry", label: "Vorrat", icon: Package },
-  { value: "freezer", label: "Gefrierer", icon: Snowflake },
-  { value: "other", label: "Sonstiges", icon: Archive },
-];
-
 export function EditItemForm({
   item,
   categories,
+  storageLocations,
 }: {
   item: DetailItem;
   categories: CategoryDisplay[];
+  storageLocations: StorageLocationDisplay[];
 }) {
   const router = useRouter();
   const [customName, setCustomName] = useState(item.customName ?? "");
@@ -380,14 +369,14 @@ export function EditItemForm({
 
       <FieldRow>
         <Label>Lagerort</Label>
-        <div className="grid grid-cols-4 gap-1 rounded-lg border p-1">
-          {LOCATIONS.map(({ value, label, icon: Icon }) => {
-            const active = location === value;
+        <div className="grid grid-cols-3 gap-1 rounded-lg border p-1">
+          {storageLocations.map(({ slug, name, icon }) => {
+            const active = location === slug;
             return (
               <button
-                key={value}
+                key={slug}
                 type="button"
-                onClick={() => setLocation(value)}
+                onClick={() => setLocation(slug)}
                 aria-pressed={active}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-md py-2 text-xs transition-colors",
@@ -396,8 +385,8 @@ export function EditItemForm({
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
-                <Icon className="size-5" aria-hidden />
-                {label}
+                <span className="text-base leading-none" aria-hidden>{icon}</span>
+                {name}
               </button>
             );
           })}

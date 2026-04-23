@@ -32,8 +32,8 @@ export const isoDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Datum als YYYY-MM-DD");
 
-export const locationSchema = z.enum(["fridge", "pantry", "freezer", "other"]);
-export type ItemLocation = z.infer<typeof locationSchema>;
+export const locationSchema = z.string().min(1).max(80);
+export type ItemLocation = string;
 
 export const barcodeSchema = z
   .string()

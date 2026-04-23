@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { locationSchema } from "@/lib/schemas/items";
 
 /**
  * Filter + sort state for the main items list.
@@ -50,7 +49,7 @@ export const SORT_LABELS: Record<SortKey, string> = {
  */
 export const filterStateSchema = z.object({
   categories: z.array(z.string().min(1)).default([]),
-  locations: z.array(locationSchema).default([]),
+  locations: z.array(z.string().min(1)).default([]),
   urgencies: z.array(urgencySchema).default([]),
   sort: sortKeySchema.default(DEFAULT_SORT),
   dir: sortDirSchema.default(DEFAULT_DIR),
@@ -99,7 +98,7 @@ export function parseFilterStateFromSearchParams(
   const dir = sortDirSchema.safeParse(params.get("dir") ?? DEFAULT_DIR);
   return {
     categories: parseList(params.get("cat"), z.string().min(1)),
-    locations: parseList(params.get("loc"), locationSchema),
+    locations: parseList(params.get("loc"), z.string().min(1)),
     urgencies: parseList(params.get("mhd"), urgencySchema),
     sort: sort.success ? sort.data : DEFAULT_SORT,
     dir: dir.success ? dir.data : DEFAULT_DIR,

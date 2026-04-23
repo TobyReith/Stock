@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Loader2, Refrigerator, Package, Snowflake, Archive } from "lucide-react";
+import { Loader2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import {
   getCategory,
 } from "@/lib/constants/categories";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import { MhdCapture } from "./mhd-capture";
 
 /**
@@ -74,22 +75,12 @@ type Props = {
   seed: FormSeed;
   prefill?: ItemFormPrefill;
   categories: CategoryDisplay[];
+  storageLocations: StorageLocationDisplay[];
   onCancel: () => void;
   onSuccess: () => void;
 };
 
-const LOCATIONS: {
-  value: "fridge" | "pantry" | "freezer" | "other";
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}[] = [
-  { value: "fridge", label: "Kühlschrank", icon: Refrigerator },
-  { value: "pantry", label: "Vorrat", icon: Package },
-  { value: "freezer", label: "Gefrierer", icon: Snowflake },
-  { value: "other", label: "Sonstiges", icon: Archive },
-];
-
-export function ItemForm({ seed, prefill, categories, onCancel, onSuccess }: Props) {
+export function ItemForm({ seed, prefill, categories, storageLocations, onCancel, onSuccess }: Props) {
   const needsProductFields = seed.kind === "unknown" || seed.kind === "manual";
   const seedProduct = "productName" in seed ? seed : null;
   const seedCategory: string =
@@ -127,8 +118,8 @@ export function ItemForm({ seed, prefill, categories, onCancel, onSuccess }: Pro
     "default",
   );
   const [mhdRaw, setMhdRaw] = useState<string | null>(null);
-  const [location, setLocation] = useState<(typeof LOCATIONS)[number]["value"]>(
-    getCategory(seedCategory).defaultLocation,
+  const [location, setLocation] = useState<string>(
+    resolveDefaultLocation(seedCategory, storageLocations),
   );
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +132,7 @@ export function ItemForm({ seed, prefill, categories, onCancel, onSuccess }: Pro
     if (mhdSource === "default") {
       setBestBefore(defaultBestBeforeDate(next));
     }
-    setLocation(getCategory(next).defaultLocation);
+    setLocation(resolveDefaultLocation(next, storageLocations));
   }
 
   const canSubmit = useMemo(() => {
@@ -310,7 +301,7 @@ export function ItemForm({ seed, prefill, categories, onCancel, onSuccess }: Pro
         />
         <p className="text-xs text-muted-foreground">
           {mhdSource === "default" &&
-            `Standard für ${getCategory(category).label}. "MHD scannen" für Foto-Erkennung.`}
+            `Standard für ${categories.find((c) => c.slug === category)?.name ?? getCategory(category).label}. "MHD scannen" für Foto-Erkennung.`}
           {mhdSource === "ocr" && mhdRaw && `Erkannt: "${mhdRaw}"`}
           {mhdSource === "manual" && "Manuell eingegeben."}
         </p>
@@ -319,14 +310,14 @@ export function ItemForm({ seed, prefill, categories, onCancel, onSuccess }: Pro
       {/* Location segmented control */}
       <FieldRow>
         <Label>Lagerort</Label>
-        <div className="grid grid-cols-4 gap-1 rounded-lg border p-1">
-          {LOCATIONS.map(({ value, label, icon: Icon }) => {
-            const active = location === value;
+        <div className="grid grid-cols-3 gap-1 rounded-lg border p-1">
+          {storageLocations.map(({ slug, name, icon }) => {
+            const active = location === slug;
             return (
               <button
-                key={value}
+                key={slug}
                 type="button"
-                onClick={() => setLocation(value)}
+                onClick={() => setLocation(slug)}
                 aria-pressed={active}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-md py-2 text-xs transition-colors",
@@ -335,8 +326,8 @@ export function ItemForm({ seed, prefill, categories, onCancel, onSuccess }: Pro
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
-                <Icon className="size-5" aria-hidden />
-                {label}
+                <span className="text-base leading-none" aria-hidden>{icon}</span>
+                {name}
               </button>
             );
           })}
@@ -382,6 +373,15 @@ export function ItemForm({ seed, prefill, categories, onCancel, onSuccess }: Pro
       </div>
     </form>
   );
+}
+
+function resolveDefaultLocation(
+  category: string,
+  storageLocations: StorageLocationDisplay[],
+): string {
+  const defaultSlug = getCategory(category).defaultLocation;
+  const found = storageLocations.find((l) => l.slug === defaultSlug);
+  return found?.slug ?? storageLocations[0]?.slug ?? "other";
 }
 
 function FieldRow({ children }: { children: React.ReactNode }) {

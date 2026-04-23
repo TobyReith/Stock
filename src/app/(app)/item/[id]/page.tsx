@@ -9,6 +9,7 @@ import { EditItemForm, type DetailItem } from "./edit-item-form";
 import { DeleteItemButton } from "./delete-item-button";
 import { AddToShoppingButton } from "./add-to-shopping-button";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 
 /**
  * Item detail page.
@@ -42,7 +43,7 @@ export default async function ItemDetailPage({
   const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
   if (!activeHouseholdId) return notFound();
 
-  const [itemResult, categoriesData] = await Promise.all([
+  const [itemResult, categoriesData, storageLocationsData] = await Promise.all([
     supabase
       .from("items")
       .select(
@@ -59,6 +60,11 @@ export default async function ItemDetailPage({
     supabase
       .from("categories")
       .select("id, name, icon, color, sort_order, is_system, slug")
+      .eq("household_id", activeHouseholdId)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("storage_locations")
+      .select("id, name, icon, slug, sort_order, is_system, temperature_hint")
       .eq("household_id", activeHouseholdId)
       .order("sort_order", { ascending: true }),
   ]);
@@ -79,6 +85,16 @@ export default async function ItemDetailPage({
     color: c.color,
     sortOrder: c.sort_order,
     isSystem: c.is_system,
+  }));
+
+  const storageLocations: StorageLocationDisplay[] = (storageLocationsData.data ?? []).map((l) => ({
+    id: l.id,
+    slug: l.slug,
+    name: l.name,
+    icon: l.icon,
+    sortOrder: l.sort_order,
+    isSystem: l.is_system,
+    temperatureHint: l.temperature_hint as StorageLocationDisplay["temperatureHint"],
   }));
 
   const item: DetailItem = {
@@ -109,7 +125,7 @@ export default async function ItemDetailPage({
           <ChevronLeft aria-hidden /> Zurück
         </Link>
       </div>
-      <EditItemForm item={item} categories={categories} />
+      <EditItemForm item={item} categories={categories} storageLocations={storageLocations} />
 
       {/*
         Secondary actions live outside `EditItemForm` because they're

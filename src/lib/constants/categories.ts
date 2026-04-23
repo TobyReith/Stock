@@ -30,8 +30,8 @@ export type Category = {
   label: string;
   /** Default shelf life if we have nothing else. In days. */
   defaultShelfLifeDays: number;
-  /** Typical storage location for this category. */
-  defaultLocation: "fridge" | "pantry" | "freezer" | "other";
+  /** Typical storage location for this category (matches storage_locations.slug). */
+  defaultLocation: string;
 };
 
 export const CATEGORIES: readonly Category[] = [

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ItemRow } from "./item-row";
 import { FiltersSheet } from "./filters-sheet";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import { daysUntil, mhdUrgency, type MhdUrgency } from "@/lib/date";
 import { useFilterState } from "@/lib/hooks/use-filter-state";
 import { applyItemFilters, applyItemSort } from "@/lib/filters/items";
@@ -23,7 +24,7 @@ export type ListItem = {
   unit: string | null;
   bestBefore: string; // YYYY-MM-DD
   updatedAt: string; // ISO timestamp
-  location: "fridge" | "pantry" | "freezer" | "other";
+  location: string;
   customName: string | null;
   productName: string;
   brand: string | null;
@@ -34,6 +35,7 @@ export type ListItem = {
 type Props = {
   items: ListItem[];
   categories: CategoryDisplay[];
+  storageLocations: StorageLocationDisplay[];
 };
 
 /**
@@ -58,7 +60,7 @@ type Props = {
  * filter chips, a shared link with a half-typed query in it would be
  * more confusing than useful.
  */
-export function ItemsList({ items, categories }: Props) {
+export function ItemsList({ items, categories, storageLocations }: Props) {
   const { state } = useFilterState();
   const [query, setQuery] = useState("");
 
@@ -119,7 +121,7 @@ export function ItemsList({ items, categories }: Props) {
             </button>
           )}
         </div>
-        <FiltersSheet categories={categories} />
+        <FiltersSheet categories={categories} storageLocations={storageLocations} />
       </div>
 
       {showNoResults && (
@@ -137,16 +139,16 @@ export function ItemsList({ items, categories }: Props) {
                 <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {label}
                 </h2>
-                <ItemLinks items={bucket} />
+                <ItemLinks items={bucket} storageLocations={storageLocations} />
               </section>
             ),
           )
-        : sorted.length > 0 && <ItemLinks items={sorted} />}
+        : sorted.length > 0 && <ItemLinks items={sorted} storageLocations={storageLocations} />}
     </div>
   );
 }
 
-function ItemLinks({ items }: { items: ListItem[] }) {
+function ItemLinks({ items, storageLocations }: { items: ListItem[]; storageLocations: StorageLocationDisplay[] }) {
   return (
     <ul className="flex flex-col gap-2">
       {items.map((item) => (
@@ -155,7 +157,7 @@ function ItemLinks({ items }: { items: ListItem[] }) {
             href={`/item/${item.id}`}
             className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <ItemRow item={item} daysLeft={daysUntil(item.bestBefore)} />
+            <ItemRow item={item} daysLeft={daysUntil(item.bestBefore)} storageLocations={storageLocations} />
           </Link>
         </li>
       ))}

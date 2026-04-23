@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
-import type { ItemLocation } from "@/lib/schemas/items";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import {
   EMPTY_FILTER_STATE,
   SORT_LABELS,
@@ -39,25 +39,17 @@ import { useFilterState } from "@/lib/hooks/use-filter-state";
  * still open.
  */
 
-const LOCATION_LABELS: Record<ItemLocation, string> = {
-  fridge: "Kühlschrank",
-  pantry: "Vorrat",
-  freezer: "Tiefkühl",
-  other: "Sonstiges",
-};
-
-const LOCATIONS: readonly ItemLocation[] = [
-  "fridge",
-  "pantry",
-  "freezer",
-  "other",
-];
-
 const URGENCIES: readonly UrgencyKey[] = ["expired", "soon", "later"];
 
 const SORTS: readonly SortKey[] = ["mhd", "updated", "name", "brand"];
 
-export function FiltersSheet({ categories }: { categories: CategoryDisplay[] }) {
+export function FiltersSheet({
+  categories,
+  storageLocations,
+}: {
+  categories: CategoryDisplay[];
+  storageLocations: StorageLocationDisplay[];
+}) {
   const { state, setState, patch } = useFilterState();
   const [open, setOpen] = useState(false);
 
@@ -108,9 +100,9 @@ export function FiltersSheet({ categories }: { categories: CategoryDisplay[] }) 
 
           <FilterAxis label="Lagerort">
             <ChipGroup
-              options={LOCATIONS.map((l) => ({
-                value: l,
-                label: LOCATION_LABELS[l],
+              options={storageLocations.map((l) => ({
+                value: l.slug,
+                label: `${l.icon} ${l.name}`,
               }))}
               selected={state.locations}
               onToggle={(value) =>

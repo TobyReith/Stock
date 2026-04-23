@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ChevronRight, Tag, Users } from "lucide-react";
+import { ArrowLeft, ChevronRight, Tag, Users, MapPin } from "lucide-react";
 import { getCurrentUser } from "@/lib/supabase/session";
 import { buttonVariants } from "@/components/ui/button";
 import { PushToggle } from "./push-toggle";
@@ -119,6 +119,30 @@ export default async function SettingsPage() {
                 <p className="text-sm font-medium">Kategorien verwalten</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   Anlegen, umbenennen, Reihenfolge und Farben anpassen.
+                </p>
+              </div>
+            </div>
+            <ChevronRight aria-hidden className="size-4 text-muted-foreground" />
+          </Link>
+        </section>
+
+        <section aria-labelledby="locations-heading" className="flex flex-col gap-3">
+          <h2
+            id="locations-heading"
+            className="text-sm font-medium text-muted-foreground"
+          >
+            Lagerorte
+          </h2>
+          <Link
+            href="/settings/lagerorte"
+            className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
+          >
+            <div className="flex items-center gap-3">
+              <MapPin aria-hidden className="size-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Lagerorte verwalten</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Anlegen, umbenennen, Reihenfolge anpassen.
                 </p>
               </div>
             </div>
