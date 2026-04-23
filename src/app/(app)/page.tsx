@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Package, Plus, Settings } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/session";
 import { getActiveHouseholdId, listMemberships } from "@/lib/households/active";
 import type { Database } from "@/lib/supabase/database.types";
 import { ItemsList, type ListItem } from "./_list/items-list";
@@ -26,10 +27,9 @@ import { buttonVariants } from "@/components/ui/button";
  * `ensureActiveHousehold`.
  */
 export default async function ListPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Both helpers are `cache()`-wrapped — when the layout already awaited
+  // `getCurrentUser()` and `createClient()` the second call is free.
+  const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   // `(app)/layout.tsx` already redirects unauthenticated users, so `!user`
   // is defensive. We bail with a friendly state instead of throwing.
   if (!user) return <UnauthedState />;

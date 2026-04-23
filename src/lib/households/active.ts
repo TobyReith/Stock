@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -53,11 +54,18 @@ export async function clearActiveHouseholdCookie(): Promise<void> {
  * Safe to call from Server Components. Call sites that need a guaranteed
  * household (writes, bootstrap) should use {@link ensureActiveHousehold}
  * instead.
+ *
+ * Wrapped in React `cache()`: a single tab-switch commonly resolves the
+ * active household multiple times (layout, page, stats helper, …).
+ * The underlying `household_members` query is identical each call; the
+ * cache dedupes it within a request. Cache key is
+ * `(supabase, userId)` — because `createClient()` is itself cached, the
+ * supabase argument is referentially stable across the render tree.
  */
-export async function getActiveHouseholdId(
+export const getActiveHouseholdId = cache(async (
   supabase: SupabaseClient<Database>,
   userId: string,
-): Promise<string | null> {
+): Promise<string | null> => {
   const store = await cookies();
   const cookieValue = store.get(ACTIVE_HOUSEHOLD_COOKIE)?.value ?? null;
 
@@ -78,7 +86,7 @@ export async function getActiveHouseholdId(
     return cookieValue;
   }
   return memberships[0].household_id;
-}
+});
 
 /**
  * Resolve the active household id, bootstrapping a default household
@@ -161,10 +169,10 @@ export type MembershipSummary = {
  * either an object or a single-entry array depending on generator
  * version; we normalize both shapes here so callers get a flat list.
  */
-export async function listMemberships(
+export const listMemberships = cache(async (
   supabase: SupabaseClient<Database>,
   userId: string,
-): Promise<MembershipSummary[]> {
+): Promise<MembershipSummary[]> => {
   const { data, error } = await supabase
     .from("household_members")
     .select("role, household:households ( id, name )")
@@ -178,4 +186,4 @@ export async function listMemberships(
     const role: MembershipSummary["role"] = row.role === "owner" ? "owner" : "member";
     return [{ id: h.id, name: h.name, role }];
   });
-}
+});

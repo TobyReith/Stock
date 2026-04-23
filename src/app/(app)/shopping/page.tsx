@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/session";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import type { Database } from "@/lib/supabase/database.types";
 import { ShoppingList, type ShoppingEntry } from "./shopping-list";
@@ -24,10 +25,9 @@ export const metadata: Metadata = { title: "Einkaufsliste" };
  * entries even if RLS would technically allow it post-join.
  */
 export default async function ShoppingPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Both helpers are `cache()`-wrapped — when the layout already awaited
+  // `getCurrentUser()` and `createClient()` the second call is free.
+  const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   if (!user) return <UnauthedState />;
 
   const [activeHouseholdId, memberships] = await Promise.all([

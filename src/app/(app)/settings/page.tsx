@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, Users } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/session";
 import { buttonVariants } from "@/components/ui/button";
 import { PushToggle } from "./push-toggle";
 import { ThemeToggle } from "./theme-toggle";
@@ -23,10 +23,8 @@ export const metadata = { title: "Einstellungen" };
  * and surfaces a "key fehlt" error state before the user taps anything.
  */
 export default async function SettingsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // `cache()`-wrapped — shares the auth lookup with `(app)/layout.tsx`.
+  const user = await getCurrentUser();
   // `(app)/layout.tsx` redirects unauthenticated users, so `!user` here
   // is defensive only.
   if (!user) return null;

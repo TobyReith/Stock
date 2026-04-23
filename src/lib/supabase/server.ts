@@ -1,8 +1,22 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "./database.types";
 
-export async function createClient() {
+/**
+ * Server-side Supabase client, memoized per request.
+ *
+ * We wrap the factory with React's `cache()` so every Server Component
+ * and helper that awaits `createClient()` within a single render shares
+ * one underlying client instance. Without this dedup, each `page.tsx`
+ * would construct its own client (and repeat the cookie read +
+ * `auth.getUser()` RTT) even though the layout already did it.
+ *
+ * Cache scope is per-request — it does **not** persist across
+ * navigations. That's what we want: the next Server render starts fresh
+ * so cookie updates from server actions propagate.
+ */
+export const createClient = cache(async () => {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(
@@ -25,4 +39,4 @@ export async function createClient() {
       },
     },
   );
-}
+});

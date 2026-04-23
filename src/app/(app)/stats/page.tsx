@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { BarChart3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/session";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import { CATEGORIES, getCategory, type CategoryKey } from "@/lib/constants/categories";
 import { TimeframeToggle, type RangeKey, RANGE_DAYS } from "./timeframe-toggle";
@@ -31,10 +32,9 @@ export default async function StatsPage({
   const params = await searchParams;
   const range = parseRange(params.range);
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Both helpers are `cache()`-wrapped — the layout already resolved the
+  // user, so this call is free; same for `createClient()`.
+  const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   if (!user) return <EmptyState />;
 
   // Stats are per-active-household. A user with memberships in several
