@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  ExternalLink,
   Loader2,
   Package,
   Plus,
@@ -350,21 +349,22 @@ function Row({
       </div>
 
       {/* Right-hand actions. Order depends on state:
-          - open   → Bring!-Deeplink, Löschen
-          - bought → "In den Vorrat" (primary), Löschen
+          - open   → Löschen
+          - bought → "In den Vorrat" (primary), Undo (unten)
           The "In den Vorrat" link is a prominent primary so the
-          "check off → move to stock" loop is one tap. */}
-      {isBought ? (
-        <>
-          <Link
-            href={`/add?fromShopping=${entry.id}`}
-            className="inline-flex h-8 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <Package className="size-3.5" aria-hidden /> In den Vorrat
-          </Link>
-        </>
-      ) : (
-        <BringLink name={name} />
+          "check off → move to stock" loop is one tap.
+
+          Externe Integrationen (z.B. Bring!) sind hier bewusst
+          weggelassen — kein öffentliches App-URL-Schema existiert,
+          und das generische OS-Share-Sheet war im Test kein
+          zuverlässiger Weg nach Bring!. Wird getrennt betrachtet. */}
+      {isBought && (
+        <Link
+          href={`/add?fromShopping=${entry.id}`}
+          className="inline-flex h-8 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          <Package className="size-3.5" aria-hidden /> In den Vorrat
+        </Link>
       )}
 
       <Button
@@ -400,26 +400,3 @@ function Row({
   );
 }
 
-/**
- * Passive integration with the Bring!-App (iOS/Android). Tap the icon
- * opens Bring!'s import sheet pre-filled with the entry name — from
- * there the user picks their list inside Bring! itself. No API, no
- * auth, just a public custom-scheme deeplink.
- *
- * If Bring! isn't installed the OS shows a graceful "can't open link"
- * dialog. We don't chase a JS-based fallback because distinguishing
- * "app missing" from "user cancelled" reliably is messy and the icon
- * is small enough that stray taps are rare.
- */
-function BringLink({ name }: { name: string }) {
-  return (
-    <a
-      href={`bring://import?title=${encodeURIComponent(name)}`}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-      aria-label="In Bring! öffnen"
-      title="In Bring! öffnen"
-    >
-      <ExternalLink className="size-4" aria-hidden />
-    </a>
-  );
-}
