@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useState, useTransition } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2, Pencil, SearchX, XCircle } from "lucide-react";
-import { BarcodeScanner } from "@/components/barcode-scanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,37 @@ import { lookupBarcode } from "@/lib/actions/items";
 import { markShoppingItemBought } from "@/lib/actions/shopping";
 import type { CategoryKey } from "@/lib/constants/categories";
 import { ItemForm, type FormSeed, type ItemFormPrefill } from "./item-form";
+
+/**
+ * Lazy-load the barcode scanner.
+ *
+ * The scanner pulls in `@zxing/browser` + `@zxing/library` (~200 KB
+ * gzipped) plus the camera-engine detector. None of that is useful
+ * until the user actually lands on `/add` AND chooses the scan path —
+ * the "Ohne Barcode" and shopping-list handover paths never touch it.
+ *
+ * Keeping it off the initial client bundle means the rest of the app
+ * (which loads this route via bottom-nav prefetch) doesn't pay for
+ * zxing in every tab switch. `ssr: false` is required because the
+ * component reaches for `navigator.mediaDevices` during render paths,
+ * and prerendering it would throw.
+ *
+ * The `loading` fallback mirrors the camera viewport's shape so the
+ * flow doesn't reflow when the chunk finishes downloading — same
+ * 4:3 box the running scanner paints into.
+ */
+const BarcodeScanner = dynamic(
+  () => import("@/components/barcode-scanner").then((m) => m.BarcodeScanner),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="aspect-[4/3] w-full animate-pulse rounded-lg border bg-muted"
+        aria-hidden
+      />
+    ),
+  },
+);
 
 /**
  * Top-level state machine for the Add-Flow page.

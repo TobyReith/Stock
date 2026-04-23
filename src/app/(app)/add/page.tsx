@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AddFlow, type AddFlowInitial } from "./add-flow";
 import { ActiveHouseholdBadge } from "../_header/active-household-badge";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/session";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import type { CategoryKey } from "@/lib/constants/categories";
 import type { FormSeed } from "./item-form";
@@ -77,10 +78,9 @@ async function resolveShoppingSeed(
   // avoid a round-trip for "?fromShopping=garbage".
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Both helpers are `cache()`-wrapped — shares with the layout's
+  // `getCurrentUser()` call at no extra cost.
+  const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   if (!user) return null;
 
   const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
