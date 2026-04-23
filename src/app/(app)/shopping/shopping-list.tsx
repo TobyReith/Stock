@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  ExternalLink,
   Loader2,
   Package,
   Plus,
+  Share2,
   ShoppingBasket,
   Trash2,
   Undo2,
@@ -350,7 +350,7 @@ function Row({
       </div>
 
       {/* Right-hand actions. Order depends on state:
-          - open   → Bring!-Deeplink, Löschen
+          - open   → Share-Button (Bring!/andere Apps), Löschen
           - bought → "In den Vorrat" (primary), Löschen
           The "In den Vorrat" link is a prominent primary so the
           "check off → move to stock" loop is one tap. */}
@@ -364,7 +364,7 @@ function Row({
           </Link>
         </>
       ) : (
-        <BringLink name={name} />
+        <ShareButton name={name} />
       )}
 
       <Button
@@ -401,25 +401,70 @@ function Row({
 }
 
 /**
- * Passive integration with the Bring!-App (iOS/Android). Tap the icon
- * opens Bring!'s import sheet pre-filled with the entry name — from
- * there the user picks their list inside Bring! itself. No API, no
- * auth, just a public custom-scheme deeplink.
+ * Share the entry's name through the native OS share sheet.
  *
- * If Bring! isn't installed the OS shows a graceful "can't open link"
- * dialog. We don't chase a JS-based fallback because distinguishing
- * "app missing" from "user cancelled" reliably is messy and the icon
- * is small enough that stray taps are rare.
+ * Bring! and all other shopping / note / messaging apps register
+ * themselves as share targets for `text/plain`, so this is the
+ * platform-correct path for "send this item to Bring!" (or WhatsApp,
+ * or Notes, or …) without needing an app-specific deeplink. Bring!
+ * does not publish a single-item import URL scheme — the recipe
+ * deeplink (`api.getbring.com/rest/bringrecipes/deeplink`) expects a
+ * full hosted recipe URL, which we don't have for a plain shopping
+ * entry.
+ *
+ * Fallbacks, in order:
+ *   1. `navigator.share` — mobile Safari / Chrome / most Android
+ *   2. `navigator.clipboard.writeText` — desktop & older mobile
+ *   3. toast.error — truly ancient browser, user is on their own
+ *
+ * We don't try to open Bring! directly anymore: `bring://` is not a
+ * published public URL scheme, and silently doing nothing when the app
+ * isn't installed made the button feel broken. The share sheet makes
+ * the action discoverable and honest.
  */
-function BringLink({ name }: { name: string }) {
+function ShareButton({ name }: { name: string }) {
+  async function handleShare() {
+    // Feature-detect — the property is undefined in SSR and on browsers
+    // that don't expose the Web Share API (most desktop Firefox, older
+    // Chromium).
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try {
+        await navigator.share({ text: name, title: name });
+        return;
+      } catch (err) {
+        // `AbortError` = user cancelled the share sheet. That's not a
+        // failure worth surfacing — bail silently.
+        if (err instanceof Error && err.name === "AbortError") return;
+        // Any other failure: fall through to clipboard.
+      }
+    }
+    if (
+      typeof navigator !== "undefined" &&
+      navigator.clipboard?.writeText
+    ) {
+      try {
+        await navigator.clipboard.writeText(name);
+        toast.success("Name kopiert", {
+          description: "In Bring! einfügen oder in der gewünschten App teilen.",
+          duration: 4000,
+        });
+        return;
+      } catch {
+        // fall through
+      }
+    }
+    toast.error("Teilen nicht unterstützt");
+  }
+
   return (
-    <a
-      href={`bring://import?title=${encodeURIComponent(name)}`}
+    <button
+      type="button"
+      onClick={handleShare}
       className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-      aria-label="In Bring! öffnen"
-      title="In Bring! öffnen"
+      aria-label="Teilen (z.B. in Bring!)"
+      title="Teilen (z.B. in Bring!)"
     >
-      <ExternalLink className="size-4" aria-hidden />
-    </a>
+      <Share2 className="size-4" aria-hidden />
+    </button>
   );
 }
