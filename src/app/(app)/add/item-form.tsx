@@ -15,6 +15,10 @@ import {
 import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import { MhdCapture } from "./mhd-capture";
+import {
+  ProductAutocomplete,
+  type ProductSearchResult,
+} from "./product-autocomplete";
 
 /**
  * The actual "add item" form.
@@ -125,6 +129,12 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Extra metadata captured when the user picks from autocomplete.
+  // Used to enrich the addItem call the same way the "off" seed path does.
+  const [offBrand, setOffBrand] = useState<string | null>(null);
+  const [offImageUrl, setOffImageUrl] = useState<string | null>(null);
+  const [offBarcode, setOffBarcode] = useState<string | null>(null);
+
   // When the user changes the category on an unknown/manual entry, bump
   // the default MHD + location — but only if they haven't customized them.
   function handleCategoryChange(next: string) {
@@ -133,6 +143,17 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
       setBestBefore(defaultBestBeforeDate(next));
     }
     setLocation(resolveDefaultLocation(next, storageLocations));
+  }
+
+  function handleAutocompleteSelect(result: ProductSearchResult) {
+    setOffBrand(result.brand);
+    setOffImageUrl(result.imageUrl);
+    setOffBarcode(result.barcode);
+    handleCategoryChange(result.category);
+    // Pre-fill unit from the OFF quantity string ("500 g" → "g") if the
+    // user hasn't set one yet.
+    const parsedUnit = parseUnit(result.quantity);
+    if (!unit && parsedUnit) setUnit(parsedUnit);
   }
 
   const canSubmit = useMemo(() => {
@@ -148,13 +169,13 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
     if (!canSubmit) return;
     setError(null);
 
-    const barcode = "barcode" in seed ? seed.barcode : null;
+    const barcode = "barcode" in seed ? seed.barcode : offBarcode;
     const input: AddItemInput = {
       productId: seed.kind === "known" ? seed.productId : undefined,
       barcode: barcode ?? undefined,
       productName: seedProduct?.productName ?? productName.trim(),
-      brand: seedProduct?.brand ?? null,
-      imageUrl: seedProduct?.imageUrl ?? null,
+      brand: seedProduct?.brand ?? offBrand ?? null,
+      imageUrl: seedProduct?.imageUrl ?? offImageUrl ?? null,
       category,
       customName: customName.trim() || undefined,
       quantity: Number(quantity),
@@ -208,10 +229,19 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
         <>
           <FieldRow>
             <Label htmlFor="product-name">Produktname</Label>
-            <Input
+            <ProductAutocomplete
               id="product-name"
               value={productName}
-              onChange={(e) => setProductName(e.target.value)}
+              onChange={(v) => {
+                setProductName(v);
+                // Clear cached OFF data when the user edits freely.
+                if (offBarcode) {
+                  setOffBrand(null);
+                  setOffImageUrl(null);
+                  setOffBarcode(null);
+                }
+              }}
+              onSelect={handleAutocompleteSelect}
               placeholder="z.B. Haferflocken"
               autoFocus
               required
@@ -386,4 +416,11 @@ function resolveDefaultLocation(
 
 function FieldRow({ children }: { children: React.ReactNode }) {
   return <div className="flex flex-col gap-1.5">{children}</div>;
+}
+
+/** Extract a unit abbreviation from an OFF quantity string like "500 g" or "1,5 L". */
+function parseUnit(quantity: string | null): string | null {
+  if (!quantity) return null;
+  const m = quantity.match(/\b(g|kg|ml|l|cl|dl|mg)\b/i);
+  return m ? m[1]!.toLowerCase() : null;
 }
