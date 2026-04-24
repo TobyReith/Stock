@@ -292,7 +292,7 @@ function LocationForm({ existing, onSuccess, onCancel }: FormProps) {
           ))}
           <input
             type="text"
-            value={STORAGE_LOCATION_ICONS.includes(icon) ? "" : icon}
+            value={(STORAGE_LOCATION_ICONS as unknown as string[]).includes(icon) ? "" : icon}
             onChange={(e) => {
               const first = firstGrapheme(e.target.value);
               if (first) setIcon(first);
@@ -301,7 +301,7 @@ function LocationForm({ existing, onSuccess, onCancel }: FormProps) {
             aria-label="Eigenes Emoji"
             className={cn(
               "size-9 rounded-lg border text-center text-lg outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
-              !STORAGE_LOCATION_ICONS.includes(icon)
+              !(STORAGE_LOCATION_ICONS as unknown as string[]).includes(icon)
                 ? "border-primary bg-primary/10"
                 : "border-dashed border-border hover:bg-muted",
             )}
