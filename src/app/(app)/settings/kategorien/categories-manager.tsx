@@ -197,6 +197,15 @@ export function CategoriesManager({ initialCategories }: Props) {
   );
 }
 
+function firstGrapheme(str: string): string {
+  if (!str) return "";
+  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+    const [first] = new Intl.Segmenter().segment(str);
+    return first?.segment ?? "";
+  }
+  return [...str][0] ?? "";
+}
+
 // ─── Category create/edit form ───────────────────────────────────────────────
 
 type FormProps =
@@ -279,6 +288,22 @@ function CategoryForm({ existing, onSuccess, onCancel }: FormProps) {
               {emoji}
             </button>
           ))}
+          <input
+            type="text"
+            value={CATEGORY_ICONS.includes(icon) ? "" : icon}
+            onChange={(e) => {
+              const first = firstGrapheme(e.target.value);
+              if (first) setIcon(first);
+            }}
+            placeholder="+"
+            aria-label="Eigenes Emoji"
+            className={cn(
+              "size-9 rounded-lg border text-center text-lg outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
+              !CATEGORY_ICONS.includes(icon)
+                ? "border-primary bg-primary/10"
+                : "border-dashed border-border hover:bg-muted",
+            )}
+          />
         </div>
       </div>
 
