@@ -214,7 +214,7 @@ type FormProps =
 
 function LocationForm({ existing, onSuccess, onCancel }: FormProps) {
   const [name, setName] = useState(existing?.name ?? "");
-  const [icon, setIcon] = useState(existing?.icon ?? "📦");
+  const [icon, setIcon] = useState<string>(existing?.icon ?? "📦");
   const [temperatureHint, setTemperatureHint] = useState<TemperatureHint>(
     existing?.temperatureHint ?? "ambient",
   );

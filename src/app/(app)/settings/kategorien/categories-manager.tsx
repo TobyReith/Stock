@@ -214,7 +214,7 @@ type FormProps =
 
 function CategoryForm({ existing, onSuccess, onCancel }: FormProps) {
   const [name, setName] = useState(existing?.name ?? "");
-  const [icon, setIcon] = useState(existing?.icon ?? "📦");
+  const [icon, setIcon] = useState<string>(existing?.icon ?? "📦");
   const [color, setColor] = useState(existing?.color ?? "#6b7280");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
