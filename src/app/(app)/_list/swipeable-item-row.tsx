@@ -11,7 +11,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { consumeItem, discardItem, unmarkItem } from "@/lib/actions/items";
 import { addShoppingItem } from "@/lib/actions/shopping";
@@ -33,6 +32,7 @@ export function SwipeableItemRow({
 }) {
   const x = useMotionValue(0);
   const wasDragged = useRef(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Icon opacity: green fades in when swiping right, red when swiping left
   const consumeOpacity = useTransform(x, [0, THRESHOLD], [0, 1]);
@@ -100,7 +100,7 @@ export function SwipeableItemRow({
   }
 
   return (
-    <Sheet>
+    <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
       <div className="relative overflow-hidden rounded-lg">
         {/* Action indicator icons — sit behind the card */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-5">
@@ -169,13 +169,13 @@ export function SwipeableItemRow({
               item={item}
               daysLeft={daysLeft}
               storageLocations={storageLocations}
-              actions={<ActionMenuTrigger />}
+              actions={<ActionMenuTrigger onOpen={() => setMenuOpen(true)} />}
             />
           </Link>
         </motion.div>
       </div>
 
-      {/* Action sheet — controlled by SheetTrigger inside ItemRow */}
+      {/* Action sheet — controlled via menuOpen state, no SheetTrigger needed */}
       <SheetContent side="bottom" className="rounded-t-xl px-0 pb-8">
         <SheetHeader className="px-4 pb-0">
           <SheetTitle className="truncate text-left text-sm font-medium text-muted-foreground">
@@ -225,27 +225,26 @@ export function SwipeableItemRow({
   );
 }
 
-function ActionMenuTrigger() {
+function ActionMenuTrigger({ onOpen }: { onOpen: () => void }) {
   return (
-    <SheetTrigger
-      render={
-        <button
-          type="button"
-          aria-label="Weitere Aktionen"
-          onClick={(e) => {
-            // Prevent the Link from navigating when the menu button is tapped.
-            e.stopPropagation();
-          }}
-          onPointerDown={(e) => {
-            // Prevent framer-motion from starting a drag when the user
-            // touches this button area.
-            e.stopPropagation();
-          }}
-          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        />
-      }
+    <button
+      type="button"
+      aria-label="Weitere Aktionen"
+      onClick={(e) => {
+        // Must stop propagation here directly — not via SheetTrigger's render
+        // prop, which doesn't guarantee our handler runs before the Link's
+        // default navigation fires.
+        e.stopPropagation();
+        e.preventDefault();
+        onOpen();
+      }}
+      onPointerDown={(e) => {
+        // Prevent framer-motion from starting a drag from this area.
+        e.stopPropagation();
+      }}
+      className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
     >
       <MoreVertical className="size-4" aria-hidden />
-    </SheetTrigger>
+    </button>
   );
 }
