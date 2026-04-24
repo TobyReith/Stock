@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { ItemRow } from "./item-row";
+import { SwipeableItemRow } from "./swipeable-item-row";
 import { FiltersSheet } from "./filters-sheet";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
@@ -153,12 +152,11 @@ function ItemLinks({ items, storageLocations }: { items: ListItem[]; storageLoca
     <ul className="flex flex-col gap-2">
       {items.map((item) => (
         <li key={item.id}>
-          <Link
-            href={`/item/${item.id}`}
-            className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ItemRow item={item} daysLeft={daysUntil(item.bestBefore)} storageLocations={storageLocations} />
-          </Link>
+          <SwipeableItemRow
+            item={item}
+            daysLeft={daysUntil(item.bestBefore)}
+            storageLocations={storageLocations}
+          />
         </li>
       ))}
     </ul>

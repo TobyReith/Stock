@@ -1,3 +1,4 @@
+import type * as React from "react";
 import { formatMhdRelative } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { Package } from "lucide-react";
@@ -8,10 +9,12 @@ export function ItemRow({
   item,
   daysLeft,
   storageLocations,
+  actions,
 }: {
   item: ListItem;
   daysLeft: number;
   storageLocations: StorageLocationDisplay[];
+  actions?: React.ReactNode;
 }) {
   const locationIcon =
     storageLocations.find((l) => l.slug === item.location)?.icon ?? "📦";
@@ -49,9 +52,12 @@ export function ItemRow({
               </p>
             )}
           </div>
-          <p className="shrink-0 text-sm tabular-nums text-muted-foreground">
-            {formatQuantity(item.quantity, item.unit)}
-          </p>
+          <div className="flex shrink-0 items-center gap-1">
+            <p className="text-sm tabular-nums text-muted-foreground">
+              {formatQuantity(item.quantity, item.unit)}
+            </p>
+            {actions}
+          </div>
         </div>
         <div className="mt-1.5 flex items-center gap-1.5 text-xs">
           <span className="leading-none" aria-hidden>{locationIcon}</span>
