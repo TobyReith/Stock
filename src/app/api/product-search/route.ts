@@ -4,13 +4,17 @@ import { mapCategory } from "@/lib/openfoodfacts/category-map";
 /**
  * GET /api/product-search?q=<term>
  *
- * Proxies Open Food Facts v2 search filtered to Germany, normalises the
- * response to our internal shape, and caches it for 30 minutes via ISR.
- * Running this server-side protects against OFF rate-limits and keeps the
- * raw OFF payload off the client bundle.
+ * Proxies the Open Food Facts Search-a-licious API, normalises the
+ * response to our internal shape, and caches it for 30 minutes.
+ *
+ * We use search.openfoodfacts.org (Search-a-licious / Elasticsearch)
+ * rather than the classic world.openfoodfacts.org/api/v2/search because:
+ *   - It consistently searches German-language fields (`langs=de`)
+ *   - It is more reliable and has lower latency
+ *   - `sort_by=popularity_key` gives better autocomplete ordering
  *
  * This route could be moved to a Supabase Edge Function (Frankfurt) for
- * lower p50 latency to German users; the logic is identical.
+ * even lower latency to German users; the logic is identical.
  */
 
 export const runtime = "edge";
@@ -33,12 +37,13 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
   if (q.length < 2) return EMPTY;
 
-  const offUrl = new URL("https://world.openfoodfacts.org/api/v2/search");
-  offUrl.searchParams.set("search_terms", q);
-  offUrl.searchParams.set("countries_tags", "en:germany");
+  // Search-a-licious API (Elasticsearch-based, stable, designed for autocomplete).
+  const offUrl = new URL("https://search.openfoodfacts.org/search");
+  offUrl.searchParams.set("q", q);
+  offUrl.searchParams.set("langs", "de"); // search product_name.de, categories.de, …
   offUrl.searchParams.set("fields", OFF_FIELDS);
   offUrl.searchParams.set("page_size", "8");
-  offUrl.searchParams.set("sort_by", "unique_scans_n");
+  offUrl.searchParams.set("sort_by", "popularity_key");
 
   try {
     const offRes = await fetch(offUrl.toString(), {
@@ -53,9 +58,11 @@ export async function GET(req: NextRequest) {
 
     if (!offRes.ok) return EMPTY;
 
-    const data = (await offRes.json()) as { products?: unknown[] };
+    // Search-a-licious returns { hits: [] }; fall back to { products: [] }
+    // in case the API shape ever changes.
+    const data = (await offRes.json()) as { hits?: unknown[]; products?: unknown[] };
 
-    const products: ProductSearchResult[] = (data.products ?? [])
+    const products: ProductSearchResult[] = (data.hits ?? data.products ?? [])
       .map(normalizeProduct)
       .filter((p): p is ProductSearchResult => p !== null);
 
@@ -76,6 +83,12 @@ export async function GET(req: NextRequest) {
 
 type RawProduct = Record<string, unknown>;
 
+function firstBrand(brands: unknown): string | null {
+  if (Array.isArray(brands)) return (brands[0] as string)?.trim() || null;
+  if (typeof brands === "string") return brands.split(",")[0]?.trim() || null;
+  return null;
+}
+
 function normalizeProduct(raw: unknown): ProductSearchResult | null {
   const p = raw as RawProduct;
   const name = (
@@ -88,7 +101,8 @@ function normalizeProduct(raw: unknown): ProductSearchResult | null {
   return {
     barcode: p.code as string,
     name,
-    brand: ((p.brands as string) ?? "").split(",")[0]?.trim() || null,
+    // Search-a-licious returns brands as string[]; OFF v2 uses a comma-joined string.
+    brand: firstBrand(p.brands),
     imageUrl: (p.image_url as string) || null,
     category: mapCategory((p.categories_tags as string[]) ?? []),
     quantity: (p.quantity as string) || null,
