@@ -3,6 +3,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   VisionProviderError,
   type ExtractedDate,
+  type ProductCandidate,
+  type ProductIdentificationResult,
   type VisionInput,
   type VisionProvider,
   type VisionResult,
@@ -146,6 +148,132 @@ function toResult(input: ToolInput): VisionResult {
   };
   return { ok: true, value };
 }
+
+// ─── Product Identification ───────────────────────────────────────────────────
+
+const PRODUCT_TOOL_NAME = "report_product";
+
+const PRODUCT_SYSTEM_PROMPT = `Du bist ein Produkterkennungs-System für Lebensmittelverpackungen.
+
+Deine Aufgabe: Das Produkt auf dem Foto identifizieren und über das Tool \`${PRODUCT_TOOL_NAME}\` melden.
+
+ERKENNUNGSREGELN:
+- Lies den Produktnamen von der Verpackung (Hauptbezeichnung, keine Werbetexte).
+- Marke/Hersteller: Firmenname auf der Verpackung (z.B. Milka, Müller, Dr. Oetker).
+- Kategorie: Wähle eine aus: dairy | meat_fish | produce | frozen | canned | dry_pasta_rice | dry_baking | bread | spices | condiments | snacks | beverages | other
+- Bis zu 3 Kandidaten absteigend nach Konfidenz, falls du unsicher bist.
+- Erkenne auch Produkte in anderen Sprachen.
+
+CONFIDENCE-SKALA:
+- 0.90–1.00: Name + Marke klar lesbar.
+- 0.70–0.89: Name lesbar, Marke unklar oder teilweise verdeckt.
+- 0.40–0.69: Nur Teilinformationen erkennbar.
+- < 0.40: Nicht zurückmelden.
+
+WENN KEIN PRODUKT ERKENNBAR: \`candidates: []\`
+
+Antworte AUSSCHLIESSLICH über den Tool-Call, kein Fließtext.`;
+
+const PRODUCT_TOOL_DEFINITION = {
+  name: PRODUCT_TOOL_NAME,
+  description: "Meldet die aus dem Foto erkannten Produkt-Kandidaten.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      candidates: {
+        type: "array",
+        description: "Erkannte Kandidaten, absteigend nach Konfidenz (max. 3).",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Produktname wie auf Verpackung." },
+            brand: { type: "string", description: "Marke/Hersteller." },
+            category: {
+              type: "string",
+              enum: ["dairy", "meat_fish", "produce", "frozen", "canned", "dry_pasta_rice", "dry_baking", "bread", "spices", "condiments", "snacks", "beverages", "other"],
+            },
+            confidence: { type: "number", minimum: 0, maximum: 1 },
+          },
+          required: ["name", "category", "confidence"],
+        },
+      },
+    },
+    required: ["candidates"],
+  },
+};
+
+type ProductToolInput = {
+  candidates: Array<{
+    name: string;
+    brand?: string;
+    category: string;
+    confidence: number;
+  }>;
+};
+
+export async function identifyProduct(input: VisionInput): Promise<ProductIdentificationResult> {
+  const client = getClient();
+
+  let response: Awaited<ReturnType<typeof client.messages.create>>;
+  try {
+    response = await client.messages.create({
+      model: MODEL,
+      max_tokens: MAX_TOKENS,
+      system: [
+        {
+          type: "text",
+          text: PRODUCT_SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      tools: [PRODUCT_TOOL_DEFINITION],
+      tool_choice: { type: "tool", name: PRODUCT_TOOL_NAME },
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: input.mimeType,
+                data: input.base64,
+              },
+            },
+            { type: "text", text: "Bitte das Produkt auf dieser Verpackung identifizieren." },
+          ],
+        },
+      ],
+    });
+  } catch (err) {
+    throw new VisionProviderError(
+      "anthropic",
+      err instanceof Error ? err.message : "Anthropic API Fehler",
+      { cause: err },
+    );
+  }
+
+  const toolBlock = response.content.find((b) => b.type === "tool_use");
+  if (!toolBlock || toolBlock.type !== "tool_use") {
+    return { ok: false, reason: "unparseable" };
+  }
+
+  const raw = toolBlock.input as ProductToolInput;
+  const candidates: ProductCandidate[] = (raw.candidates ?? [])
+    .filter((c) => c.confidence >= 0.4)
+    .slice(0, 3)
+    .map((c) => ({
+      name: c.name,
+      brand: c.brand ?? null,
+      category: c.category,
+      confidence: c.confidence,
+      source: "vision" as const,
+    }));
+
+  return { ok: true, candidates };
+}
+
+// ─── MHD Provider ────────────────────────────────────────────────────────────
 
 export const anthropicVisionProvider: VisionProvider = {
   id: "anthropic-claude-sonnet-4-5",

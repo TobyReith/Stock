@@ -4,7 +4,7 @@ import { useCallback, useState, useTransition } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, Pencil, SearchX, XCircle } from "lucide-react";
+import { Camera, CheckCircle2, Loader2, Pencil, SearchX, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,9 @@ import { lookupBarcode } from "@/lib/actions/items";
 import { markShoppingItemBought } from "@/lib/actions/shopping";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
+import type { ProductCandidate } from "@/lib/vision/types";
 import { ItemForm, type FormSeed, type ItemFormPrefill } from "./item-form";
+import { ProductPhotoCapture } from "./product-photo-capture";
 
 /**
  * Lazy-load the barcode scanner.
@@ -67,6 +69,8 @@ type Stage =
   | { kind: "looking-up"; barcode: string }
   | { kind: "lookup-error"; message: string; barcode: string }
   | { kind: "preview"; barcode: string; result: LookupResult }
+  | { kind: "photo-analyzing" }
+  | { kind: "photo-candidates"; candidates: ProductCandidate[] }
   | { kind: "form"; seed: FormSeed };
 
 /**
@@ -159,6 +163,11 @@ export function AddFlow({
             onDetected={handleDetected}
             onManualEntry={() => setStage({ kind: "manual-barcode" })}
           />
+          <ProductPhotoCapture
+            onAnalyzing={() => setStage({ kind: "photo-analyzing" })}
+            onCandidates={(candidates) => setStage({ kind: "photo-candidates", candidates })}
+            onError={(msg) => toast.error(msg)}
+          />
           <Button
             variant="outline"
             size="lg"
@@ -212,6 +221,27 @@ export function AddFlow({
           barcode={stage.barcode}
           result={stage.result}
           onContinue={(seed) => setStage({ kind: "form", seed })}
+          onReset={resetToScanner}
+        />
+      )}
+
+      {stage.kind === "photo-analyzing" && (
+        <Card>
+          <CardContent className="flex items-center gap-3 py-4">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" aria-hidden />
+            <div>
+              <p className="font-medium">Produkt wird erkannt…</p>
+              <p className="text-xs text-muted-foreground">Das dauert einen Moment.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {stage.kind === "photo-candidates" && (
+        <PhotoCandidatesPicker
+          candidates={stage.candidates}
+          categories={categories}
+          onSelect={(seed) => setStage({ kind: "form", seed })}
           onReset={resetToScanner}
         />
       )}
@@ -399,6 +429,107 @@ function LookupPreview({
           </Button>
           <Button variant="ghost" onClick={onReset}>
             Neu scannen
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PhotoCandidatesPicker({
+  candidates,
+  categories,
+  onSelect,
+  onReset,
+}: {
+  candidates: ProductCandidate[];
+  categories: CategoryDisplay[];
+  onSelect: (seed: FormSeed) => void;
+  onReset: () => void;
+}) {
+  function seedFromCandidate(c: ProductCandidate): FormSeed {
+    if (c.source === "off" && c.offBarcode) {
+      return {
+        kind: "off",
+        productName: c.name,
+        brand: c.brand,
+        imageUrl: c.offImageUrl ?? null,
+        category: c.category,
+        barcode: c.offBarcode,
+      };
+    }
+    return {
+      kind: "vision",
+      productName: c.name,
+      brand: c.brand,
+      imageUrl: c.offImageUrl ?? null,
+      category: c.category,
+    };
+  }
+
+  function categoryLabel(slug: string): string {
+    return categories.find((c) => c.slug === slug)?.name ?? slug;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Camera className="size-5 text-primary" aria-hidden />
+          Erkannte Produkte
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        {candidates.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Kein Produkt erkannt. Bitte manuell eingeben.
+          </p>
+        ) : (
+          <ul className="flex flex-col divide-y rounded-lg border">
+            {candidates.map((c, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(seedFromCandidate(c))}
+                  className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-muted"
+                >
+                  {c.offImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={c.offImageUrl}
+                      alt=""
+                      className="size-10 shrink-0 rounded border object-contain"
+                    />
+                  ) : (
+                    <div className="grid size-10 shrink-0 place-items-center rounded border bg-muted">
+                      <Camera className="size-4 text-muted-foreground" aria-hidden />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{c.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {[c.brand, categoryLabel(c.category)].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
+                    style={{ backgroundColor: c.source === "vision" ? "#0ea5e920" : "#6b728020", color: c.source === "vision" ? "#0369a1" : "#374151" }}>
+                    {c.source === "vision" ? "Foto" : "Open Food Facts"}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex gap-2 pt-1">
+          <Button
+            className="flex-1"
+            variant="outline"
+            onClick={() => onSelect({ kind: "manual" })}
+          >
+            <Pencil aria-hidden /> Manuell eingeben
+          </Button>
+          <Button variant="ghost" onClick={onReset}>
+            Zurück
           </Button>
         </div>
       </CardContent>

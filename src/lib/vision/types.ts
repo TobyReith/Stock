@@ -66,6 +66,28 @@ export interface VisionProvider {
   extractBestBeforeDate(input: VisionInput): Promise<VisionResult>;
 }
 
+// ─── Product Identification ───────────────────────────────────────────────────
+
+export type ProductCandidate = {
+  name: string;
+  brand: string | null;
+  /** Internal category slug (e.g. "dairy", "snacks"). */
+  category: string;
+  /** Provider-reported confidence in [0, 1]. */
+  confidence: number;
+  /** Whether the candidate came from the vision model or an OFF text search. */
+  source: "vision" | "off";
+  /** Only set when source === "off". */
+  offBarcode?: string;
+  offImageUrl?: string;
+};
+
+export type ProductIdentificationResult =
+  | { ok: true; candidates: ProductCandidate[] }
+  | { ok: false; reason: "rejected" | "unparseable" };
+
+// ─── Errors ──────────────────────────────────────────────────────────────────
+
 /** Thrown for unexpected provider failures (network, auth, 5xx). */
 export class VisionProviderError extends Error {
   readonly providerId: string;

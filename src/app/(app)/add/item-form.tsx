@@ -32,6 +32,8 @@ import {
  *   - `unknown` — barcode was not found anywhere; user supplies product
  *                 name + category manually, barcode is preserved.
  *   - `manual`  — no barcode at all; like `unknown` minus the barcode.
+ *   - `vision`  — product identified via photo; name/brand/image/category
+ *                 are fixed like `off`, but there is no barcode.
  *
  * The MHD field is prefilled from the category default and can be
  * replaced either manually or via an OCR photo (see `MhdCapture`).
@@ -61,6 +63,13 @@ export type FormSeed =
     }
   | {
       kind: "manual";
+    }
+  | {
+      kind: "vision";
+      productName: string;
+      brand: string | null;
+      imageUrl: string | null;
+      category: string;
     };
 
 /**
