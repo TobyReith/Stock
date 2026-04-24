@@ -9,34 +9,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { lookupBarcode } from "@/lib/actions/items";
 import { markShoppingItemBought } from "@/lib/actions/shopping";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import type { ProductCandidate } from "@/lib/vision/types";
 import { ItemForm, type FormSeed, type ItemFormPrefill } from "./item-form";
-import { ProductPhotoCapture } from "./product-photo-capture";
 
 /**
- * Lazy-load the barcode scanner.
+ * Lazy-load the unified live scanner.
  *
- * The scanner pulls in `@zxing/browser` + `@zxing/library` (~200 KB
- * gzipped) plus the camera-engine detector. None of that is useful
- * until the user actually lands on `/add` AND chooses the scan path —
- * the "Ohne Barcode" and shopping-list handover paths never touch it.
- *
- * Keeping it off the initial client bundle means the rest of the app
- * (which loads this route via bottom-nav prefetch) doesn't pay for
- * zxing in every tab switch. `ssr: false` is required because the
- * component reaches for `navigator.mediaDevices` during render paths,
- * and prerendering it would throw.
- *
- * The `loading` fallback mirrors the camera viewport's shape so the
- * flow doesn't reflow when the chunk finishes downloading — same
- * 4:3 box the running scanner paints into.
+ * Pulls in `@zxing/browser` + `@zxing/library` (~200 KB gzipped) and the
+ * camera-engine detector — none of that belongs in the initial bundle.
+ * `ssr: false` because it reaches for `navigator.mediaDevices` on render.
+ * The loading fallback matches the camera viewport shape to prevent reflow.
  */
-const BarcodeScanner = dynamic(
-  () => import("@/components/barcode-scanner").then((m) => m.BarcodeScanner),
+const LiveScanner = dynamic(
+  () => import("./live-scanner").then((m) => m.LiveScanner),
   {
     ssr: false,
     loading: () => (
@@ -158,24 +148,14 @@ export function AddFlow({
   return (
     <div className="flex flex-col gap-4">
       {stage.kind === "scan" && (
-        <>
-          <BarcodeScanner
-            onDetected={handleDetected}
-            onManualEntry={() => setStage({ kind: "manual-barcode" })}
-          />
-          <ProductPhotoCapture
-            onAnalyzing={() => setStage({ kind: "photo-analyzing" })}
-            onCandidates={(candidates) => setStage({ kind: "photo-candidates", candidates })}
-            onError={(msg) => toast.error(msg)}
-          />
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => setStage({ kind: "form", seed: { kind: "manual" } })}
-          >
-            <Pencil aria-hidden /> Ohne Barcode hinzufügen
-          </Button>
-        </>
+        <LiveScanner
+          onBarcodeDetected={handleDetected}
+          onPhotoAnalyzing={() => setStage({ kind: "photo-analyzing" })}
+          onPhotoCandidates={(candidates) => setStage({ kind: "photo-candidates", candidates })}
+          onPhotoError={(msg) => toast.error(msg)}
+          onManualBarcode={() => setStage({ kind: "manual-barcode" })}
+          onManualEntry={() => setStage({ kind: "form", seed: { kind: "manual" } })}
+        />
       )}
 
       {stage.kind === "manual-barcode" && (
@@ -448,21 +428,24 @@ function PhotoCandidatesPicker({
   onReset: () => void;
 }) {
   function seedFromCandidate(c: ProductCandidate): FormSeed {
-    if (c.source === "off" && c.offBarcode) {
+    // Enriched vision candidates and pure OFF candidates both have a barcode →
+    // use the "off" path which guarantees the OFF image lands on the item.
+    if ((c.source === "vision+off" || c.source === "off") && c.offBarcode) {
       return {
         kind: "off",
-        productName: c.name,
+        productName: c.offProductName ?? c.name,
         brand: c.brand,
         imageUrl: c.offImageUrl ?? null,
         category: c.category,
         barcode: c.offBarcode,
       };
     }
+    // Pure vision candidate — no OFF match found, no barcode, no image.
     return {
       kind: "vision",
       productName: c.name,
       brand: c.brand,
-      imageUrl: c.offImageUrl ?? null,
+      imageUrl: null,
       category: c.category,
     };
   }
@@ -511,9 +494,19 @@ function PhotoCandidatesPicker({
                       {[c.brand, categoryLabel(c.category)].filter(Boolean).join(" · ")}
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
-                    style={{ backgroundColor: c.source === "vision" ? "#0ea5e920" : "#6b728020", color: c.source === "vision" ? "#0369a1" : "#374151" }}>
-                    {c.source === "vision" ? "Foto" : "Open Food Facts"}
+                  <span className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
+                    c.source === "vision+off"
+                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                      : c.source === "vision"
+                        ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                        : "bg-muted text-muted-foreground",
+                  )}>
+                    {c.source === "vision+off"
+                      ? "Erkannt + Open Food Facts"
+                      : c.source === "vision"
+                        ? "Nur erkannt (kein DB-Match)"
+                        : "Open Food Facts"}
                   </span>
                 </button>
               </li>

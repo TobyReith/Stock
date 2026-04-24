@@ -75,11 +75,19 @@ export type ProductCandidate = {
   category: string;
   /** Provider-reported confidence in [0, 1]. */
   confidence: number;
-  /** Whether the candidate came from the vision model or an OFF text search. */
-  source: "vision" | "off";
-  /** Only set when source === "off". */
+  /**
+   * Provenance of this candidate:
+   *  - "vision"      — identified by the vision model, no OFF match found
+   *  - "vision+off"  — vision-identified AND enriched with an OFF record
+   *  - "off"         — came from an OFF text-search fallback (low-confidence vision)
+   */
+  source: "vision" | "vision+off" | "off";
+  /** Barcode from Open Food Facts. Set when source is "vision+off" or "off". */
   offBarcode?: string;
+  /** Product image URL from Open Food Facts. */
   offImageUrl?: string;
+  /** Canonical product name from Open Food Facts (may differ from vision name). */
+  offProductName?: string;
 };
 
 export type ProductIdentificationResult =
