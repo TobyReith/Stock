@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Package, Plus, Settings } from "lucide-react";
+import { ChefHat, Package, Plus, Settings } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/session";
@@ -80,6 +80,7 @@ export default async function ListPage() {
         </div>
       </header>
 
+      {items.length > 0 && <ExpiryWidget items={items} />}
       {items.length === 0 ? <EmptyState /> : <ItemsList items={items} categories={categories} storageLocations={storageLocations} />}
     </div>
   );
@@ -122,6 +123,37 @@ function ErrorState({ message }: { message: string }) {
         Konnte Vorrat nicht laden: {message}
       </div>
     </div>
+  );
+}
+
+function ExpiryWidget({ items }: { items: ListItem[] }) {
+  const today = new Date();
+  const threshold = new Date();
+  threshold.setDate(threshold.getDate() + 5);
+  const thresholdStr = threshold.toISOString().slice(0, 10);
+
+  const expiring = items.filter(
+    (i) => i.bestBefore && i.bestBefore <= thresholdStr,
+  );
+  if (expiring.length === 0) return null;
+
+  return (
+    <Link
+      href="/recipes"
+      className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 transition-colors hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-900/20 dark:hover:bg-amber-900/30"
+    >
+      <div className="flex items-center gap-3">
+        <ChefHat className="size-5 text-amber-600 dark:text-amber-400" aria-hidden />
+        <div>
+          <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+            {expiring.length} {expiring.length === 1 ? "Artikel läuft" : "Artikel laufen"} bald ab
+          </p>
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            Rezeptideen ansehen →
+          </p>
+        </div>
+      </div>
+    </Link>
   );
 }
 

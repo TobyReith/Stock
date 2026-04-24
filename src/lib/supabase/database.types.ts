@@ -342,6 +342,44 @@ export type Database = {
         }
         Relationships: []
       }
+      cooked_meals: {
+        Row: {
+          cooked_at: string
+          consumed_item_ids: string[]
+          household_id: string
+          id: string
+          recipe_data: Json
+          recipe_title: string
+          user_id: string
+        }
+        Insert: {
+          cooked_at?: string
+          consumed_item_ids?: string[]
+          household_id: string
+          id?: string
+          recipe_data: Json
+          recipe_title: string
+          user_id: string
+        }
+        Update: {
+          cooked_at?: string
+          consumed_item_ids?: string[]
+          household_id?: string
+          id?: string
+          recipe_data?: Json
+          recipe_title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cooked_meals_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           created_at: string
@@ -365,6 +403,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      recipe_suggestions: {
+        Row: {
+          cache_key: string
+          created_at: string
+          expires_at: string
+          household_id: string
+          id: string
+          input_item_ids: string[]
+          recipes: Json
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          expires_at: string
+          household_id: string
+          id?: string
+          input_item_ids: string[]
+          recipes: Json
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          household_id?: string
+          id?: string
+          input_item_ids?: string[]
+          recipes?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_suggestions_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shopping_list_items: {
         Row: {
@@ -419,6 +495,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_settings: {
+        Row: {
+          dietary_preferences: string[]
+          disliked_ingredients: string[]
+          expiry_threshold_days: number
+          recipe_notifications_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          dietary_preferences?: string[]
+          disliked_ingredients?: string[]
+          expiry_threshold_days?: number
+          recipe_notifications_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          dietary_preferences?: string[]
+          disliked_ingredients?: string[]
+          expiry_threshold_days?: number
+          recipe_notifications_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       storage_locations: {
         Row: {

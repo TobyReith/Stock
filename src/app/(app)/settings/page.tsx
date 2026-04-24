@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, Tag, Users, MapPin } from "lucide-react";
 import { getCurrentUser } from "@/lib/supabase/session";
+import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { PushToggle } from "./push-toggle";
 import { ThemeToggle } from "./theme-toggle";
 import { LogoutButton } from "./logout-button";
 import { DeleteAccountButton } from "./delete-account-button";
 import { ProfileForm } from "./profile-form";
+import { RecipeSettingsForm } from "./recipe-settings-form";
 
 export const metadata = { title: "Einstellungen" };
 
@@ -23,13 +25,16 @@ export const metadata = { title: "Einstellungen" };
  * and surfaces a "key fehlt" error state before the user taps anything.
  */
 export default async function SettingsPage() {
-  // `cache()`-wrapped — shares the auth lookup with `(app)/layout.tsx`.
-  const user = await getCurrentUser();
-  // `(app)/layout.tsx` redirects unauthenticated users, so `!user` here
-  // is defensive only.
+  const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   if (!user) return null;
 
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+
+  const { data: recipeSettingsRow } = await supabase
+    .from("user_settings")
+    .select("expiry_threshold_days, dietary_preferences, disliked_ingredients")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
@@ -148,6 +153,19 @@ export default async function SettingsPage() {
             </div>
             <ChevronRight aria-hidden className="size-4 text-muted-foreground" />
           </Link>
+        </section>
+
+        <section aria-labelledby="recipes-heading" className="flex flex-col gap-3">
+          <h2 id="recipes-heading" className="text-sm font-medium text-muted-foreground">
+            Rezeptvorschläge
+          </h2>
+          <RecipeSettingsForm
+            initial={{
+              expiryThresholdDays: recipeSettingsRow?.expiry_threshold_days ?? 5,
+              dietaryPreferences: recipeSettingsRow?.dietary_preferences ?? [],
+              dislikedIngredients: recipeSettingsRow?.disliked_ingredients ?? [],
+            }}
+          />
         </section>
 
         <section aria-labelledby="account-heading" className="flex flex-col gap-3">
