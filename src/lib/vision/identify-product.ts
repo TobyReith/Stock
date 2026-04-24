@@ -89,8 +89,16 @@ function tokenSetSimilarity(a: string, b: string): number {
 }
 
 /**
- * Returns the first OFF result that matches the vision candidate on both
- * brand (loose) and name (≥ 60 % token overlap).
+ * Returns the first OFF result that matches the vision candidate by name
+ * similarity, with a graduated brand check.
+ *
+ * Why graduated:
+ *   - Consumer-facing brand ("Caotina") often differs from the manufacturer
+ *     stored in OFF ("Wander AG"). A hard brand gate kills valid matches.
+ *   - High name overlap (≥ 0.75) is a strong enough signal on its own.
+ *   - Medium overlap (0.6–0.75) still accepts when the brand appears
+ *     anywhere in the OFF product name (common packaging pattern) or the
+ *     brand fields loosely match.
  */
 function findBestOffMatch(
   candidate: { name: string; brand: string | null },
@@ -102,12 +110,18 @@ function findBestOffMatch(
     const overlap = tokenSetSimilarity(candidate.name, off.name);
     if (overlap < 0.6) continue;
 
-    // Brand check: skip only when we have a confident brand AND it clearly doesn't match.
-    if (normCandidateBrand && off.brand) {
-      const normOffBrand = normalizeForMatch(off.brand);
+    // High name overlap → name is the dominant signal; skip brand gate.
+    if (overlap >= 0.75) return off;
+
+    // Medium overlap → require some brand corroboration.
+    if (normCandidateBrand) {
+      const normOffBrand = off.brand ? normalizeForMatch(off.brand) : "";
+      const normOffName = normalizeForMatch(off.name);
       const brandMatch =
         normOffBrand.includes(normCandidateBrand) ||
-        normCandidateBrand.includes(normOffBrand);
+        normCandidateBrand.includes(normOffBrand) ||
+        // Brand name appears inside the product name ("Caotina Original" ⊃ "Caotina").
+        normOffName.includes(normCandidateBrand);
       if (!brandMatch) continue;
     }
 
@@ -136,10 +150,14 @@ export async function identifyProduct(input: VisionInput): Promise<ProductIdenti
   // and product image when the product exists in Open Food Facts.
   const enriched = await Promise.all(
     visionCandidates.map(async (candidate): Promise<ProductCandidate> => {
-      const query = [candidate.brand, candidate.name].filter(Boolean).join(" ");
+      // Avoid "Brand Brand Name" when name already starts with or contains brand.
+      const brand = candidate.brand ?? "";
+      const query = brand && !candidate.name.toLowerCase().includes(brand.toLowerCase())
+        ? `${brand} ${candidate.name}`
+        : candidate.name;
       if (!query) return candidate;
 
-      const offResults = await searchOFF(query, 3);
+      const offResults = await searchOFF(query, 5);
       const match = findBestOffMatch(candidate, offResults);
 
       if (!match) return candidate; // source stays "vision"
