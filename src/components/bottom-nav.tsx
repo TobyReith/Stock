@@ -17,7 +17,7 @@ const items: NavItem[] = [
   { href: "/", label: "Vorrat", icon: Package, exact: true },
   { href: "/add", label: "Hinzufügen", icon: Plus },
   { href: "/shopping", label: "Einkauf", icon: ShoppingCart },
-  { href: "/recipes", label: "Was kochen?", icon: ChefHat },
+  { href: "/recipes", label: "Kochen", icon: ChefHat },
   { href: "/stats", label: "Historie", icon: BarChart3 },
 ];
 

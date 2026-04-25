@@ -1,5 +1,17 @@
 import type { PantryItem, RecipeIngredient } from "./types";
 
+/**
+ * Pantry staples assumed to always be on hand. Normalized forms only.
+ * These never show as "missing" in recipe suggestions.
+ */
+const ALWAYS_PRESENT = new Set([
+  "salz", "pfeffer", "wasser", "zucker", "oel", "ol", "essig", "mehl",
+  "backpulver", "natron", "vanille", "vanillezucker", "zimt",
+  "speiseoel", "speiseol", "pflanzenoel", "pflanzoel", "olivenoel", "olivenol",
+  "salt", "pepper", "water", "sugar", "oil", "flour", "vinegar",
+  "baking powder", "baking soda", "vanilla",
+]);
+
 /** Map of category slugs to related keywords for semantic boosting. */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   dry_baking:      ["mehl", "zucker", "backpulver", "hefe", "stärke", "vanille", "kakao"],
@@ -31,6 +43,16 @@ export function matchIngredientToPantry(
 ): PantryItem | null {
   const normIngredient = normalize(ingredientName);
   if (!normIngredient) return null;
+
+  // Basics are assumed to always be present.
+  if (
+    ALWAYS_PRESENT.has(normIngredient) ||
+    [...ALWAYS_PRESENT].some(
+      (basic) => normIngredient.includes(basic) || basic.includes(normIngredient),
+    )
+  ) {
+    return { name: ingredientName, category: "spices", quantity: 1, unit: "Stk" };
+  }
 
   let bestMatch: PantryItem | null = null;
   let bestScore = 0;

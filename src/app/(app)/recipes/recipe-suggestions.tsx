@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { ChefHat, CheckCircle2, Clock, Loader2, Plus, RefreshCw, XCircle } from "lucide-react";
+import { useState, useTransition, useEffect, useCallback } from "react";
+import { ChefHat, CheckCircle2, Clock, Heart, Loader2, Plus, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,26 @@ import type { Recipe, RecipeIngredient, UserRecipeSettings } from "@/lib/recipes
 import { CookingModal } from "./cooking-modal";
 
 const DAILY_QUOTA = 10;
+const STORAGE_KEY_RECIPES = "stock:recipes";
+const STORAGE_KEY_FAVORITES = "stock:recipe-favorites";
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveToStorage(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // ignore quota errors
+  }
+}
 
 type ExpiringChip = { id: string; name: string; daysLeft: number };
 
@@ -25,7 +45,13 @@ type Props = {
 };
 
 export function RecipeSuggestions({ expiringChips, quotaUsed, settings }: Props) {
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [recipes, setRecipesState] = useState<Recipe[]>(() =>
+    loadFromStorage<Recipe[]>(STORAGE_KEY_RECIPES, []),
+  );
+  const [favorites, setFavoritesState] = useState<Set<string>>(() => {
+    const arr = loadFromStorage<string[]>(STORAGE_KEY_FAVORITES, []);
+    return new Set(arr);
+  });
   const [fromCache, setFromCache] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [noExpiring, setNoExpiring] = useState(false);
@@ -33,6 +59,21 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings }: Props)
   const [currentQuotaUsed, setCurrentQuotaUsed] = useState(quotaUsed);
   const [cookingRecipe, setCookingRecipe] = useState<Recipe | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const setRecipes = useCallback((r: Recipe[]) => {
+    setRecipesState(r);
+    saveToStorage(STORAGE_KEY_RECIPES, r);
+  }, []);
+
+  function toggleFavorite(title: string) {
+    setFavoritesState((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      saveToStorage(STORAGE_KEY_FAVORITES, [...next]);
+      return next;
+    });
+  }
 
   function handleGenerate(forceRefresh = false) {
     setErrorMsg(null);
@@ -148,6 +189,8 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings }: Props)
             <RecipeCard
               key={i}
               recipe={recipe}
+              isFavorite={favorites.has(recipe.title)}
+              onToggleFavorite={() => toggleFavorite(recipe.title)}
               onCook={() => setCookingRecipe(recipe)}
             />
           ))}
@@ -185,9 +228,13 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings }: Props)
 
 function RecipeCard({
   recipe,
+  isFavorite,
+  onToggleFavorite,
   onCook,
 }: {
   recipe: Recipe;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
   onCook: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -221,7 +268,23 @@ function RecipeCard({
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base leading-snug">{recipe.title}</CardTitle>
-          <div className="flex shrink-0 flex-col items-end gap-1">
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={onToggleFavorite}
+              aria-label={isFavorite ? "Aus Favoriten entfernen" : "Als Favorit speichern"}
+              className="rounded-full p-1 transition-colors hover:bg-muted"
+            >
+              <Heart
+                className={cn(
+                  "size-4 transition-colors",
+                  isFavorite
+                    ? "fill-red-500 text-red-500"
+                    : "text-muted-foreground",
+                )}
+                aria-hidden
+              />
+            </button>
             <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", difficultyColor)}>
               {recipe.difficulty}
             </span>
