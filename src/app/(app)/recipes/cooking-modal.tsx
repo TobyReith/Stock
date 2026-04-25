@@ -5,15 +5,17 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { markRecipeCooked } from "@/lib/actions/recipes";
+import { markFavoriteAsCooked } from "@/lib/actions/favorites";
 import type { Recipe, RecipeIngredient } from "@/lib/recipes/types";
 
 type Props = {
   recipe: Recipe;
+  favoriteId?: string;
   onClose: () => void;
   onCooked: () => void;
 };
 
-export function CookingModal({ recipe, onClose, onCooked }: Props) {
+export function CookingModal({ recipe, favoriteId, onClose, onCooked }: Props) {
   // Only show ingredients that are expiring and in pantry (i.e., have matchedItemId).
   const cookableIngredients = recipe.ingredients.filter(
     (i) => i.isExpiringItem && i.isInPantry && i.matchedItemId,
@@ -40,6 +42,7 @@ export function CookingModal({ recipe, onClose, onCooked }: Props) {
         toast.error("Fehler beim Speichern", { description: res.error });
         return;
       }
+      if (favoriteId) await markFavoriteAsCooked(favoriteId);
       toast.success(`„${recipe.title}" gekocht – ${consumed.length} Artikel aktualisiert`);
       onCooked();
     });

@@ -346,6 +346,7 @@ export type Database = {
         Row: {
           cooked_at: string
           consumed_item_ids: string[]
+          favorite_id: string | null
           household_id: string
           id: string
           recipe_data: Json
@@ -355,6 +356,7 @@ export type Database = {
         Insert: {
           cooked_at?: string
           consumed_item_ids?: string[]
+          favorite_id?: string | null
           household_id: string
           id?: string
           recipe_data: Json
@@ -364,6 +366,7 @@ export type Database = {
         Update: {
           cooked_at?: string
           consumed_item_ids?: string[]
+          favorite_id?: string | null
           household_id?: string
           id?: string
           recipe_data?: Json
@@ -379,6 +382,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      recipe_favorites: {
+        Row: {
+          cooked_count: number
+          created_at: string
+          household_id: string
+          id: string
+          last_cooked_at: string | null
+          notes: string | null
+          recipe_data: Json
+          recipe_title: string
+          source_suggestion_id: string | null
+          tags: string[]
+          user_id: string
+        }
+        Insert: {
+          cooked_count?: number
+          created_at?: string
+          household_id: string
+          id?: string
+          last_cooked_at?: string | null
+          notes?: string | null
+          recipe_data: Json
+          recipe_title: string
+          source_suggestion_id?: string | null
+          tags?: string[]
+          user_id: string
+        }
+        Update: {
+          cooked_count?: number
+          created_at?: string
+          household_id?: string
+          id?: string
+          last_cooked_at?: string | null
+          notes?: string | null
+          recipe_data?: Json
+          recipe_title?: string
+          source_suggestion_id?: string | null
+          tags?: string[]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      recipe_tags: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       push_subscriptions: {
         Row: {

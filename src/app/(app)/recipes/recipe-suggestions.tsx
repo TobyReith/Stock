@@ -1,39 +1,34 @@
 "use client";
 
-import { useState, useTransition, useEffect, useCallback } from "react";
+import { useState, useTransition, useCallback } from "react";
 import { ChefHat, CheckCircle2, Clock, Heart, Loader2, Plus, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import {
-  generateRecipeSuggestions,
-  type CookedIngredient,
-} from "@/lib/actions/recipes";
+import { generateRecipeSuggestions } from "@/lib/actions/recipes";
+import { addToFavorites, removeFromFavorites } from "@/lib/actions/favorites";
 import { addShoppingItem } from "@/lib/actions/shopping";
-import type { Recipe, RecipeIngredient, UserRecipeSettings } from "@/lib/recipes/types";
+import type { Recipe, RecipeIngredient, RecipeFavorite, UserRecipeSettings } from "@/lib/recipes/types";
 import { CookingModal } from "./cooking-modal";
 
 const DAILY_QUOTA = 10;
 const STORAGE_KEY_RECIPES = "stock:recipes";
-const STORAGE_KEY_FAVORITES = "stock:recipe-favorites";
 
-function loadFromStorage<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
+function loadRecipesFromStorage(): Recipe[] {
+  if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
+    const raw = localStorage.getItem(STORAGE_KEY_RECIPES);
+    return raw ? (JSON.parse(raw) as Recipe[]) : [];
   } catch {
-    return fallback;
+    return [];
   }
 }
 
-function saveToStorage(key: string, value: unknown): void {
+function saveRecipesToStorage(recipes: Recipe[]): void {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // ignore quota errors
-  }
+    localStorage.setItem(STORAGE_KEY_RECIPES, JSON.stringify(recipes));
+  } catch {}
 }
 
 type ExpiringChip = { id: string; name: string; daysLeft: number };
@@ -42,16 +37,17 @@ type Props = {
   expiringChips: ExpiringChip[];
   quotaUsed: number;
   settings: UserRecipeSettings;
+  initialFavorites: RecipeFavorite[];
 };
 
-export function RecipeSuggestions({ expiringChips, quotaUsed, settings }: Props) {
-  const [recipes, setRecipesState] = useState<Recipe[]>(() =>
-    loadFromStorage<Recipe[]>(STORAGE_KEY_RECIPES, []),
+export function RecipeSuggestions({ expiringChips, quotaUsed, settings, initialFavorites }: Props) {
+  const [recipes, setRecipesState] = useState<Recipe[]>(() => loadRecipesFromStorage());
+
+  // title → favoriteId (optimistic)
+  const [favoriteMap, setFavoriteMap] = useState<Map<string, string>>(() =>
+    new Map(initialFavorites.map((f) => [f.recipeTitle, f.id])),
   );
-  const [favorites, setFavoritesState] = useState<Set<string>>(() => {
-    const arr = loadFromStorage<string[]>(STORAGE_KEY_FAVORITES, []);
-    return new Set(arr);
-  });
+
   const [fromCache, setFromCache] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [noExpiring, setNoExpiring] = useState(false);
@@ -62,17 +58,34 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings }: Props)
 
   const setRecipes = useCallback((r: Recipe[]) => {
     setRecipesState(r);
-    saveToStorage(STORAGE_KEY_RECIPES, r);
+    saveRecipesToStorage(r);
   }, []);
 
-  function toggleFavorite(title: string) {
-    setFavoritesState((prev) => {
-      const next = new Set(prev);
-      if (next.has(title)) next.delete(title);
-      else next.add(title);
-      saveToStorage(STORAGE_KEY_FAVORITES, [...next]);
-      return next;
-    });
+  async function toggleFavorite(recipe: Recipe) {
+    const existingId = favoriteMap.get(recipe.title);
+    if (existingId) {
+      // Optimistic remove
+      setFavoriteMap((prev) => { const next = new Map(prev); next.delete(recipe.title); return next; });
+      const res = await removeFromFavorites(existingId);
+      if (!res.ok) {
+        setFavoriteMap((prev) => new Map(prev).set(recipe.title, existingId));
+        toast.error("Fehler", { description: res.reason });
+      } else {
+        toast.success("Aus Favoriten entfernt");
+      }
+    } else {
+      // Optimistic add with temp id
+      const tempId = `temp-${Date.now()}`;
+      setFavoriteMap((prev) => new Map(prev).set(recipe.title, tempId));
+      const res = await addToFavorites(recipe);
+      if (!res.ok) {
+        setFavoriteMap((prev) => { const next = new Map(prev); next.delete(recipe.title); return next; });
+        toast.error("Fehler", { description: res.reason });
+      } else {
+        setFavoriteMap((prev) => new Map(prev).set(recipe.title, res.data.favoriteId));
+        toast.success("Zu Favoriten hinzugefügt");
+      }
+    }
   }
 
   function handleGenerate(forceRefresh = false) {
@@ -98,9 +111,7 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings }: Props)
       {/* Expiring items header chips */}
       {expiringChips.length > 0 && (
         <section aria-label="Ablaufende Zutaten" className="mb-4">
-          <p className="mb-2 text-sm font-medium text-muted-foreground">
-            Bald ablaufend
-          </p>
+          <p className="mb-2 text-sm font-medium text-muted-foreground">Bald ablaufend</p>
           <div className="flex flex-wrap gap-2">
             {expiringChips.map((chip) => (
               <span
@@ -115,32 +126,22 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings }: Props)
                 )}
               >
                 {chip.name}
-                {chip.daysLeft === 0
-                  ? " · heute"
-                  : chip.daysLeft === 1
-                    ? " · morgen"
-                    : ` · ${chip.daysLeft} Tage`}
+                {chip.daysLeft === 0 ? " · heute" : chip.daysLeft === 1 ? " · morgen" : ` · ${chip.daysLeft} Tage`}
               </span>
             ))}
           </div>
         </section>
       )}
 
-      {/* Generate button / loading */}
+      {/* Generate button */}
       {recipes.length === 0 && !isPending && !noExpiring && !errorMsg && !quotaExceeded && (
-        <Button
-          size="lg"
-          className="w-full"
-          onClick={() => handleGenerate(false)}
-          disabled={currentQuotaUsed >= DAILY_QUOTA}
-        >
+        <Button size="lg" className="w-full" onClick={() => handleGenerate(false)} disabled={currentQuotaUsed >= DAILY_QUOTA}>
           <ChefHat aria-hidden /> Rezeptvorschläge generieren
         </Button>
       )}
 
       {isPending && <RecipeSkeletons />}
 
-      {/* No expiring items */}
       {noExpiring && !isPending && (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
@@ -156,7 +157,6 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings }: Props)
         </Card>
       )}
 
-      {/* Quota exceeded */}
       {quotaExceeded && !isPending && (
         <Card>
           <CardContent className="py-6 text-center">
@@ -167,7 +167,6 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings }: Props)
         </Card>
       )}
 
-      {/* Error */}
       {errorMsg && !isPending && (
         <Card>
           <CardContent className="flex flex-col gap-3 py-4">
@@ -175,47 +174,38 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings }: Props)
               <XCircle className="size-4" aria-hidden />
               <p className="text-sm">{errorMsg}</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => handleGenerate(false)}>
-              Erneut versuchen
-            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleGenerate(false)}>Erneut versuchen</Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Recipe cards */}
       {recipes.length > 0 && !isPending && (
         <div className="flex flex-col gap-4">
           {recipes.map((recipe, i) => (
             <RecipeCard
               key={i}
               recipe={recipe}
-              isFavorite={favorites.has(recipe.title)}
-              onToggleFavorite={() => toggleFavorite(recipe.title)}
+              isFavorite={favoriteMap.has(recipe.title)}
+              onToggleFavorite={() => void toggleFavorite(recipe)}
               onCook={() => setCookingRecipe(recipe)}
             />
           ))}
 
-          {/* Refresh + quota footer */}
           <div className="flex items-center justify-between pt-2">
             <p className="text-xs text-muted-foreground">
               {fromCache ? "Aus Cache" : "Neu generiert"} · {currentQuotaUsed}/{DAILY_QUOTA} heute
             </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleGenerate(true)}
-              disabled={currentQuotaUsed >= DAILY_QUOTA}
-            >
+            <Button variant="ghost" size="sm" onClick={() => handleGenerate(true)} disabled={currentQuotaUsed >= DAILY_QUOTA}>
               <RefreshCw className="size-3" aria-hidden /> Neue Vorschläge
             </Button>
           </div>
         </div>
       )}
 
-      {/* Cooking modal */}
       {cookingRecipe && (
         <CookingModal
           recipe={cookingRecipe}
+          favoriteId={favoriteMap.get(cookingRecipe.title)}
           onClose={() => setCookingRecipe(null)}
           onCooked={() => setCookingRecipe(null)}
         />
@@ -224,18 +214,26 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings }: Props)
   );
 }
 
-// ─── Recipe card ──────────────────────────────────────────────────────────────
+// ─── Shared recipe card (used by both Suggestions and Favorites views) ────────
 
-function RecipeCard({
+export function RecipeCard({
   recipe,
   isFavorite,
   onToggleFavorite,
   onCook,
+  tags,
+  notes,
+  cookedCount,
+  lastCookedAt,
 }: {
   recipe: Recipe;
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onCook: () => void;
+  tags?: string[];
+  notes?: string;
+  cookedCount?: number;
+  lastCookedAt?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [addingItem, setAddingItem] = useState<string | null>(null);
@@ -253,9 +251,7 @@ function RecipeCard({
   async function addMissingToShopping(ing: RecipeIngredient) {
     setAddingItem(ing.name);
     try {
-      const res = await addShoppingItem({
-        customName: `${ing.name} (${ing.amount} ${ing.unit})`,
-      });
+      const res = await addShoppingItem({ customName: `${ing.name} (${ing.amount} ${ing.unit})` });
       if (res.ok) toast.success(`„${ing.name}" zur Einkaufsliste hinzugefügt`);
       else toast.error("Fehler", { description: res.error });
     } finally {
@@ -276,12 +272,7 @@ function RecipeCard({
               className="rounded-full p-1 transition-colors hover:bg-muted"
             >
               <Heart
-                className={cn(
-                  "size-4 transition-colors",
-                  isFavorite
-                    ? "fill-red-500 text-red-500"
-                    : "text-muted-foreground",
-                )}
+                className={cn("size-4 transition-colors", isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground")}
                 aria-hidden
               />
             </button>
@@ -290,17 +281,39 @@ function RecipeCard({
             </span>
           </div>
         </div>
+
+        {/* Tags row */}
+        {tags && tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 pt-1">
+            {tags.map((tag) => (
+              <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Clock className="size-3" aria-hidden /> {recipe.timeMinutes} min
           </span>
           <span>· {recipe.servings} Portion{recipe.servings !== 1 ? "en" : ""}</span>
-          <span>· {expiringCount} ablaufende Zutat{expiringCount !== 1 ? "en" : ""}</span>
+          {expiringCount > 0 && (
+            <span>· {expiringCount} ablaufend{expiringCount !== 1 ? "e" : "e"}</span>
+          )}
+          {cookedCount !== undefined && cookedCount > 0 && (
+            <span>· {cookedCount}× gekocht</span>
+          )}
         </div>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">{recipe.description}</p>
+
+        {/* Personal note */}
+        {notes && (
+          <p className="text-sm italic text-muted-foreground">✏️ {notes}</p>
+        )}
 
         {/* Ingredients */}
         <ul className="flex flex-col gap-1">
@@ -315,13 +328,7 @@ function RecipeCard({
                       ? "bg-green-500 text-white"
                       : "bg-amber-400 text-white",
                 )}
-                aria-label={
-                  ing.isExpiringItem
-                    ? "läuft ab"
-                    : ing.isInPantry
-                      ? "vorhanden"
-                      : "fehlt"
-                }
+                aria-label={ing.isExpiringItem ? "läuft ab" : ing.isInPantry ? "vorhanden" : "fehlt"}
               >
                 {ing.isExpiringItem ? "!" : ing.isInPantry ? "✓" : "+"}
               </span>
@@ -332,14 +339,12 @@ function RecipeCard({
           ))}
         </ul>
 
-        {/* Limited note */}
         {recipe.feasibility === "limited" && recipe.limitedNote && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
             {recipe.limitedNote}
           </div>
         )}
 
-        {/* Add missing to shopping */}
         {missingIngredients.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {missingIngredients.map((ing) => (
@@ -356,7 +361,6 @@ function RecipeCard({
           </div>
         )}
 
-        {/* Steps accordion */}
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
@@ -377,7 +381,6 @@ function RecipeCard({
           </ol>
         )}
 
-        {/* Cook button */}
         <Button className="w-full" onClick={onCook}>
           <ChefHat aria-hidden /> Ich koche das jetzt
         </Button>

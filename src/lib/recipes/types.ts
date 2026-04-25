@@ -48,3 +48,15 @@ export type UserRecipeSettings = {
   dietaryPreferences: string[];
   dislikedIngredients: string[];
 };
+
+export type RecipeFavorite = {
+  id: string;
+  recipeTitle: string;
+  recipeData: Recipe;
+  sourceSuggestionId?: string;
+  tags: string[];
+  notes?: string;
+  cookedCount: number;
+  lastCookedAt?: string;
+  createdAt: string;
+};
