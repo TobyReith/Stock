@@ -1,49 +1,21 @@
 import Link from "next/link";
-import { ChefHat, Package, Plus, Settings } from "lucide-react";
+import { ChefHat, Package, Plus } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/session";
-import { getActiveHouseholdId, listMemberships } from "@/lib/households/active";
+import { getActiveHouseholdId } from "@/lib/households/active";
 import type { Database } from "@/lib/supabase/database.types";
 import { ItemsList, type ListItem } from "./_list/items-list";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
-import { HouseholdSwitcher } from "./_header/household-switcher";
 import { buttonVariants } from "@/components/ui/button";
 
-/**
- * Main "Vorrat" list.
- *
- * Server component — fetches the open items (not yet consumed or
- * discarded) scoped to the user's **active** household.
- *
- * Why the explicit `household_id` filter (vs leaning on RLS): once a
- * user joins more than one household, `items_select_members` would
- * return rows from every household they belong to. The list needs to
- * match whatever the household switcher has selected, so we scope
- * explicitly here.
- *
- * Fresh-user path: if the user has no household yet, we render the
- * empty state instead of bootstrapping from a Server Component. The
- * first `addItem` call takes care of creating "Mein Haushalt" via
- * `ensureActiveHousehold`.
- */
 export default async function ListPage() {
-  // Both helpers are `cache()`-wrapped — when the layout already awaited
-  // `getCurrentUser()` and `createClient()` the second call is free.
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
-  // `(app)/layout.tsx` already redirects unauthenticated users, so `!user`
-  // is defensive. We bail with a friendly state instead of throwing.
   if (!user) return <UnauthedState />;
 
-  // Parallel: active household id + the full membership list for the
-  // switcher. Both read `household_members`, but pulling them separately
-  // keeps each query focused and lets `getActiveHouseholdId` apply its
-  // cookie-validation logic without re-walking the join.
-  const [activeHouseholdId, memberships] = await Promise.all([
-    getActiveHouseholdId(supabase, user.id),
-    listMemberships(supabase, user.id),
-  ]);
+  const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+
   const [result, categories, storageLocations] = activeHouseholdId
     ? await Promise.all([
         loadOpenItems(supabase, activeHouseholdId),
@@ -61,23 +33,11 @@ export default async function ListPage() {
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
-      <div className="mb-3">
-        <HouseholdSwitcher memberships={memberships} activeId={activeHouseholdId} />
-      </div>
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Vorrat</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">
-            {items.length} {items.length === 1 ? "Artikel" : "Artikel"}
-          </span>
-          <Link
-            href="/settings"
-            aria-label="Einstellungen"
-            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-          >
-            <Settings aria-hidden />
-          </Link>
-        </div>
+        <span className="text-sm text-muted-foreground">
+          {items.length} {items.length === 1 ? "Artikel" : "Artikel"}
+        </span>
       </header>
 
       {items.length > 0 && <ExpiryWidget items={items} />}
@@ -127,7 +87,6 @@ function ErrorState({ message }: { message: string }) {
 }
 
 function ExpiryWidget({ items }: { items: ListItem[] }) {
-  const today = new Date();
   const threshold = new Date();
   threshold.setDate(threshold.getDate() + 5);
   const thresholdStr = threshold.toISOString().slice(0, 10);
@@ -197,12 +156,6 @@ async function loadCategories(
   }));
 }
 
-/**
- * Pull open items for the given household + flatten the joined product
- * row into the `ListItem` shape the client list expects. Returns an
- * `error` string instead of throwing so the caller can pick between
- * error UI and the empty state.
- */
 async function loadOpenItems(
   supabase: SupabaseClient<Database>,
   householdId: string,
@@ -223,9 +176,6 @@ async function loadOpenItems(
 
   if (error) return { items: [], error: error.message };
 
-  // Coalesce per-item overrides onto the list shape. Downstream
-  // components don't need to know about the override machinery — they
-  // just see the effective brand/category.
   const items: ListItem[] = (data ?? []).map((row) => ({
     id: row.id,
     quantity: Number(row.quantity),

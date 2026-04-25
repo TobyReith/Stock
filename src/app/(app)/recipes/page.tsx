@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/supabase/session";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import { RecipeSuggestions } from "./recipe-suggestions";
 
-export const metadata = { title: "Was kochen?" };
+export const metadata = { title: "Kochen" };
 
 export default async function RecipesPage() {
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
@@ -67,7 +67,7 @@ export default async function RecipesPage() {
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6 pb-24">
-      <h1 className="mb-4 text-2xl font-semibold tracking-tight">Was kochen?</h1>
+      <h1 className="mb-4 text-2xl font-semibold tracking-tight">Kochen</h1>
       <RecipeSuggestions
         expiringChips={expiringChips}
         quotaUsed={quotaUsed ?? 0}

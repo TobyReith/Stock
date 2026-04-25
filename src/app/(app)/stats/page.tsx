@@ -11,7 +11,6 @@ import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import { TimeframeToggle, type RangeKey, RANGE_DAYS } from "./timeframe-toggle";
 import { ViewToggle, type ViewKey } from "./view-toggle";
 import { HistoryView, type HistoryEvent } from "./history-view";
-import { ActiveHouseholdBadge } from "../_header/active-household-badge";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Historie" };
@@ -216,9 +215,6 @@ async function loadStorageLocations(
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
-      <div className="mb-3">
-        <ActiveHouseholdBadge />
-      </div>
       <header className="mb-4">
         <h1 className="text-2xl font-semibold tracking-tight">Historie</h1>
       </header>
