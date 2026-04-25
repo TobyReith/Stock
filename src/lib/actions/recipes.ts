@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import { generateRecipes } from "@/lib/recipes/generate";
+import { createServerPostHog } from "@/lib/posthog/server";
 import type {
   ExpiringItem,
   PantryItem,
@@ -227,7 +228,22 @@ export async function generateRecipeSuggestions(
     });
 
     // Generate via LLM.
+    const llmStart = Date.now();
     const recipes = await generateRecipes(expiringItems, pantryItems, settings);
+    const ph = createServerPostHog();
+    if (ph) {
+      ph.capture({
+        distinctId: user.id,
+        event: "recipe_suggestions_generated",
+        properties: {
+          count: recipes.length,
+          from_cache: false,
+          expiring_item_count: expiringItems.length,
+          duration_ms: Date.now() - llmStart,
+        },
+      });
+      void ph.shutdown();
+    }
 
     // Upsert into cache (TTL 24h).
     const expiresAt = new Date();

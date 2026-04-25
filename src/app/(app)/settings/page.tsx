@@ -9,6 +9,7 @@ import { LogoutButton } from "./logout-button";
 import { DeleteAccountButton } from "./delete-account-button";
 import { ProfileForm } from "./profile-form";
 import { RecipeSettingsForm } from "./recipe-settings-form";
+import { FeedbackButton } from "./feedback-button";
 
 export const metadata = { title: "Einstellungen" };
 
@@ -166,6 +167,13 @@ export default async function SettingsPage() {
               dislikedIngredients: recipeSettingsRow?.disliked_ingredients ?? [],
             }}
           />
+        </section>
+
+        <section aria-labelledby="feedback-heading" className="flex flex-col gap-3">
+          <h2 id="feedback-heading" className="text-sm font-medium text-muted-foreground">
+            Feedback
+          </h2>
+          <FeedbackButton />
         </section>
 
         <section aria-labelledby="account-heading" className="flex flex-col gap-3">

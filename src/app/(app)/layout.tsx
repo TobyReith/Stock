@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/session";
 import { BottomNav } from "@/components/bottom-nav";
 import { TopBar } from "@/components/top-bar";
+import { FeedbackFab } from "@/components/feedback/feedback-fab";
 
 export default async function AppLayout({
   children,
@@ -21,6 +22,7 @@ export default async function AppLayout({
         {children}
       </main>
       <BottomNav />
+      <FeedbackFab />
     </div>
   );
 }
