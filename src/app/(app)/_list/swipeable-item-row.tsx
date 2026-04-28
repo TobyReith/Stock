@@ -101,7 +101,7 @@ export function SwipeableItemRow({
 
   return (
     <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-      <div className="relative overflow-hidden rounded-lg">
+      <div className="relative overflow-hidden">
         {/* Action indicator icons — sit behind the card */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-5">
           <motion.div
@@ -117,11 +117,11 @@ export function SwipeableItemRow({
 
         {/* Coloured background tints */}
         <motion.div
-          className="pointer-events-none absolute inset-0 rounded-lg bg-emerald-500/15"
+          className="pointer-events-none absolute inset-0 bg-emerald-500/15"
           style={{ opacity: consumeOpacity }}
         />
         <motion.div
-          className="pointer-events-none absolute inset-0 rounded-lg bg-destructive/15"
+          className="pointer-events-none absolute inset-0 bg-destructive/15"
           style={{ opacity: discardOpacity }}
         />
 
@@ -153,11 +153,10 @@ export function SwipeableItemRow({
               animate(x, 0, SPRING);
             }
           }}
-          className="rounded-lg"
         >
           <Link
             href={`/item/${item.id}`}
-            className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="block outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={(e) => {
               if (wasDragged.current) {
                 e.preventDefault();

@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, ChefHat, Package, Plus, ShoppingCart } from "lucide-react";
+import { BarChart3, ChefHat, Package, Plus, ShoppingCart, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
   href: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   /** Exact-match: only `/` itself is active, not every deep route */
   exact?: boolean;
 };
@@ -30,7 +30,7 @@ export function BottomNav() {
         href="/add"
         aria-label="Hinzufügen"
         className={cn(
-          "fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-50",
+          "fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] right-4 z-50",
           "flex size-14 items-center justify-center rounded-full shadow-lg",
           "bg-primary text-primary-foreground transition-opacity hover:opacity-90",
           pathname.startsWith("/add") && "opacity-70",
@@ -44,7 +44,7 @@ export function BottomNav() {
         aria-label="Hauptnavigation"
         className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
       >
-        <ul className="mx-auto flex h-16 max-w-md items-stretch justify-around">
+        <ul className="mx-auto flex h-14 max-w-md items-stretch justify-around">
           {items.map(({ href, label, icon: Icon, exact }) => {
             const active = exact ? pathname === href : pathname.startsWith(href);
             return (
@@ -53,14 +53,19 @@ export function BottomNav() {
                   href={href}
                   prefetch
                   aria-current={active ? "page" : undefined}
+                  onClick={() => {
+                    if (typeof navigator !== "undefined" && navigator.vibrate) {
+                      navigator.vibrate(10);
+                    }
+                  }}
                   className={cn(
-                    "flex h-full flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
+                    "flex h-full flex-col items-center justify-center gap-0.5 text-[11px] transition-colors",
                     active
                       ? "text-foreground"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  <Icon className="size-6" aria-hidden />
+                  <Icon className="size-5" strokeWidth={active ? 2 : 1.75} aria-hidden />
                   <span>{label}</span>
                 </Link>
               </li>

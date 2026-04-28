@@ -27,8 +27,8 @@ export function ItemRow({
   );
 
   return (
-    <article className="flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-accent">
-      <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted">
+    <article className="flex items-center gap-3 bg-background px-3 py-2.5 transition-colors hover:bg-muted/50">
+      <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">
         {item.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -38,14 +38,14 @@ export function ItemRow({
             loading="lazy"
           />
         ) : (
-          <Package className="size-6 text-muted-foreground" aria-hidden />
+          <Package className="size-5 text-muted-foreground" aria-hidden />
         )}
       </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate font-medium leading-tight">{displayName}</p>
+            <p className="truncate text-sm font-medium leading-tight">{displayName}</p>
             {item.brand && (
               <p className="truncate text-xs text-muted-foreground">
                 {item.brand}
@@ -59,7 +59,7 @@ export function ItemRow({
             {actions}
           </div>
         </div>
-        <div className="mt-1.5 flex items-center gap-1.5 text-xs">
+        <div className="mt-1 flex items-center gap-1.5 text-xs">
           <span className="leading-none" aria-hidden>{locationIcon}</span>
           <span className={mhdColor}>{formatMhdRelative(daysLeft)}</span>
         </div>

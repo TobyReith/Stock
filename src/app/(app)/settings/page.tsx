@@ -84,76 +84,39 @@ export default async function SettingsPage() {
           <PushToggle vapidPublicKey={vapidPublicKey} />
         </section>
 
-        <section aria-labelledby="household-heading" className="flex flex-col gap-3">
+        <section aria-labelledby="management-heading" className="flex flex-col gap-3">
           <h2
-            id="household-heading"
+            id="management-heading"
             className="text-sm font-medium text-muted-foreground"
           >
-            Haushalt
+            Verwaltung
           </h2>
-          <Link
-            href="/settings/haushalt"
-            className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
-          >
-            <div className="flex items-center gap-3">
-              <Users aria-hidden className="size-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Haushalt verwalten</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Mitglieder einladen und Codes erzeugen.
-                </p>
-              </div>
-            </div>
-            <ChevronRight aria-hidden className="size-4 text-muted-foreground" />
-          </Link>
-        </section>
-
-        <section aria-labelledby="categories-heading" className="flex flex-col gap-3">
-          <h2
-            id="categories-heading"
-            className="text-sm font-medium text-muted-foreground"
-          >
-            Kategorien
-          </h2>
-          <Link
-            href="/settings/kategorien"
-            className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
-          >
-            <div className="flex items-center gap-3">
-              <Tag aria-hidden className="size-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Kategorien verwalten</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Anlegen, umbenennen, Reihenfolge und Farben anpassen.
-                </p>
-              </div>
-            </div>
-            <ChevronRight aria-hidden className="size-4 text-muted-foreground" />
-          </Link>
-        </section>
-
-        <section aria-labelledby="locations-heading" className="flex flex-col gap-3">
-          <h2
-            id="locations-heading"
-            className="text-sm font-medium text-muted-foreground"
-          >
-            Lagerorte
-          </h2>
-          <Link
-            href="/settings/lagerorte"
-            className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
-          >
-            <div className="flex items-center gap-3">
-              <MapPin aria-hidden className="size-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Lagerorte verwalten</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Anlegen, umbenennen, Reihenfolge anpassen.
-                </p>
-              </div>
-            </div>
-            <ChevronRight aria-hidden className="size-4 text-muted-foreground" />
-          </Link>
+          <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border bg-background">
+            <li>
+              <SettingsRow
+                href="/settings/haushalt"
+                icon={Users}
+                title="Haushalt"
+                subtitle="Mitglieder einladen und Codes erzeugen"
+              />
+            </li>
+            <li>
+              <SettingsRow
+                href="/settings/kategorien"
+                icon={Tag}
+                title="Kategorien"
+                subtitle="Anlegen, umbenennen, Reihenfolge und Farben"
+              />
+            </li>
+            <li>
+              <SettingsRow
+                href="/settings/lagerorte"
+                icon={MapPin}
+                title="Lagerorte"
+                subtitle="Anlegen, umbenennen, Reihenfolge anpassen"
+              />
+            </li>
+          </ul>
         </section>
 
         <section aria-labelledby="recipes-heading" className="flex flex-col gap-3">
@@ -201,4 +164,40 @@ export default async function SettingsPage() {
 function readFullName(meta: Record<string, unknown> | null | undefined): string {
   const raw = meta?.full_name;
   return typeof raw === "string" ? raw : "";
+}
+
+/**
+ * iOS-style table-view row used inside grouped section containers.
+ *
+ * The visual divider between rows is provided by the parent `<ul>`'s
+ * `divide-y` rather than a per-row border, so rows here intentionally
+ * carry no border of their own — keep that as-is or the dividers double
+ * up on the seams.
+ */
+function SettingsRow({
+  href,
+  icon: Icon,
+  title,
+  subtitle,
+}: {
+  href: string;
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
+    >
+      <div className="flex items-center gap-3">
+        <Icon aria-hidden className="size-4 text-muted-foreground" />
+        <div>
+          <p className="text-sm font-medium">{title}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+        </div>
+      </div>
+      <ChevronRight aria-hidden className="size-4 text-muted-foreground" />
+    </Link>
+  );
 }

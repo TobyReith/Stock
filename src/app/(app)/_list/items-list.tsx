@@ -149,7 +149,7 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
 
 function ItemLinks({ items, storageLocations }: { items: ListItem[]; storageLocations: StorageLocationDisplay[] }) {
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border bg-background">
       {items.map((item) => (
         <li key={item.id}>
           <SwipeableItemRow
