@@ -13,10 +13,6 @@ export function initPostHog() {
     disable_session_recording: true,
     autocapture: false,
     persistence: "localStorage",
-    sanitize_properties: (props) => {
-      delete props.$ip;
-      return props;
-    },
     loaded: (ph) => {
       if (process.env.NODE_ENV === "development") ph.debug();
     },
