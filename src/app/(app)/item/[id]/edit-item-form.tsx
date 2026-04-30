@@ -252,13 +252,13 @@ export function EditItemForm({
     <form onSubmit={handleSave} className="flex flex-col gap-5">
       {/* Product summary — read-only, like in the Add-Flow. */}
       <div className="flex items-start gap-3 rounded-lg border p-3">
-        <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded border bg-muted">
+        <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted">
           {item.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={item.imageUrl}
               alt=""
-              className="size-full object-contain"
+              className="max-h-full max-w-full object-contain p-0.5"
             />
           ) : (
             <Package className="size-6 text-muted-foreground" aria-hidden />
