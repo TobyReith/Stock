@@ -28,13 +28,13 @@ export function ItemRow({
 
   return (
     <article className="flex items-center gap-3 bg-background px-3 py-2.5 transition-colors hover:bg-muted/50">
-      <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">
+      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
         {item.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.imageUrl}
             alt=""
-            className="size-full object-contain"
+            className="max-h-full max-w-full object-contain p-0.5"
             loading="lazy"
           />
         ) : (
