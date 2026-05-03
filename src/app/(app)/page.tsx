@@ -166,7 +166,7 @@ async function loadOpenItems(
     .select(
       `
       id, quantity, unit, best_before, location, custom_name,
-      custom_brand, custom_category, added_at, updated_at,
+      custom_brand, custom_category, added_at, updated_at, frozen_at,
       product:products ( id, name, brand, category, image_url )
       `,
     )
@@ -189,6 +189,7 @@ async function loadOpenItems(
     brand: row.custom_brand ?? row.product?.brand ?? null,
     category: row.custom_category ?? row.product?.category ?? null,
     imageUrl: row.product?.image_url ?? null,
+    frozenAt: row.frozen_at,
   }));
   return { items, error: null };
 }

@@ -29,6 +29,7 @@ export type ListItem = {
   brand: string | null;
   category: string | null;
   imageUrl: string | null;
+  frozenAt: string | null; // YYYY-MM-DD
 };
 
 type Props = {

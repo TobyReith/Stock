@@ -50,7 +50,7 @@ export default async function ItemDetailPage({
         `
         id, quantity, unit, best_before, location, custom_name,
         custom_brand, custom_category, note,
-        consumed_at, discarded_at, added_at,
+        consumed_at, discarded_at, added_at, frozen_at,
         product:products ( id, name, brand, category, image_url, barcode )
         `,
       )
@@ -113,6 +113,7 @@ export default async function ItemDetailPage({
     category: data.product?.category ?? null,
     imageUrl: data.product?.image_url ?? null,
     barcode: data.product?.barcode ?? null,
+    frozenAt: data.frozen_at,
   };
 
   return (

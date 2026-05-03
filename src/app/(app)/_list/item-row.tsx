@@ -1,7 +1,7 @@
 import type * as React from "react";
 import { formatMhdRelative } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { Package } from "lucide-react";
+import { Package, Snowflake } from "lucide-react";
 import type { ListItem } from "./items-list";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 
@@ -61,6 +61,9 @@ export function ItemRow({
         </div>
         <div className="mt-1 flex items-center gap-1.5 text-xs">
           <span className="leading-none" aria-hidden>{locationIcon}</span>
+          {item.frozenAt && (
+            <Snowflake className="size-3 text-sky-500" aria-label="Eingefroren" />
+          )}
           <span className={mhdColor}>{formatMhdRelative(daysLeft)}</span>
         </div>
       </div>

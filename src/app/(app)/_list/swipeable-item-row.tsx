@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
-import { CheckCircle2, MoreVertical, ShoppingCart, Trash2 } from "lucide-react";
+import { CheckCircle2, MoreVertical, ShoppingCart, Snowflake, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -12,7 +12,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { consumeItem, discardItem, unmarkItem } from "@/lib/actions/items";
+import { consumeItem, discardItem, freezeItem, unmarkItem, unfreezeItem } from "@/lib/actions/items";
 import { addShoppingItem } from "@/lib/actions/shopping";
 import { ItemRow } from "./item-row";
 import type { ListItem } from "./items-list";
@@ -97,6 +97,28 @@ export function SwipeableItemRow({
     }
     showActionToast(`${displayName} entsorgt`);
     return true;
+  }
+
+  async function triggerFreeze() {
+    vibrate(50);
+    const origBestBefore = item.bestBefore;
+    const origLocation = item.location;
+    const result = await freezeItem(item.id);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(`${displayName} eingefroren · MHD aktualisiert`, {
+      duration: 5000,
+      action: {
+        label: "Rückgängig",
+        onClick: async () => {
+          vibrate([30, 30, 30]);
+          const res = await unfreezeItem(item.id, origBestBefore, origLocation);
+          if (!res.ok) toast.error(res.error);
+        },
+      },
+    });
   }
 
   return (
@@ -203,6 +225,18 @@ export function SwipeableItemRow({
               >
                 <Trash2 className="size-5 text-destructive" aria-hidden />
                 Als entsorgt markieren
+              </button>
+            }
+          />
+          <SheetClose
+            render={
+              <button
+                type="button"
+                onClick={() => void triggerFreeze()}
+                className="flex items-center gap-3 px-4 py-3.5 text-sm hover:bg-muted"
+              >
+                <Snowflake className="size-5 text-sky-500" aria-hidden />
+                Einfrieren
               </button>
             }
           />

@@ -244,6 +244,7 @@ export type Database = {
           custom_category: string | null
           custom_name: string | null
           discarded_at: string | null
+          frozen_at: string | null
           household_id: string
           id: string
           location: string
@@ -262,6 +263,7 @@ export type Database = {
           custom_category?: string | null
           custom_name?: string | null
           discarded_at?: string | null
+          frozen_at?: string | null
           household_id: string
           id?: string
           location: string
@@ -280,6 +282,7 @@ export type Database = {
           custom_category?: string | null
           custom_name?: string | null
           discarded_at?: string | null
+          frozen_at?: string | null
           household_id?: string
           id?: string
           location?: string
