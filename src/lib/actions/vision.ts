@@ -10,7 +10,7 @@ import {
 } from "@/lib/vision";
 import { identifyProduct as runIdentification } from "@/lib/vision/identify-product";
 import type { ProductCandidate } from "@/lib/vision/types";
-import type { ActionResult } from "./items";
+import type { ActionResult } from "@/lib/actions/result";
 
 // NOTE: this file is "use server" — only async functions may be exported.
 // Sync helpers like `reasonMessage` and the `VisionActionPayload` type live
