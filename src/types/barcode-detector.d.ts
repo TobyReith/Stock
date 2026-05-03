@@ -44,4 +44,14 @@ declare global {
   interface Window {
     BarcodeDetector?: typeof BarcodeDetector;
   }
+
+  // `torch` and `focusMode` are not yet in the stable TypeScript DOM lib.
+  interface MediaTrackCapabilities {
+    torch?: boolean;
+    focusMode?: string[];
+  }
+  interface MediaTrackConstraintSet {
+    torch?: boolean;
+    focusMode?: ConstrainDOMString;
+  }
 }
