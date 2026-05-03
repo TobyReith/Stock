@@ -12,6 +12,7 @@ import {
   Trash2,
   Undo2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -297,9 +298,10 @@ function Row({
 
   return (
     <li
-      className={`flex items-center gap-2 rounded-lg border px-3 py-2 transition-opacity ${
-        isBought ? "bg-muted/30" : "bg-background"
-      }`}
+      className={cn(
+        "flex items-center gap-2 rounded-lg border px-3 py-2 transition-opacity",
+        isBought ? "bg-muted/30" : "bg-background",
+      )}
     >
       <button
         type="button"
@@ -308,11 +310,12 @@ function Row({
         role="checkbox"
         aria-checked={isBought}
         aria-label={isBought ? "Nicht gekauft markieren" : "Gekauft markieren"}
-        className={`grid size-5 shrink-0 place-items-center rounded border transition-colors ${
+        className={cn(
+          "grid size-5 shrink-0 place-items-center rounded border transition-colors",
           isBought
             ? "border-primary bg-primary text-primary-foreground"
-            : "border-muted-foreground/40 hover:border-primary"
-        }`}
+            : "border-muted-foreground/40 hover:border-primary",
+        )}
       >
         {isBought && (
           <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden>
@@ -330,9 +333,10 @@ function Row({
 
       <div className="min-w-0 flex-1">
         <p
-          className={`truncate text-sm ${
-            isBought ? "text-muted-foreground line-through" : "font-medium"
-          }`}
+          className={cn(
+            "truncate text-sm",
+            isBought ? "text-muted-foreground line-through" : "font-medium",
+          )}
         >
           {name}
           {qtyLabel && (

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import {
@@ -10,14 +11,10 @@ import {
   type CreateStorageLocationInput,
   type UpdateStorageLocationInput,
 } from "@/lib/schemas/storage-locations";
-import type { ActionResult } from "@/lib/actions/items";
+import { type ActionResult, fail } from "@/lib/actions/result";
 import type { Database } from "@/lib/supabase/database.types";
 
 type StorageLocationUpdate = Database["public"]["Tables"]["storage_locations"]["Update"];
-
-function fail(error: string): ActionResult<never> {
-  return { ok: false, error };
-}
 
 export async function listStorageLocations(): Promise<ActionResult<StorageLocationDisplay[]>> {
   const supabase = await createClient();
@@ -136,7 +133,7 @@ export async function deleteStorageLocation(
   id: string,
   reassignSlug = "other",
 ): Promise<ActionResult> {
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return fail("Ungültige ID");
+  if (!z.string().uuid().safeParse(id).success) return fail("Ungültige ID");
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -179,7 +176,8 @@ export async function deleteStorageLocation(
 export async function reorderStorageLocations(
   orderedIds: string[],
 ): Promise<ActionResult> {
-  if (!orderedIds.every((id) => /^[0-9a-f-]{36}$/i.test(id)))
+  const uuidSchema = z.string().uuid();
+  if (!orderedIds.every((id) => uuidSchema.safeParse(id).success))
     return fail("Ungültige IDs");
 
   const supabase = await createClient();

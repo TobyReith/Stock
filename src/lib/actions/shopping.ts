@@ -12,6 +12,9 @@ import {
   ensureActiveHousehold,
   getActiveHouseholdId,
 } from "@/lib/households/active";
+import { type ActionResult, fail } from "@/lib/actions/result";
+
+export type { ActionResult };
 
 type ShoppingUpdate =
   Database["public"]["Tables"]["shopping_list_items"]["Update"];
@@ -24,14 +27,6 @@ type ShoppingUpdate =
  * switcher can't leak writes across households, and a shared
  * `ActionResult` shape so call sites stay boring.
  */
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
-function fail(error: string): ActionResult<never> {
-  return { ok: false, error };
-}
 
 /**
  * Add an item to the shopping list. Two entry paths:

@@ -9,6 +9,7 @@ import { ItemsList, type ListItem } from "./_list/items-list";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import { buttonVariants } from "@/components/ui/button";
+import { EXPIRY_THRESHOLD_DAYS } from "@/lib/constants/app";
 
 export default async function ListPage() {
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
@@ -88,7 +89,7 @@ function ErrorState({ message }: { message: string }) {
 
 function ExpiryWidget({ items }: { items: ListItem[] }) {
   const threshold = new Date();
-  threshold.setDate(threshold.getDate() + 5);
+  threshold.setDate(threshold.getDate() + EXPIRY_THRESHOLD_DAYS);
   const thresholdStr = threshold.toISOString().slice(0, 10);
 
   const expiring = items.filter(
@@ -165,7 +166,7 @@ async function loadOpenItems(
     .select(
       `
       id, quantity, unit, best_before, location, custom_name,
-      custom_brand, custom_category, added_at, updated_at,
+      custom_brand, custom_category, added_at, updated_at, frozen_at,
       product:products ( id, name, brand, category, image_url )
       `,
     )
@@ -188,6 +189,7 @@ async function loadOpenItems(
     brand: row.custom_brand ?? row.product?.brand ?? null,
     category: row.custom_category ?? row.product?.category ?? null,
     imageUrl: row.product?.image_url ?? null,
+    frozenAt: row.frozen_at,
   }));
   return { items, error: null };
 }
