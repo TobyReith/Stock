@@ -9,6 +9,7 @@ import { ItemsList, type ListItem } from "./_list/items-list";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import { buttonVariants } from "@/components/ui/button";
+import { EXPIRY_THRESHOLD_DAYS } from "@/lib/constants/app";
 
 export default async function ListPage() {
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
@@ -88,7 +89,7 @@ function ErrorState({ message }: { message: string }) {
 
 function ExpiryWidget({ items }: { items: ListItem[] }) {
   const threshold = new Date();
-  threshold.setDate(threshold.getDate() + 5);
+  threshold.setDate(threshold.getDate() + EXPIRY_THRESHOLD_DAYS);
   const thresholdStr = threshold.toISOString().slice(0, 10);
 
   const expiring = items.filter(

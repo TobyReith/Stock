@@ -23,6 +23,7 @@ import { addShoppingItem } from "@/lib/actions/shopping";
 import type { UpdateItemInput } from "@/lib/schemas/items";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
+import { FieldRow } from "@/components/ui/form-field";
 
 /**
  * Edit form + Consume/Discard actions for a single item.
@@ -457,8 +458,4 @@ export function EditItemForm({
       </div>
     </form>
   );
-}
-
-function FieldRow({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col gap-1.5">{children}</div>;
 }

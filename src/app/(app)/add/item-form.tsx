@@ -19,6 +19,7 @@ import {
   ProductAutocomplete,
   type ProductSearchResult,
 } from "./product-autocomplete";
+import { FieldRow } from "@/components/ui/form-field";
 
 /**
  * The actual "add item" form.
@@ -447,10 +448,6 @@ function resolveDefaultLocation(
   const defaultSlug = getCategory(category).defaultLocation;
   const found = storageLocations.find((l) => l.slug === defaultSlug);
   return found?.slug ?? storageLocations[0]?.slug ?? "other";
-}
-
-function FieldRow({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col gap-1.5">{children}</div>;
 }
 
 /** Extract a unit abbreviation from an OFF quantity string like "500 g" or "1,5 L". */

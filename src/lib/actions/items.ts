@@ -22,16 +22,11 @@ import {
   ensureActiveHousehold,
   getActiveHouseholdId,
 } from "@/lib/households/active";
+import { type ActionResult, fail } from "@/lib/actions/result";
+
+export type { ActionResult };
 
 type ItemUpdate = Database["public"]["Tables"]["items"]["Update"];
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
-function fail(error: string): ActionResult<never> {
-  return { ok: false, error };
-}
 
 /**
  * Look up a barcode: prefer our local `products` cache, fall back to the

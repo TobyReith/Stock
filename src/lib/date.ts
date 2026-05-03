@@ -9,6 +9,8 @@
  * midnight so "today" always means 0, regardless of clock time.
  */
 
+import { MHD_SOON_DAYS } from "@/lib/constants/app";
+
 /**
  * Integer number of calendar days from `now` until the ISO date string.
  * Negative if the date is in the past.
@@ -39,7 +41,7 @@ export type MhdUrgency = "expired" | "soon" | "later";
 export function mhdUrgency(isoDate: string, now: Date = new Date()): MhdUrgency {
   const days = daysUntil(isoDate, now);
   if (days <= 0) return "expired";
-  if (days <= 3) return "soon";
+  if (days <= MHD_SOON_DAYS) return "soon";
   return "later";
 }
 

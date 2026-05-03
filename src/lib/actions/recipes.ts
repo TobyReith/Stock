@@ -13,16 +13,20 @@ import type {
   RecipeSuggestionResult,
   UserRecipeSettings,
 } from "@/lib/recipes/types";
+import { type ActionResult, fail } from "@/lib/actions/result";
+import {
+  DAILY_RECIPE_QUOTA,
+  RECIPE_PANTRY_LIMIT,
+  RECIPE_CACHE_TTL_HOURS,
+} from "@/lib/constants/app";
 
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
+export type { ActionResult };
 
-function fail(error: string): ActionResult<never> {
-  return { ok: false, error };
+// Supabase returns embedded joins as T | T[] depending on cardinality hint.
+function firstOf<T>(v: T | T[] | null): T | null {
+  if (!v) return null;
+  return Array.isArray(v) ? (v[0] ?? null) : v;
 }
-
-const DAILY_QUOTA = 10;
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
@@ -156,7 +160,7 @@ export async function generateRecipeSuggestions(
         0,
         Math.ceil((expDate.getTime() - today.getTime()) / 86_400_000),
       );
-      const product = Array.isArray(row.product) ? row.product[0] : row.product;
+      const product = firstOf(row.product);
       return {
         id: row.id,
         name: row.custom_name ?? product?.name ?? "Unbekannt",
@@ -202,7 +206,7 @@ export async function generateRecipeSuggestions(
       .eq("household_id", householdId)
       .gte("created_at", todayStart.toISOString());
 
-    if ((count ?? 0) >= DAILY_QUOTA) {
+    if ((count ?? 0) >= DAILY_RECIPE_QUOTA) {
       return { ok: false, reason: "quota_exceeded" };
     }
 
@@ -215,10 +219,10 @@ export async function generateRecipeSuggestions(
       .is("discarded_at", null)
       .gt("best_before", thresholdStr)
       .gt("quantity", 0)
-      .limit(40);
+      .limit(RECIPE_PANTRY_LIMIT);
 
     const pantryItems: PantryItem[] = (pantryRows ?? []).map((row) => {
-      const product = Array.isArray(row.product) ? row.product[0] : row.product;
+      const product = firstOf(row.product);
       return {
         name: row.custom_name ?? product?.name ?? "Unbekannt",
         category: row.custom_category ?? product?.category ?? "other",
@@ -245,9 +249,9 @@ export async function generateRecipeSuggestions(
       void ph.shutdown();
     }
 
-    // Upsert into cache (TTL 24h).
+    // Upsert into cache.
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+    expiresAt.setHours(expiresAt.getHours() + RECIPE_CACHE_TTL_HOURS);
 
     await supabase.from("recipe_suggestions").upsert(
       {
@@ -318,33 +322,38 @@ export async function markRecipeCooked(
 
     const consumedItemIds: string[] = [];
 
-    // Update item quantities; mark as consumed if depleted.
-    for (const { itemId, usedQuantity } of consumed) {
-      if (usedQuantity <= 0) continue;
+    // Batch-fetch current quantities for all affected items, then update in parallel.
+    const relevant = consumed.filter((c) => c.usedQuantity > 0);
+    const ids = relevant.map((c) => c.itemId);
 
-      const { data: item } = await supabase
-        .from("items")
-        .select("quantity")
-        .eq("id", itemId)
-        .eq("household_id", householdId)
-        .maybeSingle();
+    const { data: itemRows } = await supabase
+      .from("items")
+      .select("id, quantity")
+      .in("id", ids)
+      .eq("household_id", householdId);
 
-      if (!item) continue;
+    const quantityById = new Map(
+      (itemRows ?? []).map((r) => [r.id, Number(r.quantity)]),
+    );
 
-      const remaining = Math.max(0, Number(item.quantity) - usedQuantity);
-      const patch =
-        remaining === 0
-          ? { quantity: 0, consumed_at: new Date().toISOString() }
-          : { quantity: remaining };
-
-      await supabase
-        .from("items")
-        .update(patch)
-        .eq("id", itemId)
-        .eq("household_id", householdId);
-
-      consumedItemIds.push(itemId);
-    }
+    const now = new Date().toISOString();
+    await Promise.all(
+      relevant.map(({ itemId, usedQuantity }) => {
+        const current = quantityById.get(itemId);
+        if (current === undefined) return;
+        consumedItemIds.push(itemId);
+        const remaining = Math.max(0, current - usedQuantity);
+        const patch =
+          remaining === 0
+            ? { quantity: 0, consumed_at: now }
+            : { quantity: remaining };
+        return supabase
+          .from("items")
+          .update(patch)
+          .eq("id", itemId)
+          .eq("household_id", householdId);
+      }),
+    );
 
     // Record the cooked meal.
     const { data: meal, error: mealErr } = await supabase
