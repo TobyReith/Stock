@@ -1,0 +1,23 @@
+name: Security Review
+
+permissions:
+  pull-requests: write
+  contents: read
+
+on:
+  pull_request:
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+
+      - uses: anthropics/claude-code-security-review@main
+        with:
+          comment-pr: true
+          claude-api-key: ${{ secrets.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 }}
+          exclude-directories: "node_modules,.next,dist,build"
