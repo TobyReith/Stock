@@ -14,8 +14,6 @@ import {
 } from "@/lib/households/active";
 import { type ActionResult, fail } from "@/lib/actions/result";
 
-export type { ActionResult };
-
 type ShoppingUpdate =
   Database["public"]["Tables"]["shopping_list_items"]["Update"];
 

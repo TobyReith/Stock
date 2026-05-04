@@ -10,8 +10,6 @@ import {
 } from "@/lib/households/active";
 import { type ActionResult, fail } from "@/lib/actions/result";
 
-export type { ActionResult };
-
 /**
  * Household-scope server actions: switch active, rename, leave, and
  * remove members.

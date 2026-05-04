@@ -25,8 +25,6 @@ import {
 } from "@/lib/households/active";
 import { type ActionResult, fail } from "@/lib/actions/result";
 
-export type { ActionResult };
-
 type ItemUpdate = Database["public"]["Tables"]["items"]["Update"];
 
 /**
