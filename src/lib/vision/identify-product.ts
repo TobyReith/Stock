@@ -16,13 +16,12 @@ function approxDecodedSize(base64: string): number {
   return Math.floor((base64.length * 3) / 4) - padding;
 }
 
-const OFF_FIELDS = "code,product_name,product_name_de,brands,categories_tags,image_url";
+const OFF_FIELDS = "code,product_name,product_name_de,product_name_en,brands,categories_tags,image_url";
 
 async function searchOFF(query: string, pageSize = 5): Promise<ProductCandidate[]> {
   try {
     const url = new URL("https://search.openfoodfacts.org/search");
     url.searchParams.set("q", query);
-    url.searchParams.set("langs", "de");
     url.searchParams.set("fields", OFF_FIELDS);
     url.searchParams.set("page_size", String(pageSize));
     url.searchParams.set("sort_by", "popularity_key");
@@ -40,6 +39,7 @@ async function searchOFF(query: string, pageSize = 5): Promise<ProductCandidate[
       .map((p): ProductCandidate | null => {
         const name = (
           (p.product_name_de as string) ||
+          (p.product_name_en as string) ||
           (p.product_name as string) ||
           ""
         ).trim();
