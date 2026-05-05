@@ -15,6 +15,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      inventory_events: {
+        Row: {
+          actor_id: string | null
+          category: string | null
+          custom_name: string | null
+          happened_at: string
+          household_id: string
+          id: string
+          item_id: string | null
+          location: string | null
+          product_name: string
+          quantity: number | null
+          reason: string | null
+          type: string
+          unit: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          category?: string | null
+          custom_name?: string | null
+          happened_at?: string
+          household_id: string
+          id?: string
+          item_id?: string | null
+          location?: string | null
+          product_name: string
+          quantity?: number | null
+          reason?: string | null
+          type: string
+          unit?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          category?: string | null
+          custom_name?: string | null
+          happened_at?: string
+          household_id?: string
+          id?: string
+          item_id?: string | null
+          location?: string | null
+          product_name?: string
+          quantity?: number | null
+          reason?: string | null
+          type?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_events_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       household_members: {
         Row: {
           household_id: string
@@ -64,6 +127,50 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      categories: {
+        Row: {
+          color: string
+          created_at: string
+          household_id: string
+          icon: string
+          id: string
+          is_system: boolean
+          name: string
+          slug: string
+          sort_order: number
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          household_id: string
+          icon: string
+          id?: string
+          is_system?: boolean
+          name: string
+          slug: string
+          sort_order?: number
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          household_id?: string
+          icon?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          slug?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categories_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invite_attempts: {
         Row: {
@@ -137,6 +244,7 @@ export type Database = {
           custom_category: string | null
           custom_name: string | null
           discarded_at: string | null
+          frozen_at: string | null
           household_id: string
           id: string
           location: string
@@ -155,6 +263,7 @@ export type Database = {
           custom_category?: string | null
           custom_name?: string | null
           discarded_at?: string | null
+          frozen_at?: string | null
           household_id: string
           id?: string
           location: string
@@ -173,6 +282,7 @@ export type Database = {
           custom_category?: string | null
           custom_name?: string | null
           discarded_at?: string | null
+          frozen_at?: string | null
           household_id?: string
           id?: string
           location?: string
@@ -235,6 +345,110 @@ export type Database = {
         }
         Relationships: []
       }
+      cooked_meals: {
+        Row: {
+          cooked_at: string
+          consumed_item_ids: string[]
+          favorite_id: string | null
+          household_id: string
+          id: string
+          recipe_data: Json
+          recipe_title: string
+          user_id: string
+        }
+        Insert: {
+          cooked_at?: string
+          consumed_item_ids?: string[]
+          favorite_id?: string | null
+          household_id: string
+          id?: string
+          recipe_data: Json
+          recipe_title: string
+          user_id: string
+        }
+        Update: {
+          cooked_at?: string
+          consumed_item_ids?: string[]
+          favorite_id?: string | null
+          household_id?: string
+          id?: string
+          recipe_data?: Json
+          recipe_title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cooked_meals_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipe_favorites: {
+        Row: {
+          cooked_count: number
+          created_at: string
+          household_id: string
+          id: string
+          last_cooked_at: string | null
+          notes: string | null
+          recipe_data: Json
+          recipe_title: string
+          source_suggestion_id: string | null
+          tags: string[]
+          user_id: string
+        }
+        Insert: {
+          cooked_count?: number
+          created_at?: string
+          household_id: string
+          id?: string
+          last_cooked_at?: string | null
+          notes?: string | null
+          recipe_data: Json
+          recipe_title: string
+          source_suggestion_id?: string | null
+          tags?: string[]
+          user_id: string
+        }
+        Update: {
+          cooked_count?: number
+          created_at?: string
+          household_id?: string
+          id?: string
+          last_cooked_at?: string | null
+          notes?: string | null
+          recipe_data?: Json
+          recipe_title?: string
+          source_suggestion_id?: string | null
+          tags?: string[]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      recipe_tags: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           created_at: string
@@ -258,6 +472,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      recipe_suggestions: {
+        Row: {
+          cache_key: string
+          created_at: string
+          expires_at: string
+          household_id: string
+          id: string
+          input_item_ids: string[]
+          recipes: Json
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          expires_at: string
+          household_id: string
+          id?: string
+          input_item_ids: string[]
+          recipes: Json
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          household_id?: string
+          id?: string
+          input_item_ids?: string[]
+          recipes?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_suggestions_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shopping_list_items: {
         Row: {
@@ -313,6 +565,77 @@ export type Database = {
           },
         ]
       }
+      user_settings: {
+        Row: {
+          dietary_preferences: string[]
+          disliked_ingredients: string[]
+          expiry_threshold_days: number
+          recipe_notifications_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          dietary_preferences?: string[]
+          disliked_ingredients?: string[]
+          expiry_threshold_days?: number
+          recipe_notifications_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          dietary_preferences?: string[]
+          disliked_ingredients?: string[]
+          expiry_threshold_days?: number
+          recipe_notifications_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      storage_locations: {
+        Row: {
+          created_at: string
+          household_id: string
+          icon: string
+          id: string
+          is_system: boolean
+          name: string
+          slug: string
+          sort_order: number
+          temperature_hint: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          icon?: string
+          id?: string
+          is_system?: boolean
+          name: string
+          slug: string
+          sort_order?: number
+          temperature_hint?: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          icon?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          slug?: string
+          sort_order?: number
+          temperature_hint?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storage_locations_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -320,6 +643,8 @@ export type Database = {
     Functions: {
       is_household_member: { Args: { h_id: string }; Returns: boolean }
       is_household_owner: { Args: { h_id: string }; Returns: boolean }
+      seed_household_categories: { Args: { p_household_id: string }; Returns: undefined }
+      seed_household_storage_locations: { Args: { p_household_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

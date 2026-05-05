@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { ItemRow } from "./item-row";
+import { SwipeableItemRow } from "./swipeable-item-row";
 import { FiltersSheet } from "./filters-sheet";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import { daysUntil, mhdUrgency, type MhdUrgency } from "@/lib/date";
 import { useFilterState } from "@/lib/hooks/use-filter-state";
 import { applyItemFilters, applyItemSort } from "@/lib/filters/items";
@@ -22,16 +23,19 @@ export type ListItem = {
   unit: string | null;
   bestBefore: string; // YYYY-MM-DD
   updatedAt: string; // ISO timestamp
-  location: "fridge" | "pantry" | "freezer" | "other";
+  location: string;
   customName: string | null;
   productName: string;
   brand: string | null;
   category: string | null;
   imageUrl: string | null;
+  frozenAt: string | null; // YYYY-MM-DD
 };
 
 type Props = {
   items: ListItem[];
+  categories: CategoryDisplay[];
+  storageLocations: StorageLocationDisplay[];
 };
 
 /**
@@ -56,7 +60,7 @@ type Props = {
  * filter chips, a shared link with a half-typed query in it would be
  * more confusing than useful.
  */
-export function ItemsList({ items }: Props) {
+export function ItemsList({ items, categories, storageLocations }: Props) {
   const { state } = useFilterState();
   const [query, setQuery] = useState("");
 
@@ -117,7 +121,7 @@ export function ItemsList({ items }: Props) {
             </button>
           )}
         </div>
-        <FiltersSheet />
+        <FiltersSheet categories={categories} storageLocations={storageLocations} />
       </div>
 
       {showNoResults && (
@@ -135,26 +139,25 @@ export function ItemsList({ items }: Props) {
                 <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {label}
                 </h2>
-                <ItemLinks items={bucket} />
+                <ItemLinks items={bucket} storageLocations={storageLocations} />
               </section>
             ),
           )
-        : sorted.length > 0 && <ItemLinks items={sorted} />}
+        : sorted.length > 0 && <ItemLinks items={sorted} storageLocations={storageLocations} />}
     </div>
   );
 }
 
-function ItemLinks({ items }: { items: ListItem[] }) {
+function ItemLinks({ items, storageLocations }: { items: ListItem[]; storageLocations: StorageLocationDisplay[] }) {
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border bg-background">
       {items.map((item) => (
         <li key={item.id}>
-          <Link
-            href={`/item/${item.id}`}
-            className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ItemRow item={item} daysLeft={daysUntil(item.bestBefore)} />
-          </Link>
+          <SwipeableItemRow
+            item={item}
+            daysLeft={daysUntil(item.bestBefore)}
+            storageLocations={storageLocations}
+          />
         </li>
       ))}
     </ul>

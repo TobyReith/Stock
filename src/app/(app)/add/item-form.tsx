@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Loader2, Refrigerator, Package, Snowflake, Archive } from "lucide-react";
+import { Loader2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,12 +9,17 @@ import { cn } from "@/lib/utils";
 import { addItem } from "@/lib/actions/items";
 import type { AddItemInput } from "@/lib/schemas/items";
 import {
-  CATEGORIES,
   defaultBestBeforeDate,
   getCategory,
-  type CategoryKey,
 } from "@/lib/constants/categories";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import { MhdCapture } from "./mhd-capture";
+import {
+  ProductAutocomplete,
+  type ProductSearchResult,
+} from "./product-autocomplete";
+import { FieldRow } from "@/components/ui/form-field";
 
 /**
  * The actual "add item" form.
@@ -28,6 +33,8 @@ import { MhdCapture } from "./mhd-capture";
  *   - `unknown` — barcode was not found anywhere; user supplies product
  *                 name + category manually, barcode is preserved.
  *   - `manual`  — no barcode at all; like `unknown` minus the barcode.
+ *   - `vision`  — product identified via photo; name/brand/image/category
+ *                 are fixed like `off`, but there is no barcode.
  *
  * The MHD field is prefilled from the category default and can be
  * replaced either manually or via an OCR photo (see `MhdCapture`).
@@ -40,7 +47,7 @@ export type FormSeed =
       productName: string;
       brand: string | null;
       imageUrl: string | null;
-      category: CategoryKey;
+      category: string;
       barcode: string | null;
     }
   | {
@@ -48,7 +55,7 @@ export type FormSeed =
       productName: string;
       brand: string | null;
       imageUrl: string | null;
-      category: CategoryKey;
+      category: string;
       barcode: string;
     }
   | {
@@ -57,6 +64,13 @@ export type FormSeed =
     }
   | {
       kind: "manual";
+    }
+  | {
+      kind: "vision";
+      productName: string;
+      brand: string | null;
+      imageUrl: string | null;
+      category: string;
     };
 
 /**
@@ -74,25 +88,16 @@ export type ItemFormPrefill = {
 type Props = {
   seed: FormSeed;
   prefill?: ItemFormPrefill;
+  categories: CategoryDisplay[];
+  storageLocations: StorageLocationDisplay[];
   onCancel: () => void;
   onSuccess: () => void;
 };
 
-const LOCATIONS: {
-  value: "fridge" | "pantry" | "freezer" | "other";
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}[] = [
-  { value: "fridge", label: "Kühlschrank", icon: Refrigerator },
-  { value: "pantry", label: "Vorrat", icon: Package },
-  { value: "freezer", label: "Gefrierer", icon: Snowflake },
-  { value: "other", label: "Sonstiges", icon: Archive },
-];
-
-export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
+export function ItemForm({ seed, prefill, categories, storageLocations, onCancel, onSuccess }: Props) {
   const needsProductFields = seed.kind === "unknown" || seed.kind === "manual";
   const seedProduct = "productName" in seed ? seed : null;
-  const seedCategory: CategoryKey =
+  const seedCategory: string =
     "category" in seed ? seed.category : "other";
 
   // We manage form state with useState — the shape is small enough that
@@ -106,7 +111,7 @@ export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
   const [productName, setProductName] = useState(
     seedProduct?.productName ?? prefill?.customName ?? "",
   );
-  const [category, setCategory] = useState<CategoryKey>(seedCategory);
+  const [category, setCategory] = useState<string>(seedCategory);
   const [customName, setCustomName] = useState(
     // Only pre-fill `customName` when we *have* a product — otherwise the
     // shopping-list text already lives in `productName` above and dupli-
@@ -127,21 +132,40 @@ export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
     "default",
   );
   const [mhdRaw, setMhdRaw] = useState<string | null>(null);
-  const [location, setLocation] = useState<(typeof LOCATIONS)[number]["value"]>(
-    getCategory(seedCategory).defaultLocation,
+  const [location, setLocation] = useState<string>(
+    resolveDefaultLocation(seedCategory, storageLocations),
   );
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Extra metadata captured when the user picks from autocomplete.
+  // Used to enrich the addItem call the same way the "off" seed path does.
+  const [offBrand, setOffBrand] = useState<string | null>(null);
+  const [offImageUrl, setOffImageUrl] = useState<string | null>(null);
+  const [offBarcode, setOffBarcode] = useState<string | null>(null);
+  const [offCategory, setOffCategory] = useState<string | null>(null);
+
   // When the user changes the category on an unknown/manual entry, bump
   // the default MHD + location — but only if they haven't customized them.
-  function handleCategoryChange(next: CategoryKey) {
+  function handleCategoryChange(next: string) {
     setCategory(next);
     if (mhdSource === "default") {
       setBestBefore(defaultBestBeforeDate(next));
     }
-    setLocation(getCategory(next).defaultLocation);
+    setLocation(resolveDefaultLocation(next, storageLocations));
+  }
+
+  function handleAutocompleteSelect(result: ProductSearchResult) {
+    setOffBrand(result.brand);
+    setOffImageUrl(result.imageUrl);
+    setOffBarcode(result.barcode);
+    setOffCategory(result.category);
+    handleCategoryChange(result.category);
+    // Pre-fill unit from the OFF quantity string ("500 g" → "g") if the
+    // user hasn't set one yet.
+    const parsedUnit = parseUnit(result.quantity);
+    if (!unit && parsedUnit) setUnit(parsedUnit);
   }
 
   const canSubmit = useMemo(() => {
@@ -157,13 +181,13 @@ export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
     if (!canSubmit) return;
     setError(null);
 
-    const barcode = "barcode" in seed ? seed.barcode : null;
+    const barcode = "barcode" in seed ? seed.barcode : offBarcode;
     const input: AddItemInput = {
       productId: seed.kind === "known" ? seed.productId : undefined,
       barcode: barcode ?? undefined,
       productName: seedProduct?.productName ?? productName.trim(),
-      brand: seedProduct?.brand ?? null,
-      imageUrl: seedProduct?.imageUrl ?? null,
+      brand: seedProduct?.brand ?? offBrand ?? null,
+      imageUrl: seedProduct?.imageUrl ?? offImageUrl ?? null,
       category,
       customName: customName.trim() || undefined,
       quantity: Number(quantity),
@@ -205,7 +229,8 @@ export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              {getCategory(seedProduct.category).label}
+              {categories.find((c) => c.slug === seedProduct.category)?.name ??
+                getCategory(seedProduct.category).label}
             </p>
           </div>
         </div>
@@ -216,26 +241,59 @@ export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
         <>
           <FieldRow>
             <Label htmlFor="product-name">Produktname</Label>
-            <Input
+            <ProductAutocomplete
               id="product-name"
               value={productName}
-              onChange={(e) => setProductName(e.target.value)}
+              onChange={(v) => {
+                setProductName(v);
+                // Clear cached OFF data when the user edits freely.
+                if (offBarcode) {
+                  setOffBrand(null);
+                  setOffImageUrl(null);
+                  setOffBarcode(null);
+                  setOffCategory(null);
+                }
+              }}
+              onSelect={handleAutocompleteSelect}
               placeholder="z.B. Haferflocken"
               autoFocus
               required
             />
+            {(offBrand || offImageUrl) && (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-1.5">
+                {offImageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={offImageUrl}
+                    alt=""
+                    className="size-8 shrink-0 rounded border object-contain bg-white"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  {offBrand && (
+                    <p className="truncate text-sm text-muted-foreground">{offBrand}</p>
+                  )}
+                  {offCategory && (
+                    <p className="truncate text-xs text-muted-foreground">
+                      {categories.find((c) => c.slug === offCategory)?.name ??
+                        getCategory(offCategory).label}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </FieldRow>
           <FieldRow>
             <Label htmlFor="category">Kategorie</Label>
             <select
               id="category"
               value={category}
-              onChange={(e) => handleCategoryChange(e.target.value as CategoryKey)}
+              onChange={(e) => handleCategoryChange(e.target.value)}
               className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              {CATEGORIES.map((c) => (
-                <option key={c.key} value={c.key}>
-                  {c.label}
+              {categories.map((c) => (
+                <option key={c.slug} value={c.slug}>
+                  {c.icon} {c.name}
                 </option>
               ))}
             </select>
@@ -309,7 +367,7 @@ export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
         />
         <p className="text-xs text-muted-foreground">
           {mhdSource === "default" &&
-            `Standard für ${getCategory(category).label}. "MHD scannen" für Foto-Erkennung.`}
+            `Standard für ${categories.find((c) => c.slug === category)?.name ?? getCategory(category).label}. "MHD scannen" für Foto-Erkennung.`}
           {mhdSource === "ocr" && mhdRaw && `Erkannt: "${mhdRaw}"`}
           {mhdSource === "manual" && "Manuell eingegeben."}
         </p>
@@ -318,14 +376,14 @@ export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
       {/* Location segmented control */}
       <FieldRow>
         <Label>Lagerort</Label>
-        <div className="grid grid-cols-4 gap-1 rounded-lg border p-1">
-          {LOCATIONS.map(({ value, label, icon: Icon }) => {
-            const active = location === value;
+        <div className="grid grid-cols-3 gap-1 rounded-lg border p-1">
+          {storageLocations.map(({ slug, name, icon }) => {
+            const active = location === slug;
             return (
               <button
-                key={value}
+                key={slug}
                 type="button"
-                onClick={() => setLocation(value)}
+                onClick={() => setLocation(slug)}
                 aria-pressed={active}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-md py-2 text-xs transition-colors",
@@ -334,8 +392,8 @@ export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
-                <Icon className="size-5" aria-hidden />
-                {label}
+                <span className="text-base leading-none" aria-hidden>{icon}</span>
+                {name}
               </button>
             );
           })}
@@ -383,6 +441,18 @@ export function ItemForm({ seed, prefill, onCancel, onSuccess }: Props) {
   );
 }
 
-function FieldRow({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col gap-1.5">{children}</div>;
+function resolveDefaultLocation(
+  category: string,
+  storageLocations: StorageLocationDisplay[],
+): string {
+  const defaultSlug = getCategory(category).defaultLocation;
+  const found = storageLocations.find((l) => l.slug === defaultSlug);
+  return found?.slug ?? storageLocations[0]?.slug ?? "other";
+}
+
+/** Extract a unit abbreviation from an OFF quantity string like "500 g" or "1,5 L". */
+function parseUnit(quantity: string | null): string | null {
+  if (!quantity) return null;
+  const m = quantity.match(/\b(g|kg|ml|l|cl|dl|mg)\b/i);
+  return m ? m[1]!.toLowerCase() : null;
 }

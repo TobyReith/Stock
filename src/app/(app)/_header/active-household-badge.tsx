@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/session";
 import {
   getActiveHouseholdId,
   listMemberships,
@@ -24,10 +25,9 @@ import {
  *     the home page, which is one tap away on the bottom nav).
  */
 export async function ActiveHouseholdBadge() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Both helpers are `cache()`-wrapped; when the page that renders this
+  // badge has already awaited them, the second call is a no-op.
+  const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   if (!user) return null;
 
   const [activeHouseholdId, memberships] = await Promise.all([

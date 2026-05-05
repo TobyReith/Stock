@@ -32,8 +32,8 @@ export const isoDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Datum als YYYY-MM-DD");
 
-export const locationSchema = z.enum(["fridge", "pantry", "freezer", "other"]);
-export type ItemLocation = z.infer<typeof locationSchema>;
+export const locationSchema = z.string().min(1).max(80);
+export type ItemLocation = string;
 
 export const barcodeSchema = z
   .string()
@@ -83,12 +83,13 @@ export const updateItemSchema = z.object({
   id: z.string().uuid(),
   customName: z.string().max(200).nullable().optional(),
   customBrand: z.string().max(120).nullable().optional(),
-  customCategory: categoryKeySchema.nullable().optional(),
+  customCategory: z.string().max(80).nullable().optional(),
   quantity: z.coerce.number().positive().optional(),
   unit: z.string().max(20).nullable().optional(),
   bestBefore: isoDate.optional(),
   location: locationSchema.optional(),
   note: z.string().max(500).nullable().optional(),
+  frozenAt: isoDate.nullable().optional(),
 });
 
 export type UpdateItemInput = z.infer<typeof updateItemSchema>;

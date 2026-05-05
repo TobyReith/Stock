@@ -8,7 +8,9 @@ import {
   type ExtractedDate,
   type VisionFailureReason,
 } from "@/lib/vision";
-import type { ActionResult } from "./items";
+import { identifyProduct as runIdentification } from "@/lib/vision/identify-product";
+import type { ProductCandidate } from "@/lib/vision/types";
+import type { ActionResult } from "@/lib/actions/result";
 
 // NOTE: this file is "use server" — only async functions may be exported.
 // Sync helpers like `reasonMessage` and the `VisionActionPayload` type live
@@ -38,6 +40,32 @@ const inputSchema = z.object({
 type VisionActionPayload =
   | { ok: true; date: ExtractedDate }
   | { ok: false; reason: VisionFailureReason; detail?: string };
+
+export async function identifyProductFromPhoto(
+  input: { base64: string; mimeType: string },
+): Promise<ActionResult<{ candidates: ProductCandidate[] }>> {
+  const parsed = inputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Nicht angemeldet" };
+
+    const result = await runIdentification(parsed.data);
+    if (!result.ok) {
+      return { ok: false, error: result.reason === "rejected" ? "Bild wurde abgelehnt." : "Antwort konnte nicht verarbeitet werden." };
+    }
+    return { ok: true, data: { candidates: result.candidates } };
+  } catch (err) {
+    if (err instanceof VisionProviderError) {
+      return { ok: false, error: `Vision-API: ${err.message}` };
+    }
+    return { ok: false, error: err instanceof Error ? err.message : "Unbekannter Fehler" };
+  }
+}
 
 export async function extractBestBefore(
   input: { base64: string; mimeType: string },

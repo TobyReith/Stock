@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { categoryKeySchema, locationSchema } from "@/lib/schemas/items";
 
 /**
  * Filter + sort state for the main items list.
@@ -49,8 +48,8 @@ export const SORT_LABELS: Record<SortKey, string> = {
  * empty / missing list means "match everything on this axis".
  */
 export const filterStateSchema = z.object({
-  categories: z.array(categoryKeySchema).default([]),
-  locations: z.array(locationSchema).default([]),
+  categories: z.array(z.string().min(1)).default([]),
+  locations: z.array(z.string().min(1)).default([]),
   urgencies: z.array(urgencySchema).default([]),
   sort: sortKeySchema.default(DEFAULT_SORT),
   dir: sortDirSchema.default(DEFAULT_DIR),
@@ -98,8 +97,8 @@ export function parseFilterStateFromSearchParams(
   const sort = sortKeySchema.safeParse(params.get("sort") ?? DEFAULT_SORT);
   const dir = sortDirSchema.safeParse(params.get("dir") ?? DEFAULT_DIR);
   return {
-    categories: parseList(params.get("cat"), categoryKeySchema),
-    locations: parseList(params.get("loc"), locationSchema),
+    categories: parseList(params.get("cat"), z.string().min(1)),
+    locations: parseList(params.get("loc"), z.string().min(1)),
     urgencies: parseList(params.get("mhd"), urgencySchema),
     sort: sort.success ? sort.data : DEFAULT_SORT,
     dir: dir.success ? dir.data : DEFAULT_DIR,

@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -62,7 +64,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <Suspense>
+            <PostHogProvider>
+              {children}
+            </PostHogProvider>
+          </Suspense>
           <Toaster richColors position="top-center" />
         </ThemeProvider>
         <ServiceWorkerRegistration />

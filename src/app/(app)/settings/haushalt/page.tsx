@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/session";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import { listHouseholdMembers } from "@/lib/households/members";
 import { buttonVariants } from "@/components/ui/button";
@@ -30,10 +31,9 @@ export const metadata = { title: "Haushalt" };
  * the user client.
  */
 export default async function HaushaltPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Both helpers are `cache()`-wrapped — shares with the layout's
+  // `getCurrentUser()` call at no extra cost.
+  const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   // Layout redirects unauthenticated users; defensive only.
   if (!user) return null;
 

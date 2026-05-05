@@ -1,16 +1,15 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/session";
 import { BottomNav } from "@/components/bottom-nav";
+import { TopBar } from "@/components/top-bar";
+import { FeedbackFab } from "@/components/feedback/feedback-fab";
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/login");
@@ -18,10 +17,12 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <main className="flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))]">
+      <TopBar />
+      <main className="flex-1 pt-11 pb-[calc(5rem+env(safe-area-inset-bottom))]">
         {children}
       </main>
       <BottomNav />
+      <FeedbackFab />
     </div>
   );
 }

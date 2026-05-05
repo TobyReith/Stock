@@ -8,6 +8,7 @@ import {
   clearActiveHouseholdCookie,
   setActiveHouseholdCookie,
 } from "@/lib/households/active";
+import { type ActionResult, fail } from "@/lib/actions/result";
 
 /**
  * Household-scope server actions: switch active, rename, leave, and
@@ -29,14 +30,6 @@ import {
  * client — the JWT is verified there, so the user id we pass to the
  * admin is authoritative.
  */
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
-function fail(error: string): ActionResult<never> {
-  return { ok: false, error };
-}
 
 const householdIdSchema = z.string().uuid("Ungültiger Haushalt");
 const userIdSchema = z.string().uuid("Ungültiger Benutzer");

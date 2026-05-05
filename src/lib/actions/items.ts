@@ -10,6 +10,7 @@ import {
   OFFNotFoundError,
   type OFFProduct,
 } from "@/lib/openfoodfacts";
+import { frozenShelfLifeDays } from "@/lib/constants/frozen";
 import {
   addItemSchema,
   itemIdSchema,
@@ -22,16 +23,9 @@ import {
   ensureActiveHousehold,
   getActiveHouseholdId,
 } from "@/lib/households/active";
+import { type ActionResult, fail } from "@/lib/actions/result";
 
 type ItemUpdate = Database["public"]["Tables"]["items"]["Update"];
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
-function fail(error: string): ActionResult<never> {
-  return { ok: false, error };
-}
 
 /**
  * Look up a barcode: prefer our local `products` cache, fall back to the
@@ -181,6 +175,7 @@ export async function addItem(input: AddItemInput): Promise<ActionResult<{ itemI
     }
 
     revalidatePath("/");
+    revalidatePath("/stats");
     return { ok: true, data: { itemId: item.id } };
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Unbekannter Fehler");
@@ -208,6 +203,7 @@ export async function updateItem(input: UpdateItemInput): Promise<ActionResult> 
     if (v.bestBefore !== undefined) patch.best_before = v.bestBefore;
     if (v.location !== undefined) patch.location = v.location;
     if (v.note !== undefined) patch.note = v.note;
+    if (v.frozenAt !== undefined) patch.frozen_at = v.frozenAt;
     if (Object.keys(patch).length === 0) return { ok: true, data: undefined };
 
     // Scope the update to the active household. RLS already blocks
@@ -353,6 +349,115 @@ export async function unmarkItem(itemId: string): Promise<ActionResult> {
 
     revalidatePath("/");
     revalidatePath("/stats");
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Unbekannter Fehler");
+  }
+}
+
+/**
+ * Mark an item as frozen. Sets frozen_at to today, relocates it to
+ * "freezer", and recalculates best_before based on category-specific
+ * frozen shelf life. Returns the original best_before and location so
+ * the client can offer an undo toast.
+ */
+export async function freezeItem(
+  itemId: string,
+): Promise<ActionResult<{ originalBestBefore: string; originalLocation: string }>> {
+  const id = itemIdSchema.safeParse(itemId);
+  if (!id.success) return fail("Ungültige Item-ID");
+
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return fail("Nicht angemeldet");
+
+    const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+    if (!activeHouseholdId) return fail("Kein aktiver Haushalt");
+
+    const { data: item } = await supabase
+      .from("items")
+      .select(
+        "best_before, location, custom_category, product:products(category)",
+      )
+      .eq("id", id.data)
+      .eq("household_id", activeHouseholdId)
+      .maybeSingle();
+
+    if (!item) return fail("Artikel nicht gefunden");
+
+    const product = Array.isArray(item.product) ? item.product[0] : item.product;
+    const effectiveCategory = item.custom_category ?? product?.category ?? null;
+    const shelfDays = frozenShelfLifeDays(effectiveCategory);
+
+    const today = new Date();
+    const frozenAt = today.toISOString().slice(0, 10);
+    const newBestBefore = new Date(today);
+    newBestBefore.setDate(newBestBefore.getDate() + shelfDays);
+    const newBestBeforeStr = newBestBefore.toISOString().slice(0, 10);
+
+    const { error } = await supabase
+      .from("items")
+      .update({
+        frozen_at: frozenAt,
+        location: "freezer",
+        best_before: newBestBeforeStr,
+      })
+      .eq("id", id.data)
+      .eq("household_id", activeHouseholdId);
+    if (error) return fail(error.message);
+
+    revalidatePath("/");
+    revalidatePath(`/item/${id.data}`);
+    return {
+      ok: true,
+      data: {
+        originalBestBefore: item.best_before,
+        originalLocation: item.location,
+      },
+    };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Unbekannter Fehler");
+  }
+}
+
+/**
+ * Undo a freeze: clears frozen_at and restores the original best_before
+ * and location. Intended for the undo-toast path only.
+ */
+export async function unfreezeItem(
+  itemId: string,
+  restoreBestBefore: string,
+  restoreLocation: string,
+): Promise<ActionResult> {
+  const id = itemIdSchema.safeParse(itemId);
+  if (!id.success) return fail("Ungültige Item-ID");
+
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return fail("Nicht angemeldet");
+
+    const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+    if (!activeHouseholdId) return fail("Kein aktiver Haushalt");
+
+    const { error } = await supabase
+      .from("items")
+      .update({
+        frozen_at: null,
+        best_before: restoreBestBefore,
+        location: restoreLocation,
+      })
+      .eq("id", id.data)
+      .eq("household_id", activeHouseholdId);
+    if (error) return fail(error.message);
+
+    revalidatePath("/");
+    revalidatePath(`/item/${id.data}`);
     return { ok: true, data: undefined };
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Unbekannter Fehler");

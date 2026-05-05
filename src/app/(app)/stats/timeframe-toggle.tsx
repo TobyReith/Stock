@@ -1,14 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-
-/**
- * Simple URL-driven timeframe toggle.
- *
- * No client JS — each option is just a link back to `/stats?range=…`.
- * The server component re-renders with the new param. Fast enough
- * because the whole page is cheap (one RLS-scoped SELECT + a bit of
- * in-memory aggregation), and it keeps the page bundle minimal.
- */
+import type { ViewKey } from "./view-toggle";
 
 export const RANGE_DAYS = {
   "30": 30,
@@ -23,7 +15,15 @@ const OPTIONS: { key: RangeKey; label: string }[] = [
   { key: "all", label: "Gesamt" },
 ];
 
-export function TimeframeToggle({ current }: { current: RangeKey }) {
+export function TimeframeToggle({
+  current,
+  view,
+}: {
+  current: RangeKey;
+  view: ViewKey;
+}) {
+  const viewParam = view === "stats" ? "view=stats&" : "";
+
   return (
     <nav
       aria-label="Zeitraum"
@@ -31,10 +31,14 @@ export function TimeframeToggle({ current }: { current: RangeKey }) {
     >
       {OPTIONS.map(({ key, label }) => {
         const active = key === current;
+        const rangeParam = key === "30" ? "" : `range=${key}`;
+        const query = [viewParam, rangeParam].filter(Boolean).join("");
+        const href = query ? `/stats?${query}` : "/stats";
+
         return (
           <Link
             key={key}
-            href={key === "30" ? "/stats" : `/stats?range=${key}`}
+            href={href}
             aria-current={active ? "page" : undefined}
             className={cn(
               "rounded-md py-1.5 text-center text-xs transition-colors",

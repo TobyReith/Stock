@@ -12,8 +12,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { CATEGORIES, type CategoryKey } from "@/lib/constants/categories";
-import type { ItemLocation } from "@/lib/schemas/items";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import {
   EMPTY_FILTER_STATE,
   SORT_LABELS,
@@ -39,25 +39,17 @@ import { useFilterState } from "@/lib/hooks/use-filter-state";
  * still open.
  */
 
-const LOCATION_LABELS: Record<ItemLocation, string> = {
-  fridge: "Kühlschrank",
-  pantry: "Vorrat",
-  freezer: "Tiefkühl",
-  other: "Sonstiges",
-};
-
-const LOCATIONS: readonly ItemLocation[] = [
-  "fridge",
-  "pantry",
-  "freezer",
-  "other",
-];
-
 const URGENCIES: readonly UrgencyKey[] = ["expired", "soon", "later"];
 
 const SORTS: readonly SortKey[] = ["mhd", "updated", "name", "brand"];
 
-export function FiltersSheet() {
+export function FiltersSheet({
+  categories,
+  storageLocations,
+}: {
+  categories: CategoryDisplay[];
+  storageLocations: StorageLocationDisplay[];
+}) {
   const { state, setState, patch } = useFilterState();
   const [open, setOpen] = useState(false);
 
@@ -98,7 +90,7 @@ export function FiltersSheet() {
         <div className="flex flex-col gap-5 px-4 pt-2">
           <FilterAxis label="Kategorie">
             <ChipGroup
-              options={CATEGORIES.map((c) => ({ value: c.key, label: c.label }))}
+              options={categories.map((c) => ({ value: c.slug, label: `${c.icon} ${c.name}` }))}
               selected={state.categories}
               onToggle={(value) =>
                 patch({ categories: toggleValue(state.categories, value) })
@@ -108,9 +100,9 @@ export function FiltersSheet() {
 
           <FilterAxis label="Lagerort">
             <ChipGroup
-              options={LOCATIONS.map((l) => ({
-                value: l,
-                label: LOCATION_LABELS[l],
+              options={storageLocations.map((l) => ({
+                value: l.slug,
+                label: `${l.icon} ${l.name}`,
               }))}
               selected={state.locations}
               onToggle={(value) =>
@@ -275,6 +267,3 @@ function toggleValue<T extends string>(current: readonly T[], value: T): T[] {
     : [...current, value];
 }
 
-// Re-exported for sites that need the CategoryKey type without pulling
-// CATEGORIES itself — the Sheet is the canonical consumer.
-export type { CategoryKey };

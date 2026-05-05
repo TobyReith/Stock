@@ -13,6 +13,7 @@ import {
   Trash2,
   Undo2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -298,9 +299,10 @@ function Row({
 
   return (
     <li
-      className={`flex items-center gap-2 rounded-lg border px-3 py-2 transition-opacity ${
-        isBought ? "bg-muted/30" : "bg-background"
-      }`}
+      className={cn(
+        "flex items-center gap-2 rounded-lg border px-3 py-2 transition-opacity",
+        isBought ? "bg-muted/30" : "bg-background",
+      )}
     >
       <button
         type="button"
@@ -309,11 +311,12 @@ function Row({
         role="checkbox"
         aria-checked={isBought}
         aria-label={isBought ? "Nicht gekauft markieren" : "Gekauft markieren"}
-        className={`grid size-5 shrink-0 place-items-center rounded border transition-colors ${
+        className={cn(
+          "grid size-5 shrink-0 place-items-center rounded border transition-colors",
           isBought
             ? "border-primary bg-primary text-primary-foreground"
-            : "border-muted-foreground/40 hover:border-primary"
-        }`}
+            : "border-muted-foreground/40 hover:border-primary",
+        )}
       >
         {isBought && (
           <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden>
@@ -331,9 +334,10 @@ function Row({
 
       <div className="min-w-0 flex-1">
         <p
-          className={`truncate text-sm ${
-            isBought ? "text-muted-foreground line-through" : "font-medium"
-          }`}
+          className={cn(
+            "truncate text-sm",
+            isBought ? "text-muted-foreground line-through" : "font-medium",
+          )}
         >
           {name}
           {qtyLabel && (
@@ -351,18 +355,16 @@ function Row({
 
       {/* Right-hand actions. Order depends on state:
           - open   → Share-Button (Bring!/andere Apps), Löschen
-          - bought → "In den Vorrat" (primary), Löschen
+          - bought → "In den Vorrat" (primary), Undo (unten)
           The "In den Vorrat" link is a prominent primary so the
           "check off → move to stock" loop is one tap. */}
       {isBought ? (
-        <>
-          <Link
-            href={`/add?fromShopping=${entry.id}`}
-            className="inline-flex h-8 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <Package className="size-3.5" aria-hidden /> In den Vorrat
-          </Link>
-        </>
+        <Link
+          href={`/add?fromShopping=${entry.id}`}
+          className="inline-flex h-8 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          <Package className="size-3.5" aria-hidden /> In den Vorrat
+        </Link>
       ) : (
         <ShareButton name={name} />
       )}
@@ -416,26 +418,17 @@ function Row({
  *   1. `navigator.share` — mobile Safari / Chrome / most Android
  *   2. `navigator.clipboard.writeText` — desktop & older mobile
  *   3. toast.error — truly ancient browser, user is on their own
- *
- * We don't try to open Bring! directly anymore: `bring://` is not a
- * published public URL scheme, and silently doing nothing when the app
- * isn't installed made the button feel broken. The share sheet makes
- * the action discoverable and honest.
  */
 function ShareButton({ name }: { name: string }) {
   async function handleShare() {
-    // Feature-detect — the property is undefined in SSR and on browsers
-    // that don't expose the Web Share API (most desktop Firefox, older
-    // Chromium).
     if (typeof navigator !== "undefined" && "share" in navigator) {
       try {
         await navigator.share({ text: name, title: name });
         return;
       } catch (err) {
-        // `AbortError` = user cancelled the share sheet. That's not a
-        // failure worth surfacing — bail silently.
+        // AbortError = user cancelled — bail silently
         if (err instanceof Error && err.name === "AbortError") return;
-        // Any other failure: fall through to clipboard.
+        // Any other failure: fall through to clipboard
       }
     }
     if (

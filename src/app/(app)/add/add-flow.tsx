@@ -1,18 +1,42 @@
 "use client";
 
 import { useCallback, useState, useTransition } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, Pencil, SearchX, XCircle } from "lucide-react";
-import { BarcodeScanner } from "@/components/barcode-scanner";
+import { Camera, CheckCircle2, Loader2, Pencil, SearchX, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { lookupBarcode } from "@/lib/actions/items";
 import { markShoppingItemBought } from "@/lib/actions/shopping";
-import type { CategoryKey } from "@/lib/constants/categories";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
+import type { ProductCandidate } from "@/lib/vision/types";
 import { ItemForm, type FormSeed, type ItemFormPrefill } from "./item-form";
+
+/**
+ * Lazy-load the unified live scanner.
+ *
+ * Pulls in `@zxing/browser` + `@zxing/library` (~200 KB gzipped) and the
+ * camera-engine detector — none of that belongs in the initial bundle.
+ * `ssr: false` because it reaches for `navigator.mediaDevices` on render.
+ * The loading fallback matches the camera viewport shape to prevent reflow.
+ */
+const LiveScanner = dynamic(
+  () => import("./live-scanner").then((m) => m.LiveScanner),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="aspect-[4/3] w-full animate-pulse rounded-lg border bg-muted"
+        aria-hidden
+      />
+    ),
+  },
+);
 
 /**
  * Top-level state machine for the Add-Flow page.
@@ -35,6 +59,8 @@ type Stage =
   | { kind: "looking-up"; barcode: string }
   | { kind: "lookup-error"; message: string; barcode: string }
   | { kind: "preview"; barcode: string; result: LookupResult }
+  | { kind: "photo-analyzing" }
+  | { kind: "photo-candidates"; candidates: ProductCandidate[] }
   | { kind: "form"; seed: FormSeed };
 
 /**
@@ -51,7 +77,15 @@ export type AddFlowInitial = {
   shoppingListItemId: string;
 };
 
-export function AddFlow({ initial }: { initial?: AddFlowInitial } = {}) {
+export function AddFlow({
+  initial,
+  categories,
+  storageLocations,
+}: {
+  initial?: AddFlowInitial;
+  categories: CategoryDisplay[];
+  storageLocations: StorageLocationDisplay[];
+}) {
   const router = useRouter();
   const [stage, setStage] = useState<Stage>(
     initial ? { kind: "form", seed: initial.seed } : { kind: "scan" },
@@ -103,6 +137,8 @@ export function AddFlow({ initial }: { initial?: AddFlowInitial } = {}) {
       <ItemForm
         seed={stage.seed}
         prefill={initial?.prefill}
+        categories={categories}
+        storageLocations={storageLocations}
         onCancel={resetToScanner}
         onSuccess={handleSubmitSuccess}
       />
@@ -112,19 +148,14 @@ export function AddFlow({ initial }: { initial?: AddFlowInitial } = {}) {
   return (
     <div className="flex flex-col gap-4">
       {stage.kind === "scan" && (
-        <>
-          <BarcodeScanner
-            onDetected={handleDetected}
-            onManualEntry={() => setStage({ kind: "manual-barcode" })}
-          />
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => setStage({ kind: "form", seed: { kind: "manual" } })}
-          >
-            <Pencil aria-hidden /> Ohne Barcode hinzufügen
-          </Button>
-        </>
+        <LiveScanner
+          onBarcodeDetected={handleDetected}
+          onPhotoAnalyzing={() => setStage({ kind: "photo-analyzing" })}
+          onPhotoCandidates={(candidates) => setStage({ kind: "photo-candidates", candidates })}
+          onPhotoError={(msg) => toast.error(msg)}
+          onManualBarcode={() => setStage({ kind: "manual-barcode" })}
+          onManualEntry={() => setStage({ kind: "form", seed: { kind: "manual" } })}
+        />
       )}
 
       {stage.kind === "manual-barcode" && (
@@ -170,6 +201,27 @@ export function AddFlow({ initial }: { initial?: AddFlowInitial } = {}) {
           barcode={stage.barcode}
           result={stage.result}
           onContinue={(seed) => setStage({ kind: "form", seed })}
+          onReset={resetToScanner}
+        />
+      )}
+
+      {stage.kind === "photo-analyzing" && (
+        <Card>
+          <CardContent className="flex items-center gap-3 py-4">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" aria-hidden />
+            <div>
+              <p className="font-medium">Produkt wird erkannt…</p>
+              <p className="text-xs text-muted-foreground">Das dauert einen Moment.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {stage.kind === "photo-candidates" && (
+        <PhotoCandidatesPicker
+          candidates={stage.candidates}
+          categories={categories}
+          onSelect={(seed) => setStage({ kind: "form", seed })}
           onReset={resetToScanner}
         />
       )}
@@ -339,7 +391,7 @@ function LookupPreview({
                       productName: data.product.name,
                       brand: data.product.brand,
                       imageUrl: data.product.imageUrl,
-                      category: (data.product.category ?? "other") as CategoryKey,
+                      category: data.product.category ?? "other",
                       barcode,
                     }
                   : {
@@ -357,6 +409,120 @@ function LookupPreview({
           </Button>
           <Button variant="ghost" onClick={onReset}>
             Neu scannen
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PhotoCandidatesPicker({
+  candidates,
+  categories,
+  onSelect,
+  onReset,
+}: {
+  candidates: ProductCandidate[];
+  categories: CategoryDisplay[];
+  onSelect: (seed: FormSeed) => void;
+  onReset: () => void;
+}) {
+  function seedFromCandidate(c: ProductCandidate): FormSeed {
+    // Enriched vision candidates and pure OFF candidates both have a barcode →
+    // use the "off" path which guarantees the OFF image lands on the item.
+    if ((c.source === "vision+off" || c.source === "off") && c.offBarcode) {
+      return {
+        kind: "off",
+        productName: c.offProductName ?? c.name,
+        brand: c.brand,
+        imageUrl: c.offImageUrl ?? null,
+        category: c.category,
+        barcode: c.offBarcode,
+      };
+    }
+    // Pure vision candidate — no OFF match found, no barcode, no image.
+    return {
+      kind: "vision",
+      productName: c.name,
+      brand: c.brand,
+      imageUrl: null,
+      category: c.category,
+    };
+  }
+
+  function categoryLabel(slug: string): string {
+    return categories.find((c) => c.slug === slug)?.name ?? slug;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Camera className="size-5 text-primary" aria-hidden />
+          Erkannte Produkte
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        {candidates.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Kein Produkt erkannt. Bitte manuell eingeben.
+          </p>
+        ) : (
+          <ul className="flex flex-col divide-y rounded-lg border">
+            {candidates.map((c, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(seedFromCandidate(c))}
+                  className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-muted"
+                >
+                  {c.offImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={c.offImageUrl}
+                      alt=""
+                      className="size-10 shrink-0 rounded border object-contain"
+                    />
+                  ) : (
+                    <div className="grid size-10 shrink-0 place-items-center rounded border bg-muted">
+                      <Camera className="size-4 text-muted-foreground" aria-hidden />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{c.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {[c.brand, categoryLabel(c.category)].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  <span className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
+                    c.source === "vision+off"
+                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                      : c.source === "vision"
+                        ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                        : "bg-muted text-muted-foreground",
+                  )}>
+                    {c.source === "vision+off"
+                      ? "Erkannt + Open Food Facts"
+                      : c.source === "vision"
+                        ? "Nur erkannt (kein DB-Match)"
+                        : "Open Food Facts"}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex gap-2 pt-1">
+          <Button
+            className="flex-1"
+            variant="outline"
+            onClick={() => onSelect({ kind: "manual" })}
+          >
+            <Pencil aria-hidden /> Manuell eingeben
+          </Button>
+          <Button variant="ghost" onClick={onReset}>
+            Zurück
           </Button>
         </div>
       </CardContent>

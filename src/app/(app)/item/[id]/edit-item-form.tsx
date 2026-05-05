@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Loader2,
-  Refrigerator,
   Package,
-  Snowflake,
-  Archive,
   CheckCircle2,
+  Snowflake,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,12 +17,16 @@ import { cn } from "@/lib/utils";
 import {
   consumeItem,
   discardItem,
+  freezeItem,
   unmarkItem,
+  unfreezeItem,
   updateItem,
 } from "@/lib/actions/items";
 import { addShoppingItem } from "@/lib/actions/shopping";
 import type { UpdateItemInput } from "@/lib/schemas/items";
-import { CATEGORIES, type CategoryKey } from "@/lib/constants/categories";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
+import { FieldRow } from "@/components/ui/form-field";
 
 /**
  * Edit form + Consume/Discard actions for a single item.
@@ -41,10 +43,10 @@ export type DetailItem = {
   quantity: number;
   unit: string | null;
   bestBefore: string;
-  location: "fridge" | "pantry" | "freezer" | "other";
+  location: string;
   customName: string | null;
   customBrand: string | null;
-  customCategory: CategoryKey | null;
+  customCategory: string | null;
   note: string | null;
   productId: string | null;
   productName: string;
@@ -52,20 +54,18 @@ export type DetailItem = {
   category: string | null;
   imageUrl: string | null;
   barcode: string | null;
+  frozenAt: string | null;
 };
 
-const LOCATIONS: {
-  value: DetailItem["location"];
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}[] = [
-  { value: "fridge", label: "Kühlschrank", icon: Refrigerator },
-  { value: "pantry", label: "Vorrat", icon: Package },
-  { value: "freezer", label: "Gefrierer", icon: Snowflake },
-  { value: "other", label: "Sonstiges", icon: Archive },
-];
-
-export function EditItemForm({ item }: { item: DetailItem }) {
+export function EditItemForm({
+  item,
+  categories,
+  storageLocations,
+}: {
+  item: DetailItem;
+  categories: CategoryDisplay[];
+  storageLocations: StorageLocationDisplay[];
+}) {
   const router = useRouter();
   const [customName, setCustomName] = useState(item.customName ?? "");
   const [customBrand, setCustomBrand] = useState(item.customBrand ?? "");
@@ -80,6 +80,7 @@ export function EditItemForm({ item }: { item: DetailItem }) {
   const [bestBefore, setBestBefore] = useState(item.bestBefore);
   const [location, setLocation] = useState(item.location);
   const [note, setNote] = useState(item.note ?? "");
+  const [frozenAt, setFrozenAt] = useState<string | null>(item.frozenAt);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -111,7 +112,7 @@ export function EditItemForm({ item }: { item: DetailItem }) {
     // `""` from the select means "no override"; the zod schema accepts
     // null to unset the column. Only write when the user explicitly
     // picked something different from the stored override.
-    const nextCategory = (customCategory || null) as CategoryKey | null;
+    const nextCategory = customCategory || null;
     const storedCategory = item.customCategory ?? null;
     // Treat "override matches cache" the same as "no override" — the
     // user hasn't actually personalized the row. This collapses one
@@ -253,17 +254,68 @@ export function EditItemForm({ item }: { item: DetailItem }) {
     });
   }
 
+  function handleFreeze() {
+    const origBestBefore = bestBefore;
+    const origLocation = location;
+    setError(null);
+    startTransition(async () => {
+      const res = await freezeItem(item.id);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setFrozenAt(new Date().toISOString().slice(0, 10));
+      toast.success("Eingefroren · MHD aktualisiert", {
+        duration: 5000,
+        action: {
+          label: "Rückgängig",
+          onClick: () => {
+            void (async () => {
+              const r = await unfreezeItem(item.id, origBestBefore, origLocation);
+              if (!r.ok) { toast.error(r.error); return; }
+              setFrozenAt(null);
+              setBestBefore(origBestBefore);
+              setLocation(origLocation);
+              toast.success("Einfrieren rückgängig gemacht");
+            })();
+          },
+        },
+      });
+      // Reload so the MHD field shows the new value.
+      router.refresh();
+    });
+  }
+
+  function handleUnfreeze() {
+    setError(null);
+    startTransition(async () => {
+      const res = await unfreezeItem(item.id, bestBefore, location);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setFrozenAt(null);
+      toast.success("Aufgetaut");
+    });
+  }
+
+  async function handleFrozenAtChange(newDate: string) {
+    setFrozenAt(newDate);
+    const res = await updateItem({ id: item.id, frozenAt: newDate || null });
+    if (!res.ok) toast.error(res.error);
+  }
+
   return (
     <form onSubmit={handleSave} className="flex flex-col gap-5">
       {/* Product summary — read-only, like in the Add-Flow. */}
       <div className="flex items-start gap-3 rounded-lg border p-3">
-        <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded border bg-muted">
+        <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted">
           {item.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={item.imageUrl}
               alt=""
-              className="size-full object-contain"
+              className="max-h-full max-w-full object-contain p-0.5"
             />
           ) : (
             <Package className="size-6 text-muted-foreground" aria-hidden />
@@ -319,15 +371,17 @@ export function EditItemForm({ item }: { item: DetailItem }) {
           className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <option value="">— keine Auswahl —</option>
-          {CATEGORIES.map((c) => (
-            <option key={c.key} value={c.key}>
-              {c.label}
+          {categories.map((c) => (
+            <option key={c.slug} value={c.slug}>
+              {c.icon} {c.name}
             </option>
           ))}
         </select>
         {effectiveCategory && effectiveCategory !== customCategory && (
           <p className="text-xs text-muted-foreground">
-            Aktuell: {effectiveCategory}
+            Aktuell:{" "}
+            {categories.find((c) => c.slug === effectiveCategory)?.name ??
+              effectiveCategory}
           </p>
         )}
       </FieldRow>
@@ -372,14 +426,14 @@ export function EditItemForm({ item }: { item: DetailItem }) {
 
       <FieldRow>
         <Label>Lagerort</Label>
-        <div className="grid grid-cols-4 gap-1 rounded-lg border p-1">
-          {LOCATIONS.map(({ value, label, icon: Icon }) => {
-            const active = location === value;
+        <div className="grid grid-cols-3 gap-1 rounded-lg border p-1">
+          {storageLocations.map(({ slug, name, icon }) => {
+            const active = location === slug;
             return (
               <button
-                key={value}
+                key={slug}
                 type="button"
-                onClick={() => setLocation(value)}
+                onClick={() => setLocation(slug)}
                 aria-pressed={active}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-md py-2 text-xs transition-colors",
@@ -388,8 +442,8 @@ export function EditItemForm({ item }: { item: DetailItem }) {
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
-                <Icon className="size-5" aria-hidden />
-                {label}
+                <span className="text-base leading-none" aria-hidden>{icon}</span>
+                {name}
               </button>
             );
           })}
@@ -431,6 +485,44 @@ export function EditItemForm({ item }: { item: DetailItem }) {
         </Button>
       </div>
 
+      {/* Freeze action — separate from the terminal actions. */}
+      <div className="mt-2 flex flex-col gap-2 border-t pt-4">
+        <p className="text-xs text-muted-foreground">Lagerung:</p>
+        {frozenAt ? (
+          <div className="flex items-center gap-2">
+            <Snowflake className="size-4 shrink-0 text-sky-500" aria-hidden />
+            <span className="text-sm text-muted-foreground">Eingefroren am</span>
+            <Input
+              type="date"
+              value={frozenAt}
+              onChange={(e) => void handleFrozenAtChange(e.target.value)}
+              className="h-8 w-auto flex-1 text-sm"
+              aria-label="Einfrier-Datum"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleUnfreeze}
+              disabled={isPending}
+            >
+              Auftauen
+            </Button>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={handleFreeze}
+            disabled={isPending}
+            className="w-full text-sky-600 hover:text-sky-600"
+          >
+            <Snowflake aria-hidden /> Einfrieren
+          </Button>
+        )}
+      </div>
+
       {/* Destructive / terminal actions at the bottom, separated from save. */}
       <div className="mt-2 flex flex-col gap-2 border-t pt-4">
         <p className="text-xs text-muted-foreground">
@@ -460,8 +552,4 @@ export function EditItemForm({ item }: { item: DetailItem }) {
       </div>
     </form>
   );
-}
-
-function FieldRow({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col gap-1.5">{children}</div>;
 }

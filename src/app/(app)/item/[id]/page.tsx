@@ -2,11 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/session";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import { buttonVariants } from "@/components/ui/button";
 import { EditItemForm, type DetailItem } from "./edit-item-form";
 import { DeleteItemButton } from "./delete-item-button";
 import { AddToShoppingButton } from "./add-to-shopping-button";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 
 /**
  * Item detail page.
@@ -32,34 +35,67 @@ export default async function ItemDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Both helpers are `cache()`-wrapped — the layout already resolved the
+  // user, so this call is free; same for `createClient()`.
+  const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   if (!user) return notFound();
 
   const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
   if (!activeHouseholdId) return notFound();
 
-  const { data, error } = await supabase
-    .from("items")
-    .select(
-      `
-      id, quantity, unit, best_before, location, custom_name,
-      custom_brand, custom_category, note,
-      consumed_at, discarded_at, added_at,
-      product:products ( id, name, brand, category, image_url, barcode )
-      `,
-    )
-    .eq("id", id)
-    .eq("household_id", activeHouseholdId)
-    .maybeSingle();
+  const [itemResult, categoriesData, storageLocationsData] = await Promise.all([
+    supabase
+      .from("items")
+      .select(
+        `
+        id, quantity, unit, best_before, location, custom_name,
+        custom_brand, custom_category, note,
+        consumed_at, discarded_at, added_at, frozen_at,
+        product:products ( id, name, brand, category, image_url, barcode )
+        `,
+      )
+      .eq("id", id)
+      .eq("household_id", activeHouseholdId)
+      .maybeSingle(),
+    supabase
+      .from("categories")
+      .select("id, name, icon, color, sort_order, is_system, slug")
+      .eq("household_id", activeHouseholdId)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("storage_locations")
+      .select("id, name, icon, slug, sort_order, is_system, temperature_hint")
+      .eq("household_id", activeHouseholdId)
+      .order("sort_order", { ascending: true }),
+  ]);
+
+  const { data, error } = itemResult;
 
   // Either not found, not allowed by RLS, or fetch error — all collapse
   // into a 404. `error.code === 'PGRST116'` specifically means no rows
   // but we treat any error as 404 to avoid leaking internals.
   if (error || !data) return notFound();
   if (data.consumed_at || data.discarded_at) return notFound();
+
+  const categories: CategoryDisplay[] = (categoriesData.data ?? []).map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    name: c.name,
+    icon: c.icon,
+    color: c.color,
+    sortOrder: c.sort_order,
+    isSystem: c.is_system,
+  }));
+
+  const storageLocations: StorageLocationDisplay[] = (storageLocationsData.data ?? []).map((l) => ({
+    id: l.id,
+    slug: l.slug,
+    name: l.name,
+    icon: l.icon,
+    sortOrder: l.sort_order,
+    isSystem: l.is_system,
+    temperatureHint: l.temperature_hint as StorageLocationDisplay["temperatureHint"],
+  }));
 
   const item: DetailItem = {
     id: data.id,
@@ -69,7 +105,7 @@ export default async function ItemDetailPage({
     location: data.location as DetailItem["location"],
     customName: data.custom_name,
     customBrand: data.custom_brand,
-    customCategory: data.custom_category as DetailItem["customCategory"],
+    customCategory: data.custom_category,
     note: data.note,
     productId: data.product?.id ?? null,
     productName: data.product?.name ?? "Unbekannt",
@@ -77,6 +113,7 @@ export default async function ItemDetailPage({
     category: data.product?.category ?? null,
     imageUrl: data.product?.image_url ?? null,
     barcode: data.product?.barcode ?? null,
+    frozenAt: data.frozen_at,
   };
 
   return (
@@ -89,7 +126,7 @@ export default async function ItemDetailPage({
           <ChevronLeft aria-hidden /> Zurück
         </Link>
       </div>
-      <EditItemForm item={item} />
+      <EditItemForm item={item} categories={categories} storageLocations={storageLocations} />
 
       {/*
         Secondary actions live outside `EditItemForm` because they're

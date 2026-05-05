@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { AddFlow, type AddFlowInitial } from "./add-flow";
 import { ActiveHouseholdBadge } from "../_header/active-household-badge";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/session";
 import { getActiveHouseholdId } from "@/lib/households/active";
-import type { CategoryKey } from "@/lib/constants/categories";
 import type { FormSeed } from "./item-form";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
+import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 
 export const metadata: Metadata = { title: "Hinzufügen" };
 
@@ -28,9 +30,11 @@ export default async function AddPage({
   searchParams: Promise<{ fromShopping?: string }>;
 }) {
   const { fromShopping } = await searchParams;
-  const initial = fromShopping
-    ? await resolveShoppingSeed(fromShopping)
-    : null;
+  const [initial, categories, storageLocations] = await Promise.all([
+    fromShopping ? resolveShoppingSeed(fromShopping) : Promise.resolve(null),
+    loadPageCategories(),
+    loadPageStorageLocations(),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
@@ -54,9 +58,51 @@ export default async function AddPage({
         </p>
       </header>
 
-      <AddFlow initial={initial ?? undefined} />
+      <AddFlow initial={initial ?? undefined} categories={categories} storageLocations={storageLocations} />
     </div>
   );
+}
+
+async function loadPageStorageLocations(): Promise<StorageLocationDisplay[]> {
+  const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
+  if (!user) return [];
+  const householdId = await getActiveHouseholdId(supabase, user.id);
+  if (!householdId) return [];
+  const { data } = await supabase
+    .from("storage_locations")
+    .select("id, name, icon, slug, sort_order, is_system, temperature_hint")
+    .eq("household_id", householdId)
+    .order("sort_order", { ascending: true });
+  return (data ?? []).map((l) => ({
+    id: l.id,
+    slug: l.slug,
+    name: l.name,
+    icon: l.icon,
+    sortOrder: l.sort_order,
+    isSystem: l.is_system,
+    temperatureHint: l.temperature_hint as StorageLocationDisplay["temperatureHint"],
+  }));
+}
+
+async function loadPageCategories(): Promise<CategoryDisplay[]> {
+  const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
+  if (!user) return [];
+  const householdId = await getActiveHouseholdId(supabase, user.id);
+  if (!householdId) return [];
+  const { data } = await supabase
+    .from("categories")
+    .select("id, name, icon, color, sort_order, is_system, slug")
+    .eq("household_id", householdId)
+    .order("sort_order", { ascending: true });
+  return (data ?? []).map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    name: c.name,
+    icon: c.icon,
+    color: c.color,
+    sortOrder: c.sort_order,
+    isSystem: c.is_system,
+  }));
 }
 
 /**
@@ -77,10 +123,9 @@ async function resolveShoppingSeed(
   // avoid a round-trip for "?fromShopping=garbage".
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Both helpers are `cache()`-wrapped — shares with the layout's
+  // `getCurrentUser()` call at no extra cost.
+  const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   if (!user) return null;
 
   const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
@@ -113,10 +158,7 @@ async function resolveShoppingSeed(
       productName: data.product.name,
       brand: data.product.brand,
       imageUrl: data.product.image_url,
-      // `products.category` is stored as `string | null`; `getCategory`
-      // safely falls back to "other" for unknown values, so the cast is
-      // informational only.
-      category: (data.product.category ?? "other") as CategoryKey,
+      category: data.product.category ?? "other",
       barcode: data.product.barcode,
     };
     return { seed, prefill, shoppingListItemId: data.id };
