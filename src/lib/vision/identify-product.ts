@@ -195,3 +195,4 @@ export async function identifyProduct(input: VisionInput): Promise<ProductIdenti
   const merged = [...enriched, ...extraOff].slice(0, 5);
   return { ok: true, candidates: merged };
 }
+
