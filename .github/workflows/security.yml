@@ -19,5 +19,5 @@ jobs:
       - uses: anthropics/claude-code-security-review@main
         with:
           comment-pr: true
-          claude-api-key: ${{ secrets.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 }}
+          claude-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           exclude-directories: "node_modules,.next,dist,build"
