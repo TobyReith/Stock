@@ -8,6 +8,7 @@ import {
   Loader2,
   Package,
   Plus,
+  Share2,
   ShoppingBasket,
   Trash2,
   Undo2,
@@ -353,22 +354,19 @@ function Row({
       </div>
 
       {/* Right-hand actions. Order depends on state:
-          - open   → Löschen
+          - open   → Share-Button (Bring!/andere Apps), Löschen
           - bought → "In den Vorrat" (primary), Undo (unten)
           The "In den Vorrat" link is a prominent primary so the
-          "check off → move to stock" loop is one tap.
-
-          Externe Integrationen (z.B. Bring!) sind hier bewusst
-          weggelassen — kein öffentliches App-URL-Schema existiert,
-          und das generische OS-Share-Sheet war im Test kein
-          zuverlässiger Weg nach Bring!. Wird getrennt betrachtet. */}
-      {isBought && (
+          "check off → move to stock" loop is one tap. */}
+      {isBought ? (
         <Link
           href={`/add?fromShopping=${entry.id}`}
           className="inline-flex h-8 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
         >
           <Package className="size-3.5" aria-hidden /> In den Vorrat
         </Link>
+      ) : (
+        <ShareButton name={name} />
       )}
 
       <Button
@@ -404,3 +402,62 @@ function Row({
   );
 }
 
+/**
+ * Share the entry's name through the native OS share sheet.
+ *
+ * Bring! and all other shopping / note / messaging apps register
+ * themselves as share targets for `text/plain`, so this is the
+ * platform-correct path for "send this item to Bring!" (or WhatsApp,
+ * or Notes, or …) without needing an app-specific deeplink. Bring!
+ * does not publish a single-item import URL scheme — the recipe
+ * deeplink (`api.getbring.com/rest/bringrecipes/deeplink`) expects a
+ * full hosted recipe URL, which we don't have for a plain shopping
+ * entry.
+ *
+ * Fallbacks, in order:
+ *   1. `navigator.share` — mobile Safari / Chrome / most Android
+ *   2. `navigator.clipboard.writeText` — desktop & older mobile
+ *   3. toast.error — truly ancient browser, user is on their own
+ */
+function ShareButton({ name }: { name: string }) {
+  async function handleShare() {
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try {
+        await navigator.share({ text: name, title: name });
+        return;
+      } catch (err) {
+        // AbortError = user cancelled — bail silently
+        if (err instanceof Error && err.name === "AbortError") return;
+        // Any other failure: fall through to clipboard
+      }
+    }
+    if (
+      typeof navigator !== "undefined" &&
+      navigator.clipboard?.writeText
+    ) {
+      try {
+        await navigator.clipboard.writeText(name);
+        toast.success("Name kopiert", {
+          description: "In Bring! einfügen oder in der gewünschten App teilen.",
+          duration: 4000,
+        });
+        return;
+      } catch {
+        // fall through
+      }
+    }
+    toast.error("Teilen nicht unterstützt");
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleShare}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+      aria-label="Teilen (z.B. in Bring!)"
+      title="Teilen (z.B. in Bring!)"
+    >
+      <Share2 className="size-4" aria-hidden />
+    </button>
+  );
+}
