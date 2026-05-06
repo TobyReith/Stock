@@ -1,6 +1,8 @@
 import "server-only";
 import { identifyProduct as anthropicIdentify } from "./anthropic";
-import { mapCategory } from "@/lib/openfoodfacts/category-map";
+import { fetchProductByBarcode, OFFNotFoundError } from "@/lib/openfoodfacts/client";
+import { fetchOFF, isWildcardSafe } from "@/lib/openfoodfacts/search";
+import type { OFFSearchHit } from "@/lib/openfoodfacts/search";
 import type { ProductCandidate, ProductIdentificationResult, VisionInput } from "./types";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -16,57 +18,7 @@ function approxDecodedSize(base64: string): number {
   return Math.floor((base64.length * 3) / 4) - padding;
 }
 
-const OFF_FIELDS = "code,product_name,product_name_de,product_name_en,brands,categories_tags,image_url";
-
-async function searchOFF(query: string, pageSize = 5): Promise<ProductCandidate[]> {
-  try {
-    const url = new URL("https://search.openfoodfacts.org/search");
-    url.searchParams.set("q", query);
-    url.searchParams.set("fields", OFF_FIELDS);
-    url.searchParams.set("page_size", String(pageSize));
-    url.searchParams.set("sort_by", "popularity_key");
-
-    const res = await fetch(url.toString(), {
-      headers: { "User-Agent": "Stock-PWA/0.1 (https://github.com/TobyReith/Stock)" },
-      next: { revalidate: 1800 },
-    });
-    if (!res.ok) return [];
-
-    const data = (await res.json()) as { hits?: unknown[]; products?: unknown[] };
-    const items = data.hits ?? data.products ?? [];
-
-    return (items as Record<string, unknown>[])
-      .map((p): ProductCandidate | null => {
-        const name = (
-          (p.product_name_de as string) ||
-          (p.product_name_en as string) ||
-          (p.product_name as string) ||
-          ""
-        ).trim();
-        if (!name || !p.code) return null;
-
-        const brandsRaw = p.brands;
-        let brand: string | null = null;
-        if (Array.isArray(brandsRaw)) brand = (brandsRaw[0] as string)?.trim() || null;
-        else if (typeof brandsRaw === "string") brand = brandsRaw.split(",")[0]?.trim() || null;
-
-        return {
-          name,
-          brand,
-          category: mapCategory((p.categories_tags as string[]) ?? []),
-          confidence: 0.6,
-          source: "off",
-          offBarcode: p.code as string,
-          offImageUrl: (p.image_url as string) || undefined,
-        };
-      })
-      .filter((c): c is ProductCandidate => c !== null);
-  } catch {
-    return [];
-  }
-}
-
-// ─── OFF match scoring ────────────────────────────────────────────────────────
+// ─── Matching helpers ─────────────────────────────────────────────────────────
 
 function normalizeForMatch(s: string): string {
   return s
@@ -79,55 +31,104 @@ function normalizeForMatch(s: string): string {
     .trim();
 }
 
-/** Fraction of the smaller token set that appears in the other set. */
-function tokenSetSimilarity(a: string, b: string): number {
-  const tokA = new Set(normalizeForMatch(a).split(/\s+/).filter((t) => t.length > 1));
-  const tokB = new Set(normalizeForMatch(b).split(/\s+/).filter((t) => t.length > 1));
-  if (tokA.size === 0 || tokB.size === 0) return 0;
-  const intersection = [...tokA].filter((t) => tokB.has(t)).length;
-  return intersection / Math.min(tokA.size, tokB.size);
+function nameTokens(s: string): string[] {
+  return normalizeForMatch(s).split(/\s+/).filter((t) => t.length > 1);
+}
+
+/** Count tokens shared between two strings (case/diacritic insensitive). */
+function sharedTokenCount(a: string, b: string): number {
+  const tokA = new Set(nameTokens(a));
+  return nameTokens(b).filter((t) => tokA.has(t)).length;
+}
+
+// ─── OFF search for vision ────────────────────────────────────────────────────
+
+/**
+ * Fetches OFF candidates for a vision-identified product using two parallel
+ * strategies, then merges the results (deduped by barcode):
+ *
+ *  1. Brand-wildcard (`brands:<token>*`, pageSize=20):
+ *     Returns all products of this brand so we can pick the closest by name.
+ *     This is the key improvement over a single phrase query — even if the
+ *     vision name deviates from the OFF entry (e.g. "fret Classic" vs
+ *     "Kägi fret"), we still surface the right candidate from the brand set.
+ *
+ *  2. Phrase query (`<brand> <name>`, pageSize=10):
+ *     Relevance-ranked fallback for brands without a clean wildcard token,
+ *     and for catching cross-brand products.
+ */
+async function searchOFFForVision(
+  brand: string | null,
+  name: string,
+): Promise<OFFSearchHit[]> {
+  const requests: Promise<OFFSearchHit[]>[] = [];
+
+  if (brand) {
+    const brandToken = brand
+      .toLowerCase()
+      .split(/\s+/)
+      .find((t) => t.length >= 2 && isWildcardSafe(t));
+    if (brandToken) {
+      requests.push(fetchOFF(`brands:${brandToken}*`, 20, "de"));
+    }
+  }
+
+  const phraseQuery =
+    brand && !name.toLowerCase().includes(brand.toLowerCase())
+      ? `${brand} ${name}`
+      : name;
+  requests.push(fetchOFF(phraseQuery, 10, "de"));
+
+  const resultSets = await Promise.all(requests);
+
+  const seen = new Set<string>();
+  const all: OFFSearchHit[] = [];
+  for (const set of resultSets) {
+    for (const hit of set) {
+      if (seen.has(hit.barcode)) continue;
+      seen.add(hit.barcode);
+      all.push(hit);
+    }
+  }
+  return all;
 }
 
 /**
- * Returns the first OFF result that matches the vision candidate by name
- * similarity, with a graduated brand check.
+ * Picks the best OFF hit for a vision candidate by maximising shared name
+ * tokens. Two passes are scored and the max is taken:
  *
- * Why graduated:
- *   - Consumer-facing brand ("Caotina") often differs from the manufacturer
- *     stored in OFF ("Wander AG"). A hard brand gate kills valid matches.
- *   - High name overlap (≥ 0.75) is a strong enough signal on its own.
- *   - Medium overlap (0.6–0.75) still accepts when the brand appears
- *     anywhere in the OFF product name (common packaging pattern) or the
- *     brand fields loosely match.
+ *  - vision name      vs OFF name            (primary)
+ *  - vision brand+name vs OFF name+brand     (catches "fret Classic" / brand "Kägi"
+ *                                             vs OFF "Kägi fret")
+ *
+ * Requires at least one shared non-trivial token (> 1 char). When the brand-
+ * wildcard returns many products (all same brand) the highest-scoring name
+ * match wins without any extra threshold.
  */
-function findBestOffMatch(
+function pickBestMatch(
   candidate: { name: string; brand: string | null },
-  offResults: ProductCandidate[],
-): ProductCandidate | null {
-  const normCandidateBrand = candidate.brand ? normalizeForMatch(candidate.brand) : null;
+  hits: OFFSearchHit[],
+): OFFSearchHit | null {
+  if (hits.length === 0) return null;
 
-  for (const off of offResults) {
-    const overlap = tokenSetSimilarity(candidate.name, off.name);
-    if (overlap < 0.6) continue;
+  const candidateFull = candidate.brand
+    ? `${candidate.brand} ${candidate.name}`
+    : candidate.name;
 
-    // High name overlap → name is the dominant signal; skip brand gate.
-    if (overlap >= 0.75) return off;
+  let bestHit: OFFSearchHit | null = null;
+  let bestScore = 0;
 
-    // Medium overlap → require some brand corroboration.
-    if (normCandidateBrand) {
-      const normOffBrand = off.brand ? normalizeForMatch(off.brand) : "";
-      const normOffName = normalizeForMatch(off.name);
-      const brandMatch =
-        normOffBrand.includes(normCandidateBrand) ||
-        normCandidateBrand.includes(normOffBrand) ||
-        // Brand name appears inside the product name ("Caotina Original" ⊃ "Caotina").
-        normOffName.includes(normCandidateBrand);
-      if (!brandMatch) continue;
+  for (const hit of hits) {
+    const scoreA = sharedTokenCount(candidate.name, hit.name);
+    const scoreB = sharedTokenCount(candidateFull, `${hit.name} ${hit.brand ?? ""}`);
+    const score = Math.max(scoreA, scoreB);
+    if (score > bestScore) {
+      bestScore = score;
+      bestHit = hit;
     }
-
-    return off;
   }
-  return null;
+
+  return bestScore > 0 ? bestHit : null;
 }
 
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
@@ -145,54 +146,67 @@ export async function identifyProduct(input: VisionInput): Promise<ProductIdenti
 
   const visionCandidates = visionResult.candidates;
 
-  // Enrich every vision candidate with an OFF match (parallel requests).
-  // This guarantees that even high-confidence vision results get a barcode
-  // and product image when the product exists in Open Food Facts.
   const enriched = await Promise.all(
     visionCandidates.map(async (candidate): Promise<ProductCandidate> => {
-      // Avoid "Brand Brand Name" when name already starts with or contains brand.
-      const brand = candidate.brand ?? "";
-      const query = brand && !candidate.name.toLowerCase().includes(brand.toLowerCase())
-        ? `${brand} ${candidate.name}`
-        : candidate.name;
-      if (!query) return candidate;
+      // Fast path: if the vision AI read a barcode from the photo, look it up
+      // directly — perfect match, no text-search ambiguity.
+      if (candidate.visionBarcode) {
+        try {
+          const product = await fetchProductByBarcode(candidate.visionBarcode);
+          return {
+            ...candidate,
+            source: "vision+off",
+            offBarcode: product.barcode,
+            offImageUrl: product.imageUrl ?? undefined,
+            offProductName: product.name,
+            category: candidate.category === "other" ? product.category : candidate.category,
+          };
+        } catch (err) {
+          if (!(err instanceof OFFNotFoundError)) throw err;
+          // Barcode not in OFF — fall through to text search.
+        }
+      }
 
-      const offResults = await searchOFF(query, 5);
-      const match = findBestOffMatch(candidate, offResults);
+      const hits = await searchOFFForVision(candidate.brand, candidate.name);
+      const match = pickBestMatch(candidate, hits);
 
-      if (!match) return candidate; // source stays "vision"
+      if (!match) return candidate;
 
       return {
         ...candidate,
         source: "vision+off",
-        offBarcode: match.offBarcode,
-        offImageUrl: match.offImageUrl,
+        offBarcode: match.barcode,
+        offImageUrl: match.imageUrl ?? undefined,
         offProductName: match.name,
-        // Prefer the OFF category when the vision category was "other".
         category: candidate.category === "other" ? match.category : candidate.category,
       };
     }),
   );
 
-  // When vision found nothing or was uncertain, also run a pure OFF text search
-  // and append any results not already represented by an enriched candidate.
+  // When vision confidence is low, also surface pure OFF results so the user
+  // has more candidates to choose from.
   const topConfidence = visionCandidates[0]?.confidence ?? 0;
   let extraOff: ProductCandidate[] = [];
   if (visionCandidates.length === 0 || topConfidence < 0.65) {
-    const bestName = visionCandidates[0];
-    const query = bestName
-      ? [bestName.brand, bestName.name].filter(Boolean).join(" ")
-      : "";
-    if (query) {
-      const offResults = await searchOFF(query, 5);
+    const best = visionCandidates[0];
+    if (best) {
+      const hits = await searchOFFForVision(best.brand, best.name);
       const enrichedBarcodes = new Set(enriched.map((c) => c.offBarcode).filter(Boolean));
-      extraOff = offResults.filter(
-        (r) => r.offBarcode && !enrichedBarcodes.has(r.offBarcode),
-      );
+      extraOff = hits
+        .filter((h) => !enrichedBarcodes.has(h.barcode))
+        .slice(0, 5)
+        .map((h): ProductCandidate => ({
+          name: h.name,
+          brand: h.brand,
+          category: h.category,
+          confidence: 0.6,
+          source: "off",
+          offBarcode: h.barcode,
+          offImageUrl: h.imageUrl ?? undefined,
+        }));
     }
   }
 
   const merged = [...enriched, ...extraOff].slice(0, 5);
   return { ok: true, candidates: merged };
 }
-
