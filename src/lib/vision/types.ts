@@ -82,6 +82,8 @@ export type ProductCandidate = {
    *  - "off"         — came from an OFF text-search fallback (low-confidence vision)
    */
   source: "vision" | "vision+off" | "off";
+  /** Barcode read directly from the photo by the vision model (EAN/UPC). */
+  visionBarcode?: string;
   /** Barcode from Open Food Facts. Set when source is "vision+off" or "off". */
   offBarcode?: string;
   /** Product image URL from Open Food Facts. */

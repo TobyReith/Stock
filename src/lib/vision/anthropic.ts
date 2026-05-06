@@ -163,6 +163,7 @@ ERKENNUNGSREGELN:
 - Kategorie: Wähle eine aus: dairy | meat_fish | produce | frozen | canned | dry_pasta_rice | dry_baking | bread | spices | condiments | snacks | beverages | other
 - Bis zu 3 Kandidaten absteigend nach Konfidenz, falls du unsicher bist.
 - Erkenne auch Produkte in anderen Sprachen.
+- BARCODE: Wenn auf dem Foto ein EAN- oder UPC-Barcode (8–14 Ziffern) klar lesbar ist, trage die Ziffernfolge im optionalen Feld \`barcode\` ein. Nur eintragen wenn du dir sicher bist — ein falscher Barcode ist schlimmer als keiner.
 
 CONFIDENCE-SKALA:
 - 0.90–1.00: Name + Marke klar lesbar.
@@ -193,6 +194,11 @@ const PRODUCT_TOOL_DEFINITION = {
               enum: ["dairy", "meat_fish", "produce", "frozen", "canned", "dry_pasta_rice", "dry_baking", "bread", "spices", "condiments", "snacks", "beverages", "other"],
             },
             confidence: { type: "number", minimum: 0, maximum: 1 },
+            barcode: {
+              type: "string",
+              description: "EAN/UPC-Barcode (8–14 Ziffern), nur wenn klar lesbar.",
+              pattern: "^\\d{8,14}$",
+            },
           },
           required: ["name", "category", "confidence"],
         },
@@ -208,6 +214,7 @@ type ProductToolInput = {
     brand?: string;
     category: string;
     confidence: number;
+    barcode?: string;
   }>;
 };
 
@@ -268,6 +275,7 @@ export async function identifyProduct(input: VisionInput): Promise<ProductIdenti
       category: c.category,
       confidence: c.confidence,
       source: "vision" as const,
+      visionBarcode: c.barcode,
     }));
 
   return { ok: true, candidates };
