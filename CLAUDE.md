@@ -7,3 +7,7 @@
 - /security-review als letzten Schritt vor dem PR ausfuehren
 - PRs nicht als Draft öffnen
 
+## Design System
+All UI work must follow the design system defined in `docs/design-system.md`.
+Do not introduce colors, fonts, spacing, or component patterns not defined there.
+When in doubt, check the spec before writing CSS or JSX.
