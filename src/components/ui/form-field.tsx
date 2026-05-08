@@ -4,6 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 /**
+ * Simple label+children layout wrapper used in item add/edit forms.
+ * Extracted here to avoid duplication across form screens.
+ */
+export function FieldRow({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-col gap-1.5">{children}</div>;
+}
+
+/**
  * Label + input + (error | hint) with the a11y wiring done once.
  *
  * Every auth/profile form was repeating the same ten-line block and —

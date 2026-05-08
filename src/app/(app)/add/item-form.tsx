@@ -19,6 +19,7 @@ import {
   ProductAutocomplete,
   type ProductSearchResult,
 } from "./product-autocomplete";
+import { FieldRow } from "@/components/ui/form-field";
 
 /**
  * The actual "add item" form.
@@ -143,6 +144,7 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
   const [offBrand, setOffBrand] = useState<string | null>(null);
   const [offImageUrl, setOffImageUrl] = useState<string | null>(null);
   const [offBarcode, setOffBarcode] = useState<string | null>(null);
+  const [offCategory, setOffCategory] = useState<string | null>(null);
 
   // When the user changes the category on an unknown/manual entry, bump
   // the default MHD + location — but only if they haven't customized them.
@@ -158,6 +160,7 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
     setOffBrand(result.brand);
     setOffImageUrl(result.imageUrl);
     setOffBarcode(result.barcode);
+    setOffCategory(result.category);
     handleCategoryChange(result.category);
     // Pre-fill unit from the OFF quantity string ("500 g" → "g") if the
     // user hasn't set one yet.
@@ -248,6 +251,7 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
                   setOffBrand(null);
                   setOffImageUrl(null);
                   setOffBarcode(null);
+                  setOffCategory(null);
                 }
               }}
               onSelect={handleAutocompleteSelect}
@@ -255,6 +259,29 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
               autoFocus
               required
             />
+            {(offBrand || offImageUrl) && (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-1.5">
+                {offImageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={offImageUrl}
+                    alt=""
+                    className="size-8 shrink-0 rounded border object-contain bg-white"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  {offBrand && (
+                    <p className="truncate text-sm text-muted-foreground">{offBrand}</p>
+                  )}
+                  {offCategory && (
+                    <p className="truncate text-xs text-muted-foreground">
+                      {categories.find((c) => c.slug === offCategory)?.name ??
+                        getCategory(offCategory).label}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </FieldRow>
           <FieldRow>
             <Label htmlFor="category">Kategorie</Label>
@@ -421,10 +448,6 @@ function resolveDefaultLocation(
   const defaultSlug = getCategory(category).defaultLocation;
   const found = storageLocations.find((l) => l.slug === defaultSlug);
   return found?.slug ?? storageLocations[0]?.slug ?? "other";
-}
-
-function FieldRow({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col gap-1.5">{children}</div>;
 }
 
 /** Extract a unit abbreviation from an OFF quantity string like "500 g" or "1,5 L". */

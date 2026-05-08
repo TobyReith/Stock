@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, CameraOff, KeyboardIcon, Loader2, Pencil, ScanLine } from "lucide-react";
+import { Camera, CameraOff, Flashlight, FlashlightOff, KeyboardIcon, Loader2, Pencil, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -70,6 +70,8 @@ export function LiveScanner({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [showPhotoHint, setShowPhotoHint] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
 
   const onBarcodeRef = useRef(onBarcodeDetected);
   useEffect(() => {
@@ -79,9 +81,14 @@ export function LiveScanner({
   const stop = useCallback(() => {
     detectorRef.current?.stop();
     detectorRef.current = null;
+    // Turn off torch before stopping tracks so the light doesn't stay on.
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (track) void track.applyConstraints({ advanced: [{ torch: false }] }).catch(() => {});
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
+    setTorchOn(false);
+    setTorchSupported(false);
   }, []);
 
   const start = useCallback(async () => {
@@ -93,10 +100,24 @@ export function LiveScanner({
     setStatus("starting");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          // Helps Android Chrome keep the barcode in focus continuously.
+          // Unknown constraints are silently ignored by browsers that don't support them.
+          focusMode: { ideal: "continuous" },
+        },
         audio: false,
       });
       streamRef.current = stream;
+
+      // Check torch support after acquiring the stream.
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        const caps = videoTrack.getCapabilities() as MediaTrackCapabilities;
+        setTorchSupported(!!caps.torch);
+      }
 
       const video = videoRef.current;
       if (!video) { stream.getTracks().forEach((t) => t.stop()); return; }
@@ -178,6 +199,18 @@ export function LiveScanner({
     }
   }, [capturing, onPhotoAnalyzing, onPhotoCandidates, onPhotoError]);
 
+  const toggleTorch = useCallback(async () => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    const next = !torchOn;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next }] });
+      setTorchOn(next);
+    } catch {
+      // Torch applyConstraints failed (e.g. permission revoked) — ignore.
+    }
+  }, [torchOn]);
+
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       {/* Camera viewport */}
@@ -195,6 +228,27 @@ export function LiveScanner({
         {status === "running" && (
           <>
             <ViewfinderOverlay />
+            {/* Torch button — top-right corner, only on devices that support it */}
+            {torchSupported && (
+              <button
+                type="button"
+                onClick={() => void toggleTorch()}
+                aria-label={torchOn ? "Taschenlampe ausschalten" : "Taschenlampe einschalten"}
+                aria-pressed={torchOn}
+                className={cn(
+                  "absolute right-3 top-3 flex size-10 items-center justify-center rounded-full shadow-lg transition-colors",
+                  torchOn
+                    ? "bg-yellow-400 text-yellow-900"
+                    : "bg-black/40 text-white backdrop-blur-sm",
+                )}
+              >
+                {torchOn ? (
+                  <FlashlightOff className="size-5" aria-hidden />
+                ) : (
+                  <Flashlight className="size-5" aria-hidden />
+                )}
+              </button>
+            )}
             {/* Shutter button — centered at the bottom */}
             <div className="absolute inset-x-0 bottom-4 flex justify-center">
               <button

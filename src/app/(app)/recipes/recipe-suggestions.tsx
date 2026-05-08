@@ -11,8 +11,7 @@ import { addToFavorites, removeFromFavorites } from "@/lib/actions/favorites";
 import { addShoppingItem } from "@/lib/actions/shopping";
 import type { Recipe, RecipeIngredient, RecipeFavorite, UserRecipeSettings } from "@/lib/recipes/types";
 import { CookingModal } from "./cooking-modal";
-
-const DAILY_QUOTA = 10;
+import { DAILY_RECIPE_QUOTA } from "@/lib/constants/app";
 const STORAGE_KEY_RECIPES = "stock:recipes";
 
 function loadRecipesFromStorage(): Recipe[] {
@@ -135,7 +134,7 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings, initialF
 
       {/* Generate button */}
       {recipes.length === 0 && !isPending && !noExpiring && !errorMsg && !quotaExceeded && (
-        <Button size="lg" className="w-full" onClick={() => handleGenerate(false)} disabled={currentQuotaUsed >= DAILY_QUOTA}>
+        <Button size="lg" className="w-full" onClick={() => handleGenerate(false)} disabled={currentQuotaUsed >= DAILY_RECIPE_QUOTA}>
           <ChefHat aria-hidden /> Rezeptvorschläge generieren
         </Button>
       )}
@@ -161,7 +160,7 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings, initialF
         <Card>
           <CardContent className="py-6 text-center">
             <p className="text-sm text-muted-foreground">
-              Tages-Limit von {DAILY_QUOTA} Generierungen erreicht. Morgen wieder verfügbar.
+              Tages-Limit von {DAILY_RECIPE_QUOTA} Generierungen erreicht. Morgen wieder verfügbar.
             </p>
           </CardContent>
         </Card>
@@ -193,9 +192,9 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings, initialF
 
           <div className="flex items-center justify-between pt-2">
             <p className="text-xs text-muted-foreground">
-              {fromCache ? "Aus Cache" : "Neu generiert"} · {currentQuotaUsed}/{DAILY_QUOTA} heute
+              {fromCache ? "Aus Cache" : "Neu generiert"} · {currentQuotaUsed}/{DAILY_RECIPE_QUOTA} heute
             </p>
-            <Button variant="ghost" size="sm" onClick={() => handleGenerate(true)} disabled={currentQuotaUsed >= DAILY_QUOTA}>
+            <Button variant="ghost" size="sm" onClick={() => handleGenerate(true)} disabled={currentQuotaUsed >= DAILY_RECIPE_QUOTA}>
               <RefreshCw className="size-3" aria-hidden /> Neue Vorschläge
             </Button>
           </div>

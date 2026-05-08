@@ -7,6 +7,7 @@ import {
   Loader2,
   Package,
   CheckCircle2,
+  Snowflake,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,13 +17,16 @@ import { cn } from "@/lib/utils";
 import {
   consumeItem,
   discardItem,
+  freezeItem,
   unmarkItem,
+  unfreezeItem,
   updateItem,
 } from "@/lib/actions/items";
 import { addShoppingItem } from "@/lib/actions/shopping";
 import type { UpdateItemInput } from "@/lib/schemas/items";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
+import { FieldRow } from "@/components/ui/form-field";
 
 /**
  * Edit form + Consume/Discard actions for a single item.
@@ -50,6 +54,7 @@ export type DetailItem = {
   category: string | null;
   imageUrl: string | null;
   barcode: string | null;
+  frozenAt: string | null;
 };
 
 export function EditItemForm({
@@ -75,6 +80,7 @@ export function EditItemForm({
   const [bestBefore, setBestBefore] = useState(item.bestBefore);
   const [location, setLocation] = useState(item.location);
   const [note, setNote] = useState(item.note ?? "");
+  const [frozenAt, setFrozenAt] = useState<string | null>(item.frozenAt);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -246,6 +252,57 @@ export function EditItemForm({
       router.push("/");
       showUndoToast("Als entsorgt markiert");
     });
+  }
+
+  function handleFreeze() {
+    const origBestBefore = bestBefore;
+    const origLocation = location;
+    setError(null);
+    startTransition(async () => {
+      const res = await freezeItem(item.id);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setFrozenAt(new Date().toISOString().slice(0, 10));
+      toast.success("Eingefroren · MHD aktualisiert", {
+        duration: 5000,
+        action: {
+          label: "Rückgängig",
+          onClick: () => {
+            void (async () => {
+              const r = await unfreezeItem(item.id, origBestBefore, origLocation);
+              if (!r.ok) { toast.error(r.error); return; }
+              setFrozenAt(null);
+              setBestBefore(origBestBefore);
+              setLocation(origLocation);
+              toast.success("Einfrieren rückgängig gemacht");
+            })();
+          },
+        },
+      });
+      // Reload so the MHD field shows the new value.
+      router.refresh();
+    });
+  }
+
+  function handleUnfreeze() {
+    setError(null);
+    startTransition(async () => {
+      const res = await unfreezeItem(item.id, bestBefore, location);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setFrozenAt(null);
+      toast.success("Aufgetaut");
+    });
+  }
+
+  async function handleFrozenAtChange(newDate: string) {
+    setFrozenAt(newDate);
+    const res = await updateItem({ id: item.id, frozenAt: newDate || null });
+    if (!res.ok) toast.error(res.error);
   }
 
   return (
@@ -428,6 +485,44 @@ export function EditItemForm({
         </Button>
       </div>
 
+      {/* Freeze action — separate from the terminal actions. */}
+      <div className="mt-2 flex flex-col gap-2 border-t pt-4">
+        <p className="text-xs text-muted-foreground">Lagerung:</p>
+        {frozenAt ? (
+          <div className="flex items-center gap-2">
+            <Snowflake className="size-4 shrink-0 text-sky-500" aria-hidden />
+            <span className="text-sm text-muted-foreground">Eingefroren am</span>
+            <Input
+              type="date"
+              value={frozenAt}
+              onChange={(e) => void handleFrozenAtChange(e.target.value)}
+              className="h-8 w-auto flex-1 text-sm"
+              aria-label="Einfrier-Datum"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleUnfreeze}
+              disabled={isPending}
+            >
+              Auftauen
+            </Button>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={handleFreeze}
+            disabled={isPending}
+            className="w-full text-sky-600 hover:text-sky-600"
+          >
+            <Snowflake aria-hidden /> Einfrieren
+          </Button>
+        )}
+      </div>
+
       {/* Destructive / terminal actions at the bottom, separated from save. */}
       <div className="mt-2 flex flex-col gap-2 border-t pt-4">
         <p className="text-xs text-muted-foreground">
@@ -457,8 +552,4 @@ export function EditItemForm({
       </div>
     </form>
   );
-}
-
-function FieldRow({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col gap-1.5">{children}</div>;
 }

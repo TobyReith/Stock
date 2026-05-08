@@ -89,6 +89,7 @@ export const updateItemSchema = z.object({
   bestBefore: isoDate.optional(),
   location: locationSchema.optional(),
   note: z.string().max(500).nullable().optional(),
+  frozenAt: isoDate.nullable().optional(),
 });
 
 export type UpdateItemInput = z.infer<typeof updateItemSchema>;

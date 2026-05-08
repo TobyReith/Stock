@@ -5,3 +5,5 @@
 - Nach Implementierung: pnpm typecheck + pnpm build muessen gruen sein
 - Dann commit + push + gh pr create mit aussagekraeftiger Beschreibung
 - /security-review als letzten Schritt vor dem PR ausfuehren
+- /security-review als letzten Schritt vor dem PR ausfuehren
+- PRs nicht als Draft öffnen
