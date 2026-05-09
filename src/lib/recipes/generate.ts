@@ -22,6 +22,23 @@ REGELN:
 - Alle Rezepttitel und Schritte auf Deutsch.
 - Antworte AUSSCHLIESSLICH über den Tool-Call.`;
 
+const INSPIRATION_SYSTEM_PROMPT = `Du bist ein erfahrener deutscher Hobbykoch.
+
+Deine Aufgabe: Auf Basis des vorhandenen Vorrats kreative Rezeptideen vorschlagen.
+Es gibt keine dringend ablaufenden Zutaten – nutze, was im Vorrat ist.
+
+REGELN:
+- Ausschließlich metrische Einheiten (g, ml, EL, TL, Stk, Prise).
+- Deutsche Küchenbegriffe (anbraten, ablöschen, unterheben, Pfanne, Backofen).
+- Wenn Diätpräferenzen angegeben sind, STRIKT einhalten – kein optionales Weglassen.
+- Wenn unverträgliche Zutaten angegeben sind, nie verwenden.
+- Wenn Zutaten fehlen (feasibility: "limited"): max. 3 fehlende Zutaten benennen.
+- Niemals ein Rezept vorschlagen, das fast ausschließlich aus Einkäufen besteht.
+- Wenn BEREITS GEKOCHTE / GESPEICHERTE REZEPTE angegeben sind: diese Titel NICHT wiederholen.
+  Schlage stattdessen thematisch ähnliche, aber neue Variationen vor.
+- Alle Rezepttitel und Schritte auf Deutsch.
+- Antworte AUSSCHLIESSLICH über den Tool-Call.`;
+
 const REPORT_RECIPES_TOOL: Anthropic.Tool = {
   name: "report_recipes",
   description: "Meldet die generierten Rezeptvorschläge strukturiert zurück.",
@@ -108,12 +125,50 @@ DIÄT: ${dietary}
 NICHT VERWENDEN: ${disliked}`;
 }
 
+function buildInspirationPrompt(
+  pantryItems: PantryItem[],
+  settings: UserRecipeSettings,
+  recentTitles: string[],
+): string {
+  const pantryLines = pantryItems
+    .slice(0, 40)
+    .map((i) => `- ${i.name} (${i.category}), ${i.quantity} ${i.unit}`)
+    .join("\n");
+
+  const dietary =
+    settings.dietaryPreferences.length > 0
+      ? settings.dietaryPreferences.join(", ")
+      : "keine Einschränkungen";
+
+  const disliked =
+    settings.dislikedIngredients.length > 0
+      ? settings.dislikedIngredients.join(", ")
+      : "keine";
+
+  const recentBlock =
+    recentTitles.length > 0
+      ? `\nBEREITS GEKOCHT / GESPEICHERT (NICHT wiederholen):\n${recentTitles.map((t) => `- ${t}`).join("\n")}`
+      : "";
+
+  return `VORRAT:
+${pantryLines || "– (leer)"}
+
+DIÄT: ${dietary}
+NICHT VERWENDEN: ${disliked}${recentBlock}`;
+}
+
 export async function generateRecipes(
   expiringItems: ExpiringItem[],
   pantryItems: PantryItem[],
   settings: UserRecipeSettings,
+  options?: { inspiration?: boolean; recentTitles?: string[] },
 ): Promise<Recipe[]> {
-  const userPrompt = buildUserPrompt(expiringItems, pantryItems, settings);
+  const inspiration = options?.inspiration ?? false;
+  const userPrompt = inspiration
+    ? buildInspirationPrompt(pantryItems, settings, options?.recentTitles ?? [])
+    : buildUserPrompt(expiringItems, pantryItems, settings);
+
+  const systemPrompt = inspiration ? INSPIRATION_SYSTEM_PROMPT : SYSTEM_PROMPT;
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
@@ -121,7 +176,7 @@ export async function generateRecipes(
     system: [
       {
         type: "text",
-        text: SYSTEM_PROMPT,
+        text: systemPrompt,
         cache_control: { type: "ephemeral" },
       },
     ],

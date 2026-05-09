@@ -87,12 +87,12 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings, initialF
     }
   }
 
-  function handleGenerate(forceRefresh = false) {
+  function handleGenerate(forceRefresh = false, inspirationMode = false) {
     setErrorMsg(null);
     setNoExpiring(false);
     setQuotaExceeded(false);
     startTransition(async () => {
-      const res = await generateRecipeSuggestions(forceRefresh);
+      const res = await generateRecipeSuggestions(forceRefresh, inspirationMode);
       if (!res.ok) {
         if (res.reason === "no_expiring_items") { setNoExpiring(true); return; }
         if (res.reason === "quota_exceeded") { setQuotaExceeded(true); return; }
@@ -149,7 +149,7 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings, initialF
             <p className="text-sm text-muted">
               Kein Lebensmittel droht in den nächsten {settings.expiryThresholdDays} Tagen abzulaufen.
             </p>
-            <Button variant="outline" size="sm" onClick={() => handleGenerate(false)}>
+            <Button variant="outline" size="sm" onClick={() => handleGenerate(true, true)} disabled={currentQuotaUsed >= DAILY_RECIPE_QUOTA}>
               Trotzdem Inspiration
             </Button>
           </CardContent>
