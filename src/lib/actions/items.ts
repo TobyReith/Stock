@@ -167,6 +167,7 @@ export async function addItem(input: AddItemInput): Promise<ActionResult<{ itemI
         location: v.location,
         note: v.note ?? null,
         added_by: user.id,
+        item_category: v.itemCategory,
       })
       .select("id")
       .single();

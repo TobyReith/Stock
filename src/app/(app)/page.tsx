@@ -92,8 +92,9 @@ function ExpiryWidget({ items }: { items: ListItem[] }) {
   threshold.setDate(threshold.getDate() + EXPIRY_THRESHOLD_DAYS);
   const thresholdStr = threshold.toISOString().slice(0, 10);
 
+  // Recipe suggestions only apply to food items.
   const expiring = items.filter(
-    (i) => i.bestBefore && i.bestBefore <= thresholdStr,
+    (i) => i.itemCategory === "food" && i.bestBefore && i.bestBefore <= thresholdStr,
   );
   if (expiring.length === 0) return null;
 
@@ -167,6 +168,7 @@ async function loadOpenItems(
       `
       id, quantity, unit, best_before, location, custom_name,
       custom_brand, custom_category, added_at, updated_at, frozen_at,
+      item_category,
       product:products ( id, name, brand, category, image_url )
       `,
     )
@@ -190,6 +192,7 @@ async function loadOpenItems(
     category: row.custom_category ?? row.product?.category ?? null,
     imageUrl: row.product?.image_url ?? null,
     frozenAt: row.frozen_at,
+    itemCategory: (row.item_category as ListItem["itemCategory"]) ?? "food",
   }));
   return { items, error: null };
 }

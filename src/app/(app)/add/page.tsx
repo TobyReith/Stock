@@ -27,9 +27,13 @@ export const metadata: Metadata = { title: "Hinzufügen" };
 export default async function AddPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fromShopping?: string }>;
+  searchParams: Promise<{ fromShopping?: string; cat?: string }>;
 }) {
-  const { fromShopping } = await searchParams;
+  const { fromShopping, cat } = await searchParams;
+  const initialItemCategory = ["food", "hygiene", "medicine", "other"].includes(cat ?? "")
+    ? (cat as "food" | "hygiene" | "medicine" | "other")
+    : "food";
+
   const [initial, categories, storageLocations] = await Promise.all([
     fromShopping ? resolveShoppingSeed(fromShopping) : Promise.resolve(null),
     loadPageCategories(),
@@ -58,7 +62,7 @@ export default async function AddPage({
         </p>
       </header>
 
-      <AddFlow initial={initial ?? undefined} categories={categories} storageLocations={storageLocations} />
+      <AddFlow initial={initial ?? undefined} initialItemCategory={initialItemCategory} categories={categories} storageLocations={storageLocations} />
     </div>
   );
 }

@@ -88,13 +88,14 @@ export type ItemFormPrefill = {
 type Props = {
   seed: FormSeed;
   prefill?: ItemFormPrefill;
+  initialItemCategory?: "food" | "hygiene" | "medicine" | "other";
   categories: CategoryDisplay[];
   storageLocations: StorageLocationDisplay[];
   onCancel: () => void;
   onSuccess: () => void;
 };
 
-export function ItemForm({ seed, prefill, categories, storageLocations, onCancel, onSuccess }: Props) {
+export function ItemForm({ seed, prefill, initialItemCategory = "food", categories, storageLocations, onCancel, onSuccess }: Props) {
   const needsProductFields = seed.kind === "unknown" || seed.kind === "manual";
   const seedProduct = "productName" in seed ? seed : null;
   const seedCategory: string =
@@ -112,6 +113,7 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
     seedProduct?.productName ?? prefill?.customName ?? "",
   );
   const [category, setCategory] = useState<string>(seedCategory);
+  const [itemCategory, setItemCategory] = useState<"food" | "hygiene" | "medicine" | "other">(initialItemCategory);
   const [customName, setCustomName] = useState(
     // Only pre-fill `customName` when we *have* a product — otherwise the
     // shopping-list text already lives in `productName` above and dupli-
@@ -189,6 +191,7 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
       brand: seedProduct?.brand ?? offBrand ?? null,
       imageUrl: seedProduct?.imageUrl ?? offImageUrl ?? null,
       category,
+      itemCategory,
       customName: customName.trim() || undefined,
       quantity: Number(quantity),
       unit: unit.trim() || undefined,
@@ -207,8 +210,39 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
     });
   }
 
+  const ITEM_CATEGORIES = [
+    { key: "food", label: "Lebensmittel", emoji: "🥦" },
+    { key: "hygiene", label: "Hygiene", emoji: "🧴" },
+    { key: "medicine", label: "Medikamente", emoji: "💊" },
+    { key: "other", label: "Sonstiges", emoji: "📦" },
+  ] as const;
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      {/* Item category selector — shown for all paths */}
+      <FieldRow>
+        <Label>Art</Label>
+        <div className="grid grid-cols-4 gap-1 rounded-lg border border-border p-1">
+          {ITEM_CATEGORIES.map(({ key, label, emoji }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setItemCategory(key)}
+              aria-pressed={itemCategory === key}
+              className={cn(
+                "flex flex-col items-center gap-0.5 rounded-lg py-2 text-xs transition-colors",
+                itemCategory === key
+                  ? "bg-primary text-primary-fg"
+                  : "text-muted hover:bg-surface-raised hover:text-foreground",
+              )}
+            >
+              <span className="text-base leading-none" aria-hidden>{emoji}</span>
+              <span className="leading-tight">{label}</span>
+            </button>
+          ))}
+        </div>
+      </FieldRow>
+
       {/* Product preview (known path) — read-only summary so user knows
           what they're adding and where to tweak it (customName). */}
       {seedProduct && (

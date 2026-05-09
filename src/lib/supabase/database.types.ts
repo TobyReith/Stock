@@ -247,6 +247,8 @@ export type Database = {
           frozen_at: string | null
           household_id: string
           id: string
+          item_category: string
+          item_metadata: Json | null
           location: string
           note: string | null
           product_id: string | null
@@ -266,6 +268,8 @@ export type Database = {
           frozen_at?: string | null
           household_id: string
           id?: string
+          item_category?: string
+          item_metadata?: Json | null
           location: string
           note?: string | null
           product_id?: string | null
@@ -285,6 +289,8 @@ export type Database = {
           frozen_at?: string | null
           household_id?: string
           id?: string
+          item_category?: string
+          item_metadata?: Json | null
           location?: string
           note?: string | null
           product_id?: string | null
