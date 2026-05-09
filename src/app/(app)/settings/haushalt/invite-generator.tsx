@@ -94,16 +94,16 @@ function FreshInviteCard({ invite }: { invite: GeneratedInvite }) {
   return (
     <div
       role="status"
-      className="rounded-lg border bg-muted/30 px-4 py-3"
+      className="rounded-lg border border-border bg-surface-raised px-4 py-3"
       aria-live="polite"
     >
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
         Neuer Code
       </p>
       <p className="mt-1 font-mono text-xl font-semibold tracking-widest">
         {invite.code}
       </p>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <p className="mt-1 text-xs text-muted">
         Gültig bis {formatExpiry(invite.expiresAt)}
       </p>
       <div className="mt-3 flex flex-wrap gap-2">

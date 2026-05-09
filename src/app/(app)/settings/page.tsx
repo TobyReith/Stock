@@ -47,14 +47,14 @@ export default async function SettingsPage() {
         >
           <ArrowLeft aria-hidden />
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Einstellungen</h1>
+        <h1 className="font-serif text-[26px] font-medium tracking-tight">Einstellungen</h1>
       </header>
 
       <div className="flex flex-col gap-6">
         <section aria-labelledby="profile-heading" className="flex flex-col gap-3">
           <h2
             id="profile-heading"
-            className="text-sm font-medium text-muted-foreground"
+            className="text-[10px] font-semibold uppercase tracking-widest text-muted"
           >
             Profil
           </h2>
@@ -67,7 +67,7 @@ export default async function SettingsPage() {
         <section aria-labelledby="appearance-heading" className="flex flex-col gap-3">
           <h2
             id="appearance-heading"
-            className="text-sm font-medium text-muted-foreground"
+            className="text-[10px] font-semibold uppercase tracking-widest text-muted"
           >
             Darstellung
           </h2>
@@ -77,7 +77,7 @@ export default async function SettingsPage() {
         <section aria-labelledby="notifications-heading" className="flex flex-col gap-3">
           <h2
             id="notifications-heading"
-            className="text-sm font-medium text-muted-foreground"
+            className="text-[10px] font-semibold uppercase tracking-widest text-muted"
           >
             Benachrichtigungen
           </h2>
@@ -87,11 +87,11 @@ export default async function SettingsPage() {
         <section aria-labelledby="management-heading" className="flex flex-col gap-3">
           <h2
             id="management-heading"
-            className="text-sm font-medium text-muted-foreground"
+            className="text-[10px] font-semibold uppercase tracking-widest text-muted"
           >
             Verwaltung
           </h2>
-          <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border bg-background">
+          <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
             <li>
               <SettingsRow
                 href="/settings/haushalt"
@@ -120,7 +120,7 @@ export default async function SettingsPage() {
         </section>
 
         <section aria-labelledby="recipes-heading" className="flex flex-col gap-3">
-          <h2 id="recipes-heading" className="text-sm font-medium text-muted-foreground">
+          <h2 id="recipes-heading" className="text-[10px] font-semibold uppercase tracking-widest text-muted">
             Rezeptvorschläge
           </h2>
           <RecipeSettingsForm
@@ -133,7 +133,7 @@ export default async function SettingsPage() {
         </section>
 
         <section aria-labelledby="feedback-heading" className="flex flex-col gap-3">
-          <h2 id="feedback-heading" className="text-sm font-medium text-muted-foreground">
+          <h2 id="feedback-heading" className="text-[10px] font-semibold uppercase tracking-widest text-muted">
             Feedback
           </h2>
           <FeedbackButton />
@@ -142,7 +142,7 @@ export default async function SettingsPage() {
         <section aria-labelledby="account-heading" className="flex flex-col gap-3">
           <h2
             id="account-heading"
-            className="text-sm font-medium text-muted-foreground"
+            className="text-[10px] font-semibold uppercase tracking-widest text-muted"
           >
             Konto
           </h2>
@@ -188,16 +188,16 @@ function SettingsRow({
   return (
     <Link
       href={href}
-      className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
+      className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-surface-raised"
     >
       <div className="flex items-center gap-3">
-        <Icon aria-hidden className="size-4 text-muted-foreground" />
+        <Icon aria-hidden className="size-4 text-muted" />
         <div>
           <p className="text-sm font-medium">{title}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+          <p className="mt-0.5 text-xs text-muted">{subtitle}</p>
         </div>
       </div>
-      <ChevronRight aria-hidden className="size-4 text-muted-foreground" />
+      <ChevronRight aria-hidden className="size-4 text-muted" />
     </Link>
   );
 }

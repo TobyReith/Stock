@@ -67,7 +67,7 @@ export function MemberList({ householdId, members, currentUserId, isOwner }: Pro
 
   return (
     <>
-      <ul className="flex flex-col divide-y rounded-lg border">
+      <ul className="flex flex-col divide-y divide-border rounded-lg border border-border bg-surface">
         {visible.map((m) => {
           const isSelf = m.userId === currentUserId;
           const canRemove = isOwner && !isSelf && m.role !== "owner";
@@ -80,12 +80,12 @@ export function MemberList({ householdId, members, currentUserId, isOwner }: Pro
                 <p className="truncate text-sm font-medium">
                   {m.email ?? "Unbekannte Adresse"}
                   {isSelf && (
-                    <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+                    <span className="ml-2 rounded-full bg-surface-raised px-1.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-wide text-muted">
                       Du
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted">
                   {m.role === "owner" ? "Owner" : "Mitglied"} · dabei seit{" "}
                   {formatJoined(m.joinedAt)}
                 </p>

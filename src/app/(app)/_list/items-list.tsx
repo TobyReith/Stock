@@ -100,7 +100,7 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
         <div className="relative flex-1">
           <Search
             aria-hidden
-            className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted"
           />
           <Input
             type="search"
@@ -115,7 +115,7 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
               type="button"
               onClick={() => setQuery("")}
               aria-label="Suche leeren"
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted hover:text-foreground"
             >
               <X className="size-4" aria-hidden />
             </button>
@@ -125,7 +125,7 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
       </div>
 
       {showNoResults && (
-        <p className="py-6 text-center text-sm text-muted-foreground">
+        <p className="py-6 text-center text-sm text-muted">
           {hasQuery
             ? `Keine Treffer für "${query}".`
             : "Keine Artikel für diese Filter."}
@@ -136,7 +136,7 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
         ? groups.map(({ urgency, label, items: bucket }) =>
             bucket.length === 0 ? null : (
               <section key={urgency} className="flex flex-col gap-2">
-                <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted">
                   {label}
                 </h2>
                 <ItemLinks items={bucket} storageLocations={storageLocations} />
@@ -150,7 +150,7 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
 
 function ItemLinks({ items, storageLocations }: { items: ListItem[]; storageLocations: StorageLocationDisplay[] }) {
   return (
-    <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border bg-background">
+    <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
       {items.map((item) => (
         <li key={item.id}>
           <SwipeableItemRow

@@ -70,7 +70,7 @@ export function LoginForm() {
         labelAdornment={
           <Link
             href={`${FORGOT_PASSWORD_PATH}${nextQuery}`}
-            className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+            className="text-xs text-muted hover:text-foreground hover:underline"
           >
             Passwort vergessen?
           </Link>
@@ -82,7 +82,7 @@ export function LoginForm() {
         {isSubmitting ? "Anmelden…" : "Anmelden"}
       </Button>
 
-      <p className="text-center text-xs text-muted-foreground">
+      <p className="text-center text-xs text-muted">
         Noch kein Konto?{" "}
         <Link
           href={`${SIGNUP_PATH}${nextQuery}`}

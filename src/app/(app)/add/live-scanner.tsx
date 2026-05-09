@@ -214,7 +214,7 @@ export function LiveScanner({
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       {/* Camera viewport */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-black">
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-neutral-900">
         <video
           ref={videoRef}
           className={cn(
@@ -236,10 +236,10 @@ export function LiveScanner({
                 aria-label={torchOn ? "Taschenlampe ausschalten" : "Taschenlampe einschalten"}
                 aria-pressed={torchOn}
                 className={cn(
-                  "absolute right-3 top-3 flex size-10 items-center justify-center rounded-full shadow-lg transition-colors",
+                  "absolute right-3 top-3 flex size-10 items-center justify-center rounded-full transition-colors",
                   torchOn
-                    ? "bg-yellow-400 text-yellow-900"
-                    : "bg-black/40 text-white backdrop-blur-sm",
+                    ? "bg-warning text-warning-subtle"
+                    : "bg-foreground/40 text-neutral-0 backdrop-blur-sm",
                 )}
               >
                 {torchOn ? (
@@ -257,14 +257,14 @@ export function LiveScanner({
                 disabled={capturing}
                 aria-label="Produktfoto aufnehmen"
                 className={cn(
-                  "flex size-14 items-center justify-center rounded-full border-4 border-white bg-white/20 shadow-lg backdrop-blur-sm transition-transform active:scale-95",
+                  "flex size-14 items-center justify-center rounded-full border-4 border-neutral-0/80 bg-neutral-0/20 backdrop-blur-sm transition-transform active:scale-95",
                   capturing && "opacity-50",
                 )}
               >
                 {capturing ? (
-                  <Loader2 className="size-6 animate-spin text-white" aria-hidden />
+                  <Loader2 className="size-6 animate-spin text-neutral-0" aria-hidden />
                 ) : (
-                  <Camera className="size-6 text-white" aria-hidden />
+                  <Camera className="size-6 text-neutral-0" aria-hidden />
                 )}
               </button>
             </div>
@@ -273,7 +273,7 @@ export function LiveScanner({
 
         {/* States: idle / starting / denied / unsupported / error */}
         {status !== "running" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center text-white/80">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center text-neutral-0/80">
             {status === "idle" && (
               <>
                 <Camera className="size-12" aria-hidden />
@@ -304,7 +304,7 @@ export function LiveScanner({
 
       {/* Photo hint — appears after 4 s without a barcode */}
       {showPhotoHint && status === "running" && (
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-xs text-muted">
           <ScanLine className="mr-1 inline size-3" aria-hidden />
           Kein Barcode gefunden — Auslöser tippen für Produkterkennung
         </p>
@@ -344,7 +344,7 @@ export function LiveScanner({
       </Button>
 
       {engine && status === "running" && (
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-xs text-muted">
           Erkennung: {engine === "native" ? "nativ" : "ZXing"}
         </p>
       )}
@@ -355,7 +355,7 @@ export function LiveScanner({
 function ViewfinderOverlay() {
   return (
     <div className="pointer-events-none absolute inset-0">
-      <div className="absolute inset-x-6 inset-y-1/4 rounded-md border-2 border-white/60 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+      <div className="absolute inset-x-6 inset-y-1/4 rounded-lg border-2 border-neutral-0/60 [box-shadow:0_0_0_9999px_rgb(0_0_0_/_0.35)]" />
       <div className="absolute inset-x-6 top-1/2 h-px -translate-y-1/2 bg-primary/70" />
     </div>
   );

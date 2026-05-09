@@ -76,12 +76,12 @@ export function ForgotPasswordForm() {
   if (sent) {
     return (
       <div className="space-y-4">
-        <div className="rounded-md border p-4 text-sm text-muted-foreground">
+        <div className="rounded-lg border border-border bg-surface-raised p-4 text-sm text-muted">
           Wenn ein Konto zu{" "}
           <span className="font-medium text-foreground">{sent}</span>{" "}
           existiert, haben wir einen Link zum Zurücksetzen verschickt.
         </div>
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-xs text-muted">
           <Link
             href={`${LOGIN_PATH}${nextQuery}`}
             className="font-medium text-foreground hover:underline"
@@ -110,7 +110,7 @@ export function ForgotPasswordForm() {
         {isSubmitting ? "Wird gesendet…" : "Link senden"}
       </Button>
 
-      <p className="text-center text-xs text-muted-foreground">
+      <p className="text-center text-xs text-muted">
         <Link
           href={`${LOGIN_PATH}${nextQuery}`}
           className="font-medium text-foreground hover:underline"

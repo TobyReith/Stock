@@ -16,16 +16,16 @@ export function ViewToggle({
   return (
     <nav
       aria-label="Ansicht"
-      className="grid grid-cols-2 gap-1 rounded-lg border p-1"
+      className="grid grid-cols-2 gap-1 rounded-lg border border-border p-1"
     >
       <Link
         href={`/stats${rangeParam}`}
         aria-current={current === "history" ? "page" : undefined}
         className={cn(
-          "rounded-md py-1.5 text-center text-xs font-medium transition-colors",
+          "rounded-lg py-1.5 text-center text-xs font-medium transition-colors",
           current === "history"
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            ? "bg-primary text-primary-fg"
+            : "text-muted hover:bg-surface-raised hover:text-foreground",
         )}
       >
         Historie
@@ -34,10 +34,10 @@ export function ViewToggle({
         href={`/stats?view=stats${rangeParam}`}
         aria-current={current === "stats" ? "page" : undefined}
         className={cn(
-          "rounded-md py-1.5 text-center text-xs font-medium transition-colors",
+          "rounded-lg py-1.5 text-center text-xs font-medium transition-colors",
           current === "stats"
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            ? "bg-primary text-primary-fg"
+            : "text-muted hover:bg-surface-raised hover:text-foreground",
         )}
       >
         Statistik

@@ -49,15 +49,15 @@ export function CookingModal({ recipe, favoriteId, onClose, onCooked }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center">
-      <div className="w-full max-w-md rounded-2xl bg-background p-6 shadow-xl">
-        <h2 className="mb-1 text-lg font-semibold">{recipe.title}</h2>
-        <p className="mb-4 text-sm text-muted-foreground">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 p-4 sm:items-center">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6">
+        <h2 className="mb-1 font-serif text-[26px] font-medium leading-tight text-foreground">{recipe.title}</h2>
+        <p className="mb-4 text-sm text-muted">
           Wie viel hast du davon verwendet?
         </p>
 
         {cookableIngredients.length === 0 ? (
-          <p className="mb-4 text-sm text-muted-foreground">
+          <p className="mb-4 text-sm text-muted">
             Keine ablaufenden Artikel zum Abbuchen gefunden.
           </p>
         ) : (
@@ -115,9 +115,9 @@ function IngredientRow({
           step={0.1}
           value={value}
           onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
-          className="w-20 rounded-lg border border-input bg-transparent px-2 py-1 text-right text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+          className="w-20 rounded-lg border border-border bg-surface px-2 py-1 text-right font-mono text-sm text-foreground outline-none focus:border-border-strong"
         />
-        <span className="w-8 text-xs text-muted-foreground">{ingredient.unit}</span>
+        <span className="w-8 font-mono text-xs text-muted">{ingredient.unit}</span>
       </div>
     </li>
   );

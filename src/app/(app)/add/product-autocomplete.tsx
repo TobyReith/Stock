@@ -113,7 +113,7 @@ export function ProductAutocomplete({
         {isLoading && value.trim().length >= 2 && (
           <Loader2
             aria-hidden
-            className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground"
+            className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted"
           />
         )}
       </div>
@@ -123,10 +123,10 @@ export function ProductAutocomplete({
           id={listId}
           role="listbox"
           aria-label="Produktvorschläge"
-          className="absolute left-0 right-0 top-full z-50 max-h-72 overflow-y-auto rounded-b-lg border border-t-0 bg-popover shadow-lg"
+          className="absolute left-0 right-0 top-full z-50 max-h-72 overflow-y-auto rounded-b-lg border border-t-0 border-border bg-surface"
         >
           {isLoading && results.length === 0 ? (
-            <li className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground">
+            <li className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted">
               <Loader2 className="size-4 animate-spin" aria-hidden />
               Suche…
             </li>
@@ -143,13 +143,13 @@ export function ProductAutocomplete({
                 className={cn(
                   "flex cursor-pointer items-center gap-2.5 px-3 py-2 text-sm transition-colors",
                   i === activeIndex
-                    ? "bg-accent text-accent-foreground"
-                    : "hover:bg-accent hover:text-accent-foreground",
-                  i > 0 && "border-t",
+                    ? "bg-surface-raised text-foreground"
+                    : "hover:bg-surface-raised hover:text-foreground",
+                  i > 0 && "border-t border-border",
                 )}
               >
                 {/* Thumbnail */}
-                <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded border bg-muted">
+                <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-lg border border-border bg-surface-raised">
                   {result.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -159,7 +159,7 @@ export function ProductAutocomplete({
                       loading="lazy"
                     />
                   ) : (
-                    <Package className="size-5 text-muted-foreground" aria-hidden />
+                    <Package className="size-5 text-muted" aria-hidden />
                   )}
                 </div>
 
@@ -168,7 +168,7 @@ export function ProductAutocomplete({
                   <p className="truncate font-medium leading-tight">
                     {result.name}
                   </p>
-                  <p className="truncate text-xs text-muted-foreground">
+                  <p className="truncate text-xs text-muted">
                     {[result.brand, result.quantity].filter(Boolean).join(" · ")}
                   </p>
                 </div>

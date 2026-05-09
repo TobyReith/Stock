@@ -135,7 +135,7 @@ export default async function ItemDetailPage({
         so users land here deliberately instead of by a fat-thumb miss
         on the close actions.
       */}
-      <div className="mt-6 flex justify-center gap-2 border-t pt-4">
+      <div className="mt-6 flex justify-center gap-2 border-t border-border pt-4">
         <AddToShoppingButton
           productId={item.productId}
           productName={item.productName}

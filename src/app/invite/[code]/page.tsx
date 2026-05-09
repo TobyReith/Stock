@@ -89,8 +89,8 @@ export default async function InvitePage({
   return (
     <Shell>
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Einladung</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="font-serif text-[26px] font-medium tracking-tight">Einladung</h1>
+        <p className="text-sm text-muted">
           Du wurdest zu{" "}
           <span className="font-medium text-foreground">
             {resolved.householdName}
@@ -100,7 +100,7 @@ export default async function InvitePage({
         </p>
       </div>
       <RedeemButton code={code} />
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-muted">
         Angemeldet als {user.email ?? "Unbekannt"}.
       </p>
     </Shell>
@@ -162,12 +162,12 @@ function Message({
       role={tone === "error" ? "alert" : undefined}
       className={
         tone === "error"
-          ? "rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3"
-          : "rounded-lg border bg-muted/30 px-4 py-3"
+          ? "rounded-lg border border-danger/30 bg-danger-subtle px-4 py-3"
+          : "rounded-lg border border-border bg-surface-raised px-4 py-3"
       }
     >
       <p className="text-sm font-medium">{title}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{children}</p>
+      <p className="mt-1 text-xs text-muted">{children}</p>
     </div>
   );
 }

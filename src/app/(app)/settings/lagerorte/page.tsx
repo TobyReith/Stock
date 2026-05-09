@@ -29,8 +29,8 @@ export default async function LagerorteSettingsPage() {
           <ArrowLeft aria-hidden />
         </Link>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Lagerorte</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="font-serif text-[26px] font-medium tracking-tight">Lagerorte</h1>
+          <p className="text-sm text-muted">
             Anlegen, umbenennen, sortieren.
           </p>
         </div>

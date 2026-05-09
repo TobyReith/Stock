@@ -94,10 +94,10 @@ export function FavoritesView({ initialFavorites, householdTags }: Props) {
 
   if (favorites.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-16 text-center">
-        <Heart className="size-10 text-muted-foreground" aria-hidden />
+      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border px-6 py-16 text-center">
+        <Heart className="size-10 text-muted" aria-hidden />
         <p className="mt-3 font-medium">Noch keine Favoriten</p>
-        <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+        <p className="mt-1 max-w-xs text-sm text-muted">
           Tippe das Herz auf einem Rezeptvorschlag, um es hier zu speichern.
         </p>
       </div>
@@ -109,25 +109,25 @@ export function FavoritesView({ initialFavorites, householdTags }: Props) {
       {/* Search + filter bar */}
       <div className="mb-4 flex flex-col gap-2">
         <div className="relative flex items-center">
-          <Search className="absolute left-3 size-4 text-muted-foreground" aria-hidden />
+          <Search className="absolute left-3 size-4 text-muted" aria-hidden />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rezept suchen…"
-            className="h-9 w-full rounded-lg border border-input bg-transparent pl-9 pr-9 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="h-9 w-full rounded-lg border border-border bg-surface pl-9 pr-9 text-sm text-foreground placeholder:text-muted outline-none focus:border-border-strong"
           />
           {search && (
             <button
               type="button"
               onClick={() => setSearch("")}
-              className="absolute right-2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+              className="absolute right-2 rounded p-0.5 text-muted hover:text-foreground"
               aria-label="Suche löschen"
             >
               <X className="size-4" />
             </button>
           )}
-          <span className="absolute right-9 text-xs text-muted-foreground">
+          <span className="absolute right-9 text-xs text-muted">
             {filtered.length}
           </span>
         </div>
@@ -138,7 +138,7 @@ export function FavoritesView({ initialFavorites, householdTags }: Props) {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortKey)}
-            className="h-7 shrink-0 rounded-full border bg-transparent px-2 text-xs outline-none focus-visible:border-ring"
+            className="h-7 shrink-0 rounded-full border border-border bg-surface px-2 text-xs outline-none focus:border-border-strong"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -160,8 +160,8 @@ export function FavoritesView({ initialFavorites, householdTags }: Props) {
               className={cn(
                 "h-7 shrink-0 rounded-full border px-3 text-xs font-medium transition-colors",
                 filterDifficulty.has(d)
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted",
+                  ? "border-primary bg-primary text-primary-fg"
+                  : "border-border text-muted hover:bg-surface-raised",
               )}
             >
               {d.charAt(0).toUpperCase() + d.slice(1)}
@@ -177,8 +177,8 @@ export function FavoritesView({ initialFavorites, householdTags }: Props) {
               className={cn(
                 "h-7 shrink-0 rounded-full border px-3 text-xs font-medium transition-colors",
                 filterMaxMinutes === o.value
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted",
+                  ? "border-primary bg-primary text-primary-fg"
+                  : "border-border text-muted hover:bg-surface-raised",
               )}
             >
               {o.label}
@@ -200,8 +200,8 @@ export function FavoritesView({ initialFavorites, householdTags }: Props) {
               className={cn(
                 "h-7 shrink-0 rounded-full border px-3 text-xs font-medium transition-colors",
                 filterTags.has(tag)
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted",
+                  ? "border-primary bg-primary text-primary-fg"
+                  : "border-border text-muted hover:bg-surface-raised",
               )}
             >
               # {tag}
@@ -212,7 +212,7 @@ export function FavoritesView({ initialFavorites, householdTags }: Props) {
 
       {/* No results */}
       {filtered.length === 0 && (
-        <p className="py-8 text-center text-sm text-muted-foreground">Kein Favorit passt zu den Filtern.</p>
+        <p className="py-8 text-center text-sm text-muted">Kein Favorit passt zu den Filtern.</p>
       )}
 
       {/* Favorite cards */}
@@ -234,14 +234,14 @@ export function FavoritesView({ initialFavorites, householdTags }: Props) {
               <button
                 type="button"
                 onClick={() => setEditingTagsFor(fav)}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                className="flex items-center gap-1 text-xs text-muted hover:text-foreground"
               >
                 <Tag className="size-3" /> Tags bearbeiten
               </button>
               <button
                 type="button"
                 onClick={() => setEditingNoteFor(fav)}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                className="flex items-center gap-1 text-xs text-muted hover:text-foreground"
               >
                 <Pencil className="size-3" /> Notiz
               </button>
@@ -324,8 +324,8 @@ function TagEditorSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-background p-5">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-5">
         <h2 className="mb-3 text-base font-semibold">Tags bearbeiten</h2>
 
         <div className="mb-3 flex flex-wrap gap-2">
@@ -334,7 +334,7 @@ function TagEditorSheet({
               key={tag}
               type="button"
               onClick={() => setSelected((prev) => { const n = new Set(prev); n.delete(tag); return n; })}
-              className="flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium text-primary-foreground"
+              className="flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium text-primary-fg"
             >
               {tag} <X className="size-3" />
             </button>
@@ -347,7 +347,7 @@ function TagEditorSheet({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") addTag(input); }}
           placeholder="Neuer Tag…"
-          className="mb-2 h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+          className="mb-2 h-9 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground placeholder:text-muted outline-none focus:border-border-strong"
         />
 
         {suggestions.length > 0 && (
@@ -357,7 +357,7 @@ function TagEditorSheet({
                 key={s}
                 type="button"
                 onClick={() => addTag(s)}
-                className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground hover:bg-muted"
+                className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted hover:bg-surface-raised"
               >
                 + {s}
               </button>
@@ -399,15 +399,15 @@ function NoteEditorSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-background p-5">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-5">
         <h2 className="mb-3 text-base font-semibold">Persönliche Notiz</h2>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="z.B. weniger Salz, Kinder mögen es mit Nudeln…"
           rows={4}
-          className="mb-3 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 resize-none"
+          className="mb-3 w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted outline-none focus:border-border-strong"
         />
         <div className="flex gap-2">
           <Button className="flex-1" onClick={handleSave} disabled={isPending}>

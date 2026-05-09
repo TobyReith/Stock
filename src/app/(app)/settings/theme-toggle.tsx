@@ -38,7 +38,7 @@ export function ThemeToggle() {
     <div
       role="radiogroup"
       aria-label="Farbschema"
-      className="inline-flex w-full gap-1 rounded-lg border bg-background p-1"
+      className="inline-flex w-full gap-1 rounded-lg border border-border bg-surface p-1"
     >
       {OPTIONS.map(({ key, label, icon: Icon }) => {
         const active = mounted && theme === key;
@@ -50,11 +50,11 @@ export function ThemeToggle() {
             aria-checked={active}
             onClick={() => setTheme(key)}
             className={cn(
-              "inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors",
-              "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+              "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium transition-colors",
+              "focus-visible:outline-none focus-visible:border-border-strong",
               active
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:bg-muted/50",
+                ? "bg-surface-raised text-foreground"
+                : "text-muted hover:bg-surface-raised",
             )}
           >
             <Icon aria-hidden className="size-4" />

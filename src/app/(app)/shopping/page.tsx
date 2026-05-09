@@ -21,8 +21,8 @@ export default async function ShoppingPage() {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
       <header className="mb-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Einkauf</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="font-serif text-[26px] font-medium tracking-tight">Einkauf</h1>
+        <p className="mt-1 text-sm text-muted">
           Was noch fehlt. Abgehakte Artikel bleiben 7 Tage sichtbar.
         </p>
       </header>
@@ -30,7 +30,7 @@ export default async function ShoppingPage() {
       {error ? (
         <div
           role="alert"
-          className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-lg border border-danger/30 bg-danger-subtle px-3 py-2 text-sm text-danger"
         >
           Konnte Liste nicht laden: {error}
         </div>
@@ -44,7 +44,7 @@ export default async function ShoppingPage() {
 function UnauthedState() {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-muted">
         Bitte melde dich an, um deine Einkaufsliste zu sehen.
       </p>
     </div>

@@ -69,7 +69,7 @@ export function HistoryView({
       <div className="relative">
         <Search
           aria-hidden
-          className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted"
         />
         <Input
           type="search"
@@ -84,7 +84,7 @@ export function HistoryView({
             type="button"
             onClick={() => setQuery("")}
             aria-label="Suche leeren"
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted hover:text-foreground"
           >
             <X className="size-4" aria-hidden />
           </button>
@@ -102,8 +102,8 @@ export function HistoryView({
             className={cn(
               "inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors",
               typeFilter === key
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-background text-foreground hover:bg-muted",
+                ? "border-primary bg-primary text-primary-fg"
+                : "border-border bg-surface text-foreground hover:bg-surface-raised",
             )}
           >
             {key === "added" && <Plus className="size-3" aria-hidden />}
@@ -120,7 +120,7 @@ export function HistoryView({
           value={catFilter}
           onChange={(e) => setCatFilter(e.target.value)}
           aria-label="Kategorie filtern"
-          className="h-8 flex-1 rounded-lg border border-input bg-transparent px-2.5 text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="h-8 flex-1 rounded-lg border border-border bg-surface px-2.5 text-xs text-foreground outline-none focus:border-border-strong"
         >
           <option value="all">Alle Kategorien</option>
           {categories.map((c) => (
@@ -133,7 +133,7 @@ export function HistoryView({
           value={locFilter}
           onChange={(e) => setLocFilter(e.target.value)}
           aria-label="Lagerort filtern"
-          className="h-8 flex-1 rounded-lg border border-input bg-transparent px-2.5 text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="h-8 flex-1 rounded-lg border border-border bg-surface px-2.5 text-xs text-foreground outline-none focus:border-border-strong"
         >
           <option value="all">Alle Lagerorte</option>
           {storageLocations.map((l) => (
@@ -151,7 +151,7 @@ export function HistoryView({
               setLocFilter("all");
               setQuery("");
             }}
-            className="shrink-0 rounded-lg border px-2.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="shrink-0 rounded-lg border border-border px-2.5 text-xs text-muted hover:bg-surface-raised hover:text-foreground"
           >
             <X className="size-3.5" aria-hidden />
           </button>
@@ -160,14 +160,14 @@ export function HistoryView({
 
       {/* Event list */}
       {filtered.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
+        <p className="py-8 text-center text-sm text-muted">
           Keine Einträge für diese Filter.
         </p>
       ) : (
         <div className="flex flex-col gap-4">
           {grouped.map(({ label, events: bucket }) => (
             <section key={label} className="flex flex-col gap-2">
-              <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted">
                 {label}
               </h2>
               <ul className="flex flex-col gap-2">
@@ -205,32 +205,31 @@ function EventRow({
   const { icon: TypeIcon, colorClass, label: typeLabel } = EVENT_TYPE_META[event.type];
 
   return (
-    <article className="flex items-start gap-3 rounded-lg border bg-card px-3 py-2.5">
+    <article className="flex items-start gap-3 rounded-lg border border-border bg-surface px-3 py-2.5">
       <div className={cn("mt-0.5 shrink-0", colorClass)}>
         <TypeIcon className="size-4" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <p className="truncate text-sm font-medium leading-tight">{displayName}</p>
-          <p className="shrink-0 text-xs text-muted-foreground">
+          <p className="shrink-0 font-mono text-xs text-muted">
             {formatTime(event.happenedAt)}
           </p>
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
           {location && <span>{location.icon} {location.name}</span>}
           {category && <span>{category.icon} {category.name}</span>}
           {event.quantity != null && (
-            <span>{formatQuantity(event.quantity, event.unit)}</span>
+            <span className="font-mono">{formatQuantity(event.quantity, event.unit)}</span>
           )}
         </div>
       </div>
       <span
         className={cn(
           "mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
-          colorClass,
-          event.type === "added" && "bg-primary/10",
-          event.type === "consumed" && "bg-emerald-50 dark:bg-emerald-950/30",
-          event.type === "discarded" && "bg-destructive/10",
+          event.type === "added" && "bg-primary-subtle text-primary-text",
+          event.type === "consumed" && "bg-primary-subtle text-primary-text",
+          event.type === "discarded" && "bg-danger-subtle text-danger",
         )}
       >
         {typeLabel}
@@ -242,17 +241,17 @@ function EventRow({
 const EVENT_TYPE_META = {
   added: {
     icon: Plus,
-    colorClass: "text-primary",
+    colorClass: "text-primary-text",
     label: "Hinzugefügt",
   },
   consumed: {
     icon: CheckCircle2,
-    colorClass: "text-emerald-600 dark:text-emerald-500",
+    colorClass: "text-primary-text",
     label: "Verbraucht",
   },
   discarded: {
     icon: Trash2,
-    colorClass: "text-destructive",
+    colorClass: "text-danger",
     label: "Entsorgt",
   },
 } as const;

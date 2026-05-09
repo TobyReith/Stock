@@ -66,11 +66,11 @@ export function FormField({
         {...inputProps}
       />
       {error ? (
-        <p id={errorId} className="text-xs text-destructive">
+        <p id={errorId} className="text-xs text-danger">
           {error}
         </p>
       ) : hint ? (
-        <p id={hintId} className="text-xs text-muted-foreground">
+        <p id={hintId} className="text-xs text-muted">
           {hint}
         </p>
       ) : null}
