@@ -20,8 +20,6 @@ import {
   RECIPE_CACHE_TTL_HOURS,
 } from "@/lib/constants/app";
 
-export type { ActionResult };
-
 // Supabase returns embedded joins as T | T[] depending on cardinality hint.
 function firstOf<T>(v: T | T[] | null): T | null {
   if (!v) return null;
@@ -108,6 +106,7 @@ function computeCacheKey(
 
 export async function generateRecipeSuggestions(
   forceRefresh = false,
+  inspiration = false,
 ): Promise<RecipeSuggestionResult> {
   try {
     const supabase = await createClient();
@@ -132,54 +131,58 @@ export async function generateRecipeSuggestions(
       dislikedIngredients: settingsRow.data?.disliked_ingredients ?? [],
     };
 
-    // Load expiring items.
     const threshold = new Date();
     threshold.setDate(threshold.getDate() + settings.expiryThresholdDays);
     const thresholdStr = threshold.toISOString().slice(0, 10);
 
-    const { data: expiringRows } = await supabase
-      .from("items")
-      .select(
-        "id, quantity, unit, best_before, custom_name, product:products(name, brand)",
-      )
-      .eq("household_id", householdId)
-      .is("consumed_at", null)
-      .is("discarded_at", null)
-      .lte("best_before", thresholdStr)
-      .gt("quantity", 0)
-      .order("best_before", { ascending: true });
+    let expiringItems: ExpiringItem[] = [];
 
-    if (!expiringRows || expiringRows.length === 0) {
-      return { ok: false, reason: "no_expiring_items" };
+    if (!inspiration) {
+      // Load expiring items.
+      const { data: expiringRows } = await supabase
+        .from("items")
+        .select(
+          "id, quantity, unit, best_before, custom_name, product:products(name, brand)",
+        )
+        .eq("household_id", householdId)
+        .is("consumed_at", null)
+        .is("discarded_at", null)
+        .lte("best_before", thresholdStr)
+        .gt("quantity", 0)
+        .order("best_before", { ascending: true });
+
+      if (!expiringRows || expiringRows.length === 0) {
+        return { ok: false, reason: "no_expiring_items" };
+      }
+
+      const today = new Date();
+      expiringItems = expiringRows.map((row) => {
+        const expDate = new Date(row.best_before);
+        const daysLeft = Math.max(
+          0,
+          Math.ceil((expDate.getTime() - today.getTime()) / 86_400_000),
+        );
+        const product = firstOf(row.product);
+        return {
+          id: row.id,
+          name: row.custom_name ?? product?.name ?? "Unbekannt",
+          brand: product?.brand ?? undefined,
+          quantity: Number(row.quantity),
+          unit: row.unit ?? "Stk",
+          daysLeft,
+        };
+      });
     }
 
-    const today = new Date();
-    const expiringItems: ExpiringItem[] = expiringRows.map((row) => {
-      const expDate = new Date(row.best_before);
-      const daysLeft = Math.max(
-        0,
-        Math.ceil((expDate.getTime() - today.getTime()) / 86_400_000),
-      );
-      const product = firstOf(row.product);
-      return {
-        id: row.id,
-        name: row.custom_name ?? product?.name ?? "Unbekannt",
-        brand: product?.brand ?? undefined,
-        quantity: Number(row.quantity),
-        unit: row.unit ?? "Stk",
-        daysLeft,
-      };
-    });
-
-    // Compute cache key.
+    // Compute cache key (inspiration mode always bypasses cache).
     const cacheKey = computeCacheKey(
       expiringItems.map((i) => i.id),
       expiringItems.map((i) => i.quantity),
       settings.dietaryPreferences,
     );
 
-    // Cache hit?
-    if (!forceRefresh) {
+    // Cache hit? (only for normal mode)
+    if (!forceRefresh && !inspiration) {
       const { data: cached } = await supabase
         .from("recipe_suggestions")
         .select("recipes")
@@ -210,16 +213,20 @@ export async function generateRecipeSuggestions(
       return { ok: false, reason: "quota_exceeded" };
     }
 
-    // Load pantry items for context (non-expiring).
-    const { data: pantryRows } = await supabase
+    // Load pantry items.
+    const pantryQuery = supabase
       .from("items")
       .select("custom_name, custom_category, product:products(name, category), quantity, unit")
       .eq("household_id", householdId)
       .is("consumed_at", null)
       .is("discarded_at", null)
-      .gt("best_before", thresholdStr)
       .gt("quantity", 0)
       .limit(RECIPE_PANTRY_LIMIT);
+
+    // In normal mode only load non-expiring pantry items (expiring are already captured above).
+    const { data: pantryRows } = inspiration
+      ? await pantryQuery
+      : await pantryQuery.gt("best_before", thresholdStr);
 
     const pantryItems: PantryItem[] = (pantryRows ?? []).map((row) => {
       const product = firstOf(row.product);
@@ -231,9 +238,33 @@ export async function generateRecipeSuggestions(
       };
     });
 
+    // In inspiration mode: load recent cooked + favorite titles to avoid repetition.
+    let recentTitles: string[] = [];
+    if (inspiration) {
+      const [{ data: cookedRows }, { data: favoriteRows }] = await Promise.all([
+        supabase
+          .from("cooked_meals")
+          .select("recipe_title")
+          .eq("household_id", householdId)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("recipe_favorites")
+          .select("recipe_title")
+          .eq("household_id", householdId)
+          .limit(50),
+      ]);
+      const cookedTitles = (cookedRows ?? []).map((r) => r.recipe_title);
+      const favTitles = (favoriteRows ?? []).map((r) => r.recipe_title);
+      recentTitles = [...new Set([...cookedTitles, ...favTitles])];
+    }
+
     // Generate via LLM.
     const llmStart = Date.now();
-    const recipes = await generateRecipes(expiringItems, pantryItems, settings);
+    const recipes = await generateRecipes(expiringItems, pantryItems, settings, {
+      inspiration,
+      recentTitles,
+    });
     const ph = createServerPostHog();
     if (ph) {
       ph.capture({
@@ -243,26 +274,29 @@ export async function generateRecipeSuggestions(
           count: recipes.length,
           from_cache: false,
           expiring_item_count: expiringItems.length,
+          inspiration,
           duration_ms: Date.now() - llmStart,
         },
       });
       void ph.shutdown();
     }
 
-    // Upsert into cache.
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + RECIPE_CACHE_TTL_HOURS);
+    // Upsert into cache (skip for inspiration mode — results should stay fresh).
+    if (!inspiration) {
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + RECIPE_CACHE_TTL_HOURS);
 
-    await supabase.from("recipe_suggestions").upsert(
-      {
-        household_id: householdId,
-        cache_key: cacheKey,
-        input_item_ids: expiringItems.map((i) => i.id),
-        recipes: JSON.parse(JSON.stringify(recipes)) as import("@/lib/supabase/database.types").Json,
-        expires_at: expiresAt.toISOString(),
-      },
-      { onConflict: "household_id,cache_key" },
-    );
+      await supabase.from("recipe_suggestions").upsert(
+        {
+          household_id: householdId,
+          cache_key: cacheKey,
+          input_item_ids: expiringItems.map((i) => i.id),
+          recipes: JSON.parse(JSON.stringify(recipes)) as import("@/lib/supabase/database.types").Json,
+          expires_at: expiresAt.toISOString(),
+        },
+        { onConflict: "household_id,cache_key" },
+      );
+    }
 
     return { ok: true, recipes, fromCache: false };
   } catch (err) {
