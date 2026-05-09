@@ -20,8 +20,6 @@ import {
   RECIPE_CACHE_TTL_HOURS,
 } from "@/lib/constants/app";
 
-export type { ActionResult };
-
 // Supabase returns embedded joins as T | T[] depending on cardinality hint.
 function firstOf<T>(v: T | T[] | null): T | null {
   if (!v) return null;
