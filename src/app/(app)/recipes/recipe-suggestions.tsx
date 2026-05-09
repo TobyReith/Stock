@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback } from "react";
+import { useState, useTransition, useCallback, useId } from "react";
 import { ChefHat, CheckCircle2, ChevronDown, Clock, Heart, List, Loader2, Plus, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -237,6 +237,7 @@ export function RecipeCard({
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
   const [prepOpen, setPrepOpen] = useState(false);
   const [addingItem, setAddingItem] = useState<string | null>(null);
+  const panelId = useId();
 
   const missingIngredients = recipe.ingredients.filter((i) => !i.isInPantry);
   const totalCount = recipe.ingredients.length;
@@ -321,13 +322,15 @@ export function RecipeCard({
         <button
           type="button"
           onClick={() => setIngredientsOpen((v) => !v)}
+          aria-expanded={ingredientsOpen}
+          aria-controls={`${panelId}-ingredients`}
           className="-mx-4 flex w-[calc(100%+2rem)] items-center justify-between border-t border-border px-4 py-[10px] text-left transition-colors hover:bg-surface-raised"
         >
           <span className="flex items-center gap-2 text-[13px] font-medium text-foreground">
             <List size={14} className="text-muted" aria-hidden />
             Zutaten
             <span className="text-[12px] font-normal text-muted">
-              {totalCount} · <span className="text-warning">{missingCount} fehlen</span>
+              {totalCount} · <span className="text-warning">{missingCount} {missingCount === 1 ? "fehlt" : "fehlen"}</span>
             </span>
           </span>
           <ChevronDown
@@ -338,7 +341,7 @@ export function RecipeCard({
         </button>
 
         {ingredientsOpen && (
-          <div className="flex flex-col gap-3">
+          <div id={`${panelId}-ingredients`} className="flex flex-col gap-3">
             <ul className="flex flex-col gap-1">
               {recipe.ingredients.map((ing, i) => (
                 <li key={i} className="flex items-center gap-2 text-sm">
@@ -390,6 +393,8 @@ export function RecipeCard({
         <button
           type="button"
           onClick={() => setPrepOpen((v) => !v)}
+          aria-expanded={prepOpen}
+          aria-controls={`${panelId}-prep`}
           className="-mx-4 flex w-[calc(100%+2rem)] items-center justify-between border-t border-border px-4 py-[10px] text-left transition-colors hover:bg-surface-raised"
         >
           <span className="flex items-center gap-2 text-[13px] font-medium text-foreground">
@@ -404,7 +409,7 @@ export function RecipeCard({
         </button>
 
         {prepOpen && (
-          <ol className="flex flex-col gap-2">
+          <ol id={`${panelId}-prep`} className="flex flex-col gap-2">
             {recipe.steps.map((step, i) => (
               <li key={i} className="flex gap-2 text-sm">
                 <span className="mt-0.5 size-5 shrink-0 rounded-full bg-surface-raised text-center text-xs font-medium leading-5">
