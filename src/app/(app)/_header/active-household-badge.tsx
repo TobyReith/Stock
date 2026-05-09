@@ -43,7 +43,7 @@ export async function ActiveHouseholdBadge() {
   return (
     <Link
       href="/settings/haushalt"
-      className="inline-flex items-center gap-1.5 rounded-full bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:bg-border hover:text-foreground"
     >
       <Users aria-hidden className="size-3.5" />
       <span className="sr-only">Aktiver Haushalt: </span>

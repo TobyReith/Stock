@@ -50,7 +50,7 @@ export function RecipeSettingsForm({ initial }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border p-4">
+    <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
       {/* Threshold */}
       <div className="flex flex-col gap-2">
         <p className="text-sm font-medium">Ablaufschwelle</p>
@@ -63,15 +63,15 @@ export function RecipeSettingsForm({ initial }: Props) {
               className={cn(
                 "flex-1 rounded-lg border py-2 text-sm font-medium transition-colors",
                 thresholdDays === d
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted",
+                  ? "border-primary bg-primary text-primary-fg"
+                  : "border-border text-muted hover:bg-surface-raised",
               )}
             >
               {d}d
             </button>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted">
           Artikel die in ≤ {thresholdDays} Tagen ablaufen werden als Rezutat vorgeschlagen.
         </p>
       </div>
@@ -88,8 +88,8 @@ export function RecipeSettingsForm({ initial }: Props) {
               className={cn(
                 "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                 dietary.includes(pref)
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted",
+                  ? "border-primary bg-primary text-primary-fg"
+                  : "border-border text-muted hover:bg-surface-raised",
               )}
             >
               {pref}
@@ -102,7 +102,7 @@ export function RecipeSettingsForm({ initial }: Props) {
       <div className="flex flex-col gap-1.5">
         <label htmlFor="disliked" className="text-sm font-medium">
           Zutaten vermeiden{" "}
-          <span className="text-muted-foreground">(kommagetrennt)</span>
+          <span className="text-muted">(kommagetrennt)</span>
         </label>
         <input
           id="disliked"
@@ -110,7 +110,7 @@ export function RecipeSettingsForm({ initial }: Props) {
           value={dislikedInput}
           onChange={(e) => setDislikedInput(e.target.value)}
           placeholder="z.B. Rosinen, Koriander"
-          className="h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+          className="h-9 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground placeholder:text-muted outline-none focus:border-border-strong"
         />
       </div>
 

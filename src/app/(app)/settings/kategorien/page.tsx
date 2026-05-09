@@ -29,8 +29,8 @@ export default async function KategorienPage() {
           <ArrowLeft aria-hidden />
         </Link>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Kategorien</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="font-serif text-[26px] font-medium tracking-tight">Kategorien</h1>
+          <p className="text-sm text-muted">
             Anlegen, umbenennen, sortieren.
           </p>
         </div>

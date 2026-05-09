@@ -16,7 +16,7 @@ export async function TopBar() {
   ]);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-40 h-11 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="fixed inset-x-0 top-0 z-40 h-11 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-full max-w-md items-center justify-between px-4">
         <HouseholdSwitcher memberships={memberships} activeId={activeHouseholdId} />
         <Link

@@ -21,14 +21,14 @@ export function ItemRow({
   const displayName = item.customName ?? item.productName;
 
   const mhdColor = cn(
-    daysLeft <= 0 && "text-destructive",
-    daysLeft > 0 && daysLeft <= 3 && "text-amber-600 dark:text-amber-500",
-    daysLeft > 3 && "text-muted-foreground",
+    daysLeft <= 0 && "text-danger",
+    daysLeft > 0 && daysLeft <= 3 && "text-warning",
+    daysLeft > 3 && "text-muted",
   );
 
   return (
-    <article className="flex items-center gap-3 bg-background px-3 py-2.5 transition-colors hover:bg-muted/50">
-      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+    <article className="flex items-center gap-3 bg-surface px-3 py-2.5 transition-colors hover:bg-surface-raised">
+      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-raised">
         {item.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -38,7 +38,7 @@ export function ItemRow({
             loading="lazy"
           />
         ) : (
-          <Package className="size-5 text-muted-foreground" aria-hidden />
+          <Package className="size-5 text-muted" aria-hidden />
         )}
       </div>
 
@@ -47,13 +47,13 @@ export function ItemRow({
           <div className="min-w-0">
             <p className="truncate text-sm font-medium leading-tight">{displayName}</p>
             {item.brand && (
-              <p className="truncate text-xs text-muted-foreground">
+              <p className="truncate text-xs text-muted">
                 {item.brand}
               </p>
             )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <p className="text-sm tabular-nums text-muted-foreground">
+            <p className="font-mono text-[13px] tabular-nums text-muted">
               {formatQuantity(item.quantity, item.unit)}
             </p>
             {actions}
@@ -62,7 +62,7 @@ export function ItemRow({
         <div className="mt-1 flex items-center gap-1.5 text-xs">
           <span className="leading-none" aria-hidden>{locationIcon}</span>
           {item.frozenAt && (
-            <Snowflake className="size-3 text-sky-500" aria-label="Eingefroren" />
+            <Snowflake className="size-3 text-primary-text" aria-label="Eingefroren" />
           )}
           <span className={mhdColor}>{formatMhdRelative(daysLeft)}</span>
         </div>

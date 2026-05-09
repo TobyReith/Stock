@@ -308,8 +308,8 @@ export function EditItemForm({
   return (
     <form onSubmit={handleSave} className="flex flex-col gap-5">
       {/* Product summary — read-only, like in the Add-Flow. */}
-      <div className="flex items-start gap-3 rounded-lg border p-3">
-        <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted">
+      <div className="flex items-start gap-3 rounded-lg border border-border p-3">
+        <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-raised">
           {item.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -318,16 +318,16 @@ export function EditItemForm({
               className="max-h-full max-w-full object-contain p-0.5"
             />
           ) : (
-            <Package className="size-6 text-muted-foreground" aria-hidden />
+            <Package className="size-6 text-muted" aria-hidden />
           )}
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{item.productName}</p>
           {item.brand && (
-            <p className="truncate text-sm text-muted-foreground">{item.brand}</p>
+            <p className="truncate text-sm text-muted">{item.brand}</p>
           )}
           {item.barcode && (
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <p className="mt-0.5 font-mono text-xs text-muted">
               Barcode {item.barcode}
             </p>
           )}
@@ -336,7 +336,7 @@ export function EditItemForm({
 
       <FieldRow>
         <Label htmlFor="custom-name">
-          Eigener Name <span className="text-muted-foreground">(optional)</span>
+          Eigener Name <span className="text-muted">(optional)</span>
         </Label>
         <Input
           id="custom-name"
@@ -349,7 +349,7 @@ export function EditItemForm({
       <FieldRow>
         <Label htmlFor="custom-brand">
           Eigene Marke{" "}
-          <span className="text-muted-foreground">(überschreibt Datenbank)</span>
+          <span className="text-muted">(überschreibt Datenbank)</span>
         </Label>
         <Input
           id="custom-brand"
@@ -362,13 +362,13 @@ export function EditItemForm({
       <FieldRow>
         <Label htmlFor="custom-category">
           Eigene Kategorie{" "}
-          <span className="text-muted-foreground">(überschreibt Datenbank)</span>
+          <span className="text-muted">(überschreibt Datenbank)</span>
         </Label>
         <select
           id="custom-category"
           value={customCategory}
           onChange={(e) => setCustomCategory(e.target.value)}
-          className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="h-9 w-full rounded-lg border border-border bg-surface px-2.5 text-sm text-foreground outline-none focus:border-border-strong"
         >
           <option value="">— keine Auswahl —</option>
           {categories.map((c) => (
@@ -378,7 +378,7 @@ export function EditItemForm({
           ))}
         </select>
         {effectiveCategory && effectiveCategory !== customCategory && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted">
             Aktuell:{" "}
             {categories.find((c) => c.slug === effectiveCategory)?.name ??
               effectiveCategory}
@@ -402,7 +402,7 @@ export function EditItemForm({
         </FieldRow>
         <FieldRow>
           <Label htmlFor="unit">
-            Einheit <span className="text-muted-foreground">(optional)</span>
+            Einheit <span className="text-muted">(optional)</span>
           </Label>
           <Input
             id="unit"
@@ -426,7 +426,7 @@ export function EditItemForm({
 
       <FieldRow>
         <Label>Lagerort</Label>
-        <div className="grid grid-cols-3 gap-1 rounded-lg border p-1">
+        <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-1">
           {storageLocations.map(({ slug, name, icon }) => {
             const active = location === slug;
             return (
@@ -436,10 +436,10 @@ export function EditItemForm({
                 onClick={() => setLocation(slug)}
                 aria-pressed={active}
                 className={cn(
-                  "flex flex-col items-center gap-1 rounded-md py-2 text-xs transition-colors",
+                  "flex flex-col items-center gap-1 rounded-lg py-2 text-xs transition-colors",
                   active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    ? "bg-primary text-primary-fg"
+                    : "text-muted hover:bg-surface-raised hover:text-foreground",
                 )}
               >
                 <span className="text-base leading-none" aria-hidden>{icon}</span>
@@ -452,14 +452,14 @@ export function EditItemForm({
 
       <FieldRow>
         <Label htmlFor="note">
-          Notiz <span className="text-muted-foreground">(optional)</span>
+          Notiz <span className="text-muted">(optional)</span>
         </Label>
         <textarea
           id="note"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={2}
-          className="w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted outline-none focus:border-border-strong"
           placeholder="z.B. angebrochen, für Pizza"
         />
       </FieldRow>
@@ -467,7 +467,7 @@ export function EditItemForm({
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-lg border border-danger/30 bg-danger-subtle px-3 py-2 text-sm text-danger"
         >
           {error}
         </div>
@@ -486,12 +486,12 @@ export function EditItemForm({
       </div>
 
       {/* Freeze action — separate from the terminal actions. */}
-      <div className="mt-2 flex flex-col gap-2 border-t pt-4">
-        <p className="text-xs text-muted-foreground">Lagerung:</p>
+      <div className="mt-2 flex flex-col gap-2 border-t border-border pt-4">
+        <p className="text-xs text-muted">Lagerung:</p>
         {frozenAt ? (
           <div className="flex items-center gap-2">
-            <Snowflake className="size-4 shrink-0 text-sky-500" aria-hidden />
-            <span className="text-sm text-muted-foreground">Eingefroren am</span>
+            <Snowflake className="size-4 shrink-0 text-primary-text" aria-hidden />
+            <span className="text-sm text-muted">Eingefroren am</span>
             <Input
               type="date"
               value={frozenAt}
@@ -516,7 +516,7 @@ export function EditItemForm({
             size="lg"
             onClick={handleFreeze}
             disabled={isPending}
-            className="w-full text-sky-600 hover:text-sky-600"
+            className="w-full"
           >
             <Snowflake aria-hidden /> Einfrieren
           </Button>
@@ -524,8 +524,8 @@ export function EditItemForm({
       </div>
 
       {/* Destructive / terminal actions at the bottom, separated from save. */}
-      <div className="mt-2 flex flex-col gap-2 border-t pt-4">
-        <p className="text-xs text-muted-foreground">
+      <div className="mt-2 flex flex-col gap-2 border-t border-border pt-4">
+        <p className="text-xs text-muted">
           Artikel abschließen:
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -544,7 +544,7 @@ export function EditItemForm({
             size="lg"
             onClick={handleDiscard}
             disabled={isPending}
-            className="text-destructive hover:text-destructive"
+            className="text-danger hover:text-danger"
           >
             <Trash2 aria-hidden /> Entsorgt
           </Button>

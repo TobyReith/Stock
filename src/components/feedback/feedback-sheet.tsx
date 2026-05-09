@@ -57,17 +57,17 @@ export function FeedbackSheet({ open, onClose }: Props) {
 
         <div className="flex flex-col gap-4">
           {/* Type toggle */}
-          <div className="flex rounded-lg bg-muted p-1">
+          <div className="flex rounded-lg bg-surface-raised p-1">
             {(["feedback", "bug"] as FeedbackType[]).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setType(t)}
                 className={cn(
-                  "flex-1 rounded-md py-1.5 text-sm font-medium transition-colors",
+                  "flex-1 rounded-lg py-1.5 text-sm font-medium transition-colors",
                   type === t
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "bg-surface text-foreground"
+                    : "text-muted hover:text-foreground",
                 )}
               >
                 {t === "feedback" ? "💡 Idee / Feedback" : "🐛 Bug melden"}
@@ -86,11 +86,11 @@ export function FeedbackSheet({ open, onClose }: Props) {
             }
             rows={5}
             maxLength={2000}
-            className="w-full resize-none rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted outline-none focus:border-border-strong"
           />
 
           {/* Counter + privacy note */}
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center justify-between text-xs text-muted">
             <span>Wird anonym an das Entwicklerteam gesendet.</span>
             <span>{message.length}/2000</span>
           </div>

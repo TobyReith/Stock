@@ -91,13 +91,13 @@ export function SignupForm() {
       (next === "/" ? "" : `&next=${encodeURIComponent(next)}`);
     return (
       <div className="space-y-4">
-        <div className="rounded-md border p-4 text-sm text-muted-foreground">
+        <div className="rounded-lg border border-border bg-surface-raised p-4 text-sm text-muted">
           Wir haben dir eine Bestätigungsmail an{" "}
           <span className="font-medium text-foreground">{confirmSent}</span>{" "}
           geschickt. Klicke den Link in der E-Mail, um dein Konto zu
           aktivieren.
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted">
           Keine Mail erhalten oder bereits ein Konto?{" "}
           <Link
             href={forgotHref}
@@ -107,7 +107,7 @@ export function SignupForm() {
           </Link>
           .
         </p>
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-xs text-muted">
           <Link
             href={`${LOGIN_PATH}${nextQuery}`}
             className="font-medium text-foreground hover:underline"
@@ -156,7 +156,7 @@ export function SignupForm() {
         {isSubmitting ? "Wird angelegt…" : "Konto erstellen"}
       </Button>
 
-      <p className="text-center text-xs text-muted-foreground">
+      <p className="text-center text-xs text-muted">
         Schon registriert?{" "}
         <Link
           href={`${LOGIN_PATH}${nextQuery}`}

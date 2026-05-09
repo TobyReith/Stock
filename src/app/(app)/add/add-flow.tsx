@@ -31,7 +31,7 @@ const LiveScanner = dynamic(
     ssr: false,
     loading: () => (
       <div
-        className="aspect-[4/3] w-full animate-pulse rounded-lg border bg-muted"
+        className="aspect-[4/3] w-full animate-pulse rounded-lg border border-border bg-surface-raised"
         aria-hidden
       />
     ),
@@ -169,10 +169,10 @@ export function AddFlow({
       {stage.kind === "looking-up" && (
         <Card>
           <CardContent className="flex items-center gap-3 py-4">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" aria-hidden />
+            <Loader2 className="size-5 animate-spin text-muted" aria-hidden />
             <div>
               <p className="font-medium">Nachschlagen…</p>
-              <p className="text-xs text-muted-foreground">Barcode {stage.barcode}</p>
+              <p className="font-mono text-xs text-muted">Barcode {stage.barcode}</p>
             </div>
           </CardContent>
         </Card>
@@ -182,13 +182,13 @@ export function AddFlow({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <XCircle className="size-5 text-destructive" aria-hidden />
+              <XCircle className="size-5 text-danger" aria-hidden />
               Fehler
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm">{stage.message}</p>
-            <p className="text-xs text-muted-foreground">Barcode {stage.barcode}</p>
+            <p className="font-mono text-xs text-muted">Barcode {stage.barcode}</p>
             <Button variant="outline" size="sm" onClick={resetToScanner}>
               Neu scannen
             </Button>
@@ -208,10 +208,10 @@ export function AddFlow({
       {stage.kind === "photo-analyzing" && (
         <Card>
           <CardContent className="flex items-center gap-3 py-4">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" aria-hidden />
+            <Loader2 className="size-5 animate-spin text-muted" aria-hidden />
             <div>
               <p className="font-medium">Produkt wird erkannt…</p>
-              <p className="text-xs text-muted-foreground">Das dauert einen Moment.</p>
+              <p className="text-xs text-muted">Das dauert einen Moment.</p>
             </div>
           </CardContent>
         </Card>
@@ -243,7 +243,7 @@ function ManualBarcodeEntry({
 
   return (
     <form
-      className="flex flex-col gap-3 rounded-lg border p-4"
+      className="flex flex-col gap-3 rounded-lg border border-border p-4"
       onSubmit={(e) => {
         e.preventDefault();
         if (canSubmit) onSubmit(value);
@@ -261,7 +261,7 @@ function ManualBarcodeEntry({
           autoFocus
           disabled={disabled}
         />
-        <p className="text-xs text-muted-foreground">6–14 Ziffern</p>
+        <p className="text-xs text-muted">6–14 Ziffern</p>
       </div>
       <div className="flex gap-2">
         <Button type="submit" className="flex-1" disabled={!canSubmit || disabled}>
@@ -292,13 +292,13 @@ function LookupPreview({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <XCircle className="size-5 text-destructive" aria-hidden />
+            <XCircle className="size-5 text-danger" aria-hidden />
             Fehler
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm">{result.error}</p>
-          <p className="text-xs text-muted-foreground">Barcode {barcode}</p>
+          <p className="font-mono text-xs text-muted">Barcode {barcode}</p>
           <Button variant="outline" size="sm" onClick={onReset}>
             Neu scannen
           </Button>
@@ -315,7 +315,7 @@ function LookupPreview({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <SearchX className="size-5 text-muted-foreground" aria-hidden />
+            <SearchX className="size-5 text-muted" aria-hidden />
             Unbekannter Barcode
           </CardTitle>
         </CardHeader>
@@ -324,7 +324,7 @@ function LookupPreview({
             Weder im Cache noch bei Open Food Facts. Du kannst das Produkt
             manuell anlegen — Barcode bleibt erhalten.
           </p>
-          <p className="text-xs text-muted-foreground">Barcode {data.barcode}</p>
+          <p className="font-mono text-xs text-muted">Barcode {data.barcode}</p>
           <div className="flex gap-2">
             <Button
               className="flex-1"
@@ -348,7 +348,7 @@ function LookupPreview({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CheckCircle2 className="size-5 text-primary" aria-hidden />
+          <CheckCircle2 className="size-5 text-primary-text" aria-hidden />
           Gefunden
         </CardTitle>
       </CardHeader>
@@ -359,17 +359,17 @@ function LookupPreview({
             <img
               src={product.imageUrl}
               alt=""
-              className="size-16 shrink-0 rounded border object-contain"
+              className="size-16 shrink-0 rounded-lg border border-border object-contain"
             />
           )}
           <div className="min-w-0">
             <p className="truncate font-medium">{product.name}</p>
             {product.brand && (
-              <p className="truncate text-sm text-muted-foreground">{product.brand}</p>
+              <p className="truncate text-sm text-muted">{product.brand}</p>
             )}
           </div>
         </div>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-muted">
           <dt>Kategorie</dt>
           <dd>{product.category ?? "—"}</dd>
           <dt>Quelle</dt>
@@ -458,49 +458,49 @@ function PhotoCandidatesPicker({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Camera className="size-5 text-primary" aria-hidden />
+          <Camera className="size-5 text-primary-text" aria-hidden />
           Erkannte Produkte
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         {candidates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted">
             Kein Produkt erkannt. Bitte manuell eingeben.
           </p>
         ) : (
-          <ul className="flex flex-col divide-y rounded-lg border">
+          <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
             {candidates.map((c, i) => (
               <li key={i}>
                 <button
                   type="button"
                   onClick={() => onSelect(seedFromCandidate(c))}
-                  className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-muted"
+                  className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-surface-raised"
                 >
                   {c.offImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={c.offImageUrl}
                       alt=""
-                      className="size-10 shrink-0 rounded border object-contain"
+                      className="size-10 shrink-0 rounded-lg border border-border object-contain"
                     />
                   ) : (
-                    <div className="grid size-10 shrink-0 place-items-center rounded border bg-muted">
-                      <Camera className="size-4 text-muted-foreground" aria-hidden />
+                    <div className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-surface-raised">
+                      <Camera className="size-4 text-muted" aria-hidden />
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{c.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="truncate text-xs text-muted">
                       {[c.brand, categoryLabel(c.category)].filter(Boolean).join(" · ")}
                     </p>
                   </div>
                   <span className={cn(
                     "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
                     c.source === "vision+off"
-                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                      ? "bg-primary-subtle text-primary-text"
                       : c.source === "vision"
-                        ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-                        : "bg-muted text-muted-foreground",
+                        ? "bg-warning-subtle text-warning"
+                        : "bg-surface-raised text-muted",
                   )}>
                     {c.source === "vision+off"
                       ? "Erkannt + Open Food Facts"

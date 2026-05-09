@@ -110,12 +110,12 @@ export default async function StatsPage({
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted">
               Nach Kategorie
             </h2>
-            <div className="overflow-hidden rounded-lg border">
+            <div className="overflow-hidden rounded-lg border border-border">
               <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-xs text-muted-foreground">
+                <thead className="bg-surface-raised text-xs text-muted">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">Kategorie</th>
                     <th className="px-3 py-2 text-right font-medium">Verbraucht</th>
@@ -124,10 +124,10 @@ export default async function StatsPage({
                 </thead>
                 <tbody>
                   {byCategory.map(({ key, consumed, discarded }) => (
-                    <tr key={key} className="border-t">
+                    <tr key={key} className="border-t border-border">
                       <td className="px-3 py-2">{getCategory(key).label}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{consumed}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{discarded}</td>
+                      <td className="px-3 py-2 text-right font-mono tabular-nums">{consumed}</td>
+                      <td className="px-3 py-2 text-right font-mono tabular-nums">{discarded}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -216,7 +216,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
       <header className="mb-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Historie</h1>
+        <h1 className="font-serif text-[26px] font-medium tracking-tight">Historie</h1>
       </header>
       <div className="flex flex-col gap-4">{children}</div>
     </div>
@@ -286,13 +286,13 @@ function Kpi({
     <div
       className={cn(
         "flex flex-col items-start rounded-lg border p-3",
-        tone === "positive" && "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30",
-        tone === "negative" && "border-destructive/30 bg-destructive/10",
-        tone === "neutral" && "border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/30",
+        tone === "positive" && "border-primary/30 bg-primary-subtle text-primary-text",
+        tone === "negative" && "border-danger/30 bg-danger-subtle text-danger",
+        tone === "neutral" && "border-warning/30 bg-warning-subtle text-warning",
       )}
     >
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <span className="mt-1 text-2xl font-semibold tabular-nums">{value}</span>
+      <span className="text-xs font-medium text-muted">{label}</span>
+      <span className="mt-1 font-mono text-[26px] font-medium tabular-nums">{value}</span>
     </div>
   );
 }
@@ -302,7 +302,7 @@ function Kpi({
 function AuthPrompt() {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-muted">
         Bitte melde dich an, um die Historie zu sehen.
       </p>
     </div>
@@ -313,9 +313,9 @@ function EmptyForRange({ range }: { range: RangeKey }) {
   const label =
     range === "all" ? "insgesamt" : `in den letzten ${RANGE_DAYS[range]} Tagen`;
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-12 text-center">
-      <BarChart3 className="size-10 text-muted-foreground" aria-hidden />
-      <p className="mt-3 text-sm text-muted-foreground">
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border px-6 py-12 text-center">
+      <BarChart3 className="size-10 text-muted" aria-hidden />
+      <p className="mt-3 text-sm text-muted">
         Noch keine Einträge {label}.
       </p>
     </div>
@@ -327,7 +327,7 @@ function ErrorState({ message }: { message: string }) {
     <div className="mx-auto w-full max-w-md px-4 py-6">
       <div
         role="alert"
-        className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        className="rounded-lg border border-danger/30 bg-danger-subtle px-3 py-2 text-sm text-danger"
       >
         Konnte Daten nicht laden: {message}
       </div>

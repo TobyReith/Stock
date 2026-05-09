@@ -30,7 +30,7 @@ export function ActiveInvites({ invites }: Props) {
 
   if (visible.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed px-4 py-6 text-center text-xs text-muted-foreground">
+      <div className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted">
         Keine offenen Codes.
       </div>
     );
@@ -55,7 +55,7 @@ export function ActiveInvites({ invites }: Props) {
   }
 
   return (
-    <ul className="flex flex-col divide-y rounded-lg border">
+    <ul className="flex flex-col divide-y divide-border rounded-lg border border-border bg-surface">
       {visible.map((invite) => (
         <li
           key={invite.code}
@@ -65,7 +65,7 @@ export function ActiveInvites({ invites }: Props) {
             <p className="font-mono text-sm font-semibold tracking-widest">
               {invite.code}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted">
               gültig bis {formatExpiry(invite.expiresAt)}
             </p>
           </div>

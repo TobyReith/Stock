@@ -33,8 +33,8 @@ export default async function ResetPasswordPage() {
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm space-y-6">
         <div className="space-y-1 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Neues Passwort</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="font-serif text-[26px] font-medium tracking-tight">Neues Passwort</h1>
+          <p className="text-sm text-muted">
             Wähle ein neues Passwort für dein Konto.
           </p>
         </div>

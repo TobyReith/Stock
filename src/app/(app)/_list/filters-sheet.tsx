@@ -72,7 +72,7 @@ export function FiltersSheet({
             <ListFilter aria-hidden />
             Filter
             {activeCount > 0 ? (
-              <span className="ml-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground tabular-nums">
+              <span className="ml-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-fg tabular-nums">
                 {activeCount}
               </span>
             ) : null}
@@ -144,7 +144,7 @@ export function FiltersSheet({
           </FilterAxis>
         </div>
 
-        <div className="mt-5 flex items-center justify-between gap-2 border-t px-4 pt-4">
+        <div className="mt-5 flex items-center justify-between gap-2 border-t border-border px-4 pt-4">
           <Button
             type="button"
             variant="ghost"
@@ -176,7 +176,7 @@ type FilterAxisProps = {
 function FilterAxis({ label, children }: FilterAxisProps) {
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <h3 className="text-[10px] font-semibold uppercase tracking-widest text-muted">
         {label}
       </h3>
       {children}
@@ -227,8 +227,8 @@ function Chip({ label, active, onClick }: ChipProps) {
       className={cn(
         "inline-flex h-7 items-center rounded-full border px-3 text-xs font-medium transition-colors",
         active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-border bg-background text-foreground hover:bg-muted",
+          ? "border-primary bg-primary text-primary-fg"
+          : "border-border bg-surface text-foreground hover:bg-surface-raised",
       )}
     >
       {label}

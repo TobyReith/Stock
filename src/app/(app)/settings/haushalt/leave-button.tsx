@@ -66,7 +66,7 @@ export function LeaveButton({ householdId, householdName, isLastOwner }: Props) 
         <LogOut aria-hidden /> Haushalt verlassen
       </Button>
       {isLastOwner && (
-        <p id="leave-disabled-hint" className="text-xs text-muted-foreground">
+        <p id="leave-disabled-hint" className="text-xs text-muted">
           Du bist der letzte Owner — befördere zuerst jemand anderen.
         </p>
       )}

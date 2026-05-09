@@ -27,7 +27,7 @@ export function TimeframeToggle({
   return (
     <nav
       aria-label="Zeitraum"
-      className="grid grid-cols-3 gap-1 rounded-lg border p-1"
+      className="grid grid-cols-3 gap-1 rounded-lg border border-border p-1"
     >
       {OPTIONS.map(({ key, label }) => {
         const active = key === current;
@@ -41,10 +41,10 @@ export function TimeframeToggle({
             href={href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "rounded-md py-1.5 text-center text-xs transition-colors",
+              "rounded-lg py-1.5 text-center text-xs transition-colors",
               active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "bg-primary text-primary-fg"
+                : "text-muted hover:bg-surface-raised hover:text-foreground",
             )}
           >
             {label}

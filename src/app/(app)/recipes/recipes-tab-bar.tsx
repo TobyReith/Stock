@@ -18,16 +18,16 @@ export function RecipesTabBar({ activeView, favoritesCount }: Props) {
   }
 
   return (
-    <div className="flex rounded-lg bg-muted p-1" role="tablist">
+    <div className="flex rounded-lg bg-surface-raised p-1" role="tablist">
       <button
         role="tab"
         aria-selected={activeView === "suggestions"}
         onClick={() => navigate("suggestions")}
         className={cn(
-          "flex-1 rounded-md py-1.5 text-sm font-medium transition-colors",
+          "flex-1 rounded-lg py-1.5 text-sm font-medium transition-colors",
           activeView === "suggestions"
-            ? "bg-background text-foreground shadow-sm"
-            : "text-muted-foreground hover:text-foreground",
+            ? "bg-surface text-foreground"
+            : "text-muted hover:text-foreground",
         )}
       >
         Vorschläge
@@ -37,15 +37,15 @@ export function RecipesTabBar({ activeView, favoritesCount }: Props) {
         aria-selected={activeView === "favorites"}
         onClick={() => navigate("favorites")}
         className={cn(
-          "flex-1 rounded-md py-1.5 text-sm font-medium transition-colors",
+          "flex-1 rounded-lg py-1.5 text-sm font-medium transition-colors",
           activeView === "favorites"
-            ? "bg-background text-foreground shadow-sm"
-            : "text-muted-foreground hover:text-foreground",
+            ? "bg-surface text-foreground"
+            : "text-muted hover:text-foreground",
         )}
       >
         Favoriten
         {favoritesCount > 0 && (
-          <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+          <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-fg">
             {favoritesCount}
           </span>
         )}

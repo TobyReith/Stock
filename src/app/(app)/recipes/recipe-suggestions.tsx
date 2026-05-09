@@ -110,7 +110,7 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings, initialF
       {/* Expiring items header chips */}
       {expiringChips.length > 0 && (
         <section aria-label="Ablaufende Zutaten" className="mb-4">
-          <p className="mb-2 text-sm font-medium text-muted-foreground">Bald ablaufend</p>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted">Bald ablaufend</p>
           <div className="flex flex-wrap gap-2">
             {expiringChips.map((chip) => (
               <span
@@ -118,10 +118,10 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings, initialF
                 className={cn(
                   "rounded-full px-3 py-1 text-xs font-medium",
                   chip.daysLeft <= 2
-                    ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                    ? "bg-danger-subtle text-danger"
                     : chip.daysLeft <= 4
-                      ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-                      : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+                      ? "bg-warning-subtle text-warning"
+                      : "bg-primary-subtle text-primary-text",
                 )}
               >
                 {chip.name}
@@ -144,9 +144,9 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings, initialF
       {noExpiring && !isPending && (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
-            <CheckCircle2 className="size-10 text-green-500" aria-hidden />
+            <CheckCircle2 className="size-10 text-primary-text" aria-hidden />
             <p className="font-medium">Alles im grünen Bereich</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted">
               Kein Lebensmittel droht in den nächsten {settings.expiryThresholdDays} Tagen abzulaufen.
             </p>
             <Button variant="outline" size="sm" onClick={() => handleGenerate(false)}>
@@ -159,7 +159,7 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings, initialF
       {quotaExceeded && !isPending && (
         <Card>
           <CardContent className="py-6 text-center">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted">
               Tages-Limit von {DAILY_RECIPE_QUOTA} Generierungen erreicht. Morgen wieder verfügbar.
             </p>
           </CardContent>
@@ -169,7 +169,7 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings, initialF
       {errorMsg && !isPending && (
         <Card>
           <CardContent className="flex flex-col gap-3 py-4">
-            <div className="flex items-center gap-2 text-destructive">
+            <div className="flex items-center gap-2 text-danger">
               <XCircle className="size-4" aria-hidden />
               <p className="text-sm">{errorMsg}</p>
             </div>
@@ -191,7 +191,7 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings, initialF
           ))}
 
           <div className="flex items-center justify-between pt-2">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted">
               {fromCache ? "Aus Cache" : "Neu generiert"} · {currentQuotaUsed}/{DAILY_RECIPE_QUOTA} heute
             </p>
             <Button variant="ghost" size="sm" onClick={() => handleGenerate(true)} disabled={currentQuotaUsed >= DAILY_RECIPE_QUOTA}>
@@ -242,10 +242,10 @@ export function RecipeCard({
 
   const difficultyColor =
     recipe.difficulty === "einfach"
-      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+      ? "bg-primary-subtle text-primary-text"
       : recipe.difficulty === "mittel"
-        ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+        ? "bg-warning-subtle text-warning"
+        : "bg-danger-subtle text-danger";
 
   async function addMissingToShopping(ing: RecipeIngredient) {
     setAddingItem(ing.name);
@@ -268,10 +268,10 @@ export function RecipeCard({
               type="button"
               onClick={onToggleFavorite}
               aria-label={isFavorite ? "Aus Favoriten entfernen" : "Als Favorit speichern"}
-              className="rounded-full p-1 transition-colors hover:bg-muted"
+              className="rounded-full p-1 transition-colors hover:bg-surface-raised"
             >
               <Heart
-                className={cn("size-4 transition-colors", isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground")}
+                className={cn("size-4 transition-colors", isFavorite ? "fill-danger text-danger" : "text-muted")}
                 aria-hidden
               />
             </button>
@@ -285,14 +285,14 @@ export function RecipeCard({
         {tags && tags.length > 0 && (
           <div className="flex flex-wrap gap-1 pt-1">
             {tags.map((tag) => (
-              <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+              <span key={tag} className="rounded-full bg-surface-raised px-2 py-0.5 text-xs text-muted">
                 {tag}
               </span>
             ))}
           </div>
         )}
 
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-3 text-xs text-muted">
           <span className="flex items-center gap-1">
             <Clock className="size-3" aria-hidden /> {recipe.timeMinutes} min
           </span>
@@ -307,11 +307,11 @@ export function RecipeCard({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-3">
-        <p className="text-sm text-muted-foreground">{recipe.description}</p>
+        <p className="text-sm text-muted">{recipe.description}</p>
 
         {/* Personal note */}
         {notes && (
-          <p className="text-sm italic text-muted-foreground">✏️ {notes}</p>
+          <p className="text-sm italic text-muted">✏️ {notes}</p>
         )}
 
         {/* Ingredients */}
@@ -322,16 +322,16 @@ export function RecipeCard({
                 className={cn(
                   "size-4 shrink-0 rounded-full text-center text-xs leading-4",
                   ing.isExpiringItem
-                    ? "bg-red-500 text-white"
+                    ? "bg-danger text-foreground"
                     : ing.isInPantry
-                      ? "bg-green-500 text-white"
-                      : "bg-amber-400 text-white",
+                      ? "bg-primary text-primary-fg"
+                      : "bg-warning text-foreground",
                 )}
                 aria-label={ing.isExpiringItem ? "läuft ab" : ing.isInPantry ? "vorhanden" : "fehlt"}
               >
                 {ing.isExpiringItem ? "!" : ing.isInPantry ? "✓" : "+"}
               </span>
-              <span className={cn(!ing.isInPantry && !ing.isExpiringItem && "text-muted-foreground")}>
+              <span className={cn(!ing.isInPantry && !ing.isExpiringItem && "text-muted")}>
                 {ing.amount} {ing.unit} {ing.name}
               </span>
             </li>
@@ -339,7 +339,7 @@ export function RecipeCard({
         </ul>
 
         {recipe.feasibility === "limited" && recipe.limitedNote && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+          <div className="rounded-lg border border-warning/30 bg-warning-subtle px-3 py-2 text-xs text-warning">
             {recipe.limitedNote}
           </div>
         )}
@@ -351,7 +351,7 @@ export function RecipeCard({
                 key={ing.name}
                 onClick={() => void addMissingToShopping(ing)}
                 disabled={addingItem === ing.name}
-                className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs text-muted transition-colors hover:bg-surface-raised disabled:opacity-50"
               >
                 <Plus className="size-2.5" aria-hidden />
                 {ing.name}
@@ -363,7 +363,7 @@ export function RecipeCard({
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="text-left text-sm font-medium text-primary"
+          className="text-left text-sm font-medium text-primary-text"
         >
           {expanded ? "Zubereitung ausblenden ▲" : "Zubereitung anzeigen ▼"}
         </button>
@@ -371,7 +371,7 @@ export function RecipeCard({
           <ol className="flex flex-col gap-2">
             {recipe.steps.map((step, i) => (
               <li key={i} className="flex gap-2 text-sm">
-                <span className="mt-0.5 size-5 shrink-0 rounded-full bg-muted text-center text-xs font-medium leading-5">
+                <span className="mt-0.5 size-5 shrink-0 rounded-full bg-surface-raised text-center text-xs font-medium leading-5">
                   {i + 1}
                 </span>
                 <span>{step}</span>
@@ -397,12 +397,12 @@ function RecipeSkeletons() {
         <Card key={i}>
           <CardContent className="flex flex-col gap-3 py-4">
             <div className="flex items-center gap-2">
-              <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />
-              <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+              <Loader2 className="size-4 animate-spin text-muted" aria-hidden />
+              <div className="h-4 w-3/4 animate-pulse rounded bg-surface-raised" />
             </div>
-            <div className="h-3 w-full animate-pulse rounded bg-muted" />
-            <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
-            <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-full animate-pulse rounded bg-surface-raised" />
+            <div className="h-3 w-2/3 animate-pulse rounded bg-surface-raised" />
+            <div className="h-3 w-1/2 animate-pulse rounded bg-surface-raised" />
           </CardContent>
         </Card>
       ))}

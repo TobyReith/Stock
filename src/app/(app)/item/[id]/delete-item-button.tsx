@@ -62,7 +62,7 @@ export function DeleteItemButton({
         size="sm"
         onClick={() => setOpen(true)}
         disabled={disabled}
-        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+        className="text-danger hover:bg-danger-subtle hover:text-danger"
       >
         <Trash2 aria-hidden /> Artikel löschen
       </Button>

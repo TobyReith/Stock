@@ -31,8 +31,8 @@ export function BottomNav() {
         aria-label="Hinzufügen"
         className={cn(
           "fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] right-4 z-50",
-          "flex size-14 items-center justify-center rounded-full shadow-lg",
-          "bg-primary text-primary-foreground transition-opacity hover:opacity-90",
+          "flex size-14 items-center justify-center rounded-full",
+          "bg-primary text-primary-fg transition-opacity hover:bg-sage-400",
           pathname.startsWith("/add") && "opacity-70",
         )}
       >
@@ -42,7 +42,7 @@ export function BottomNav() {
       {/* Bottom navigation bar */}
       <nav
         aria-label="Hauptnavigation"
-        className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
       >
         <ul className="mx-auto flex h-14 max-w-md items-stretch justify-around">
           {items.map(({ href, label, icon: Icon, exact }) => {
@@ -62,7 +62,7 @@ export function BottomNav() {
                     "flex h-full flex-col items-center justify-center gap-0.5 text-[11px] transition-colors",
                     active
                       ? "text-foreground"
-                      : "text-muted-foreground hover:text-foreground",
+                      : "text-muted hover:text-foreground",
                   )}
                 >
                   <Icon className="size-5" strokeWidth={active ? 2 : 1.75} aria-hidden />

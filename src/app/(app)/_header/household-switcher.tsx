@@ -52,7 +52,7 @@ export function HouseholdSwitcher({ memberships, activeId }: Props) {
   if (memberships.length === 1) {
     return (
       <div
-        className="inline-flex items-center gap-1.5 rounded-full bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground"
+        className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised px-2.5 py-1 text-xs font-medium text-muted"
         aria-label={`Aktiver Haushalt: ${label}`}
       >
         <Users aria-hidden className="size-3.5" />
@@ -79,10 +79,10 @@ export function HouseholdSwitcher({ memberships, activeId }: Props) {
     <Menu.Root>
       <Menu.Trigger
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full border border-transparent bg-muted/50 px-2.5 py-1 text-xs font-medium transition-colors",
-          "hover:bg-muted hover:text-foreground",
-          "focus-visible:outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-          "aria-expanded:bg-muted aria-expanded:text-foreground",
+          "inline-flex items-center gap-1.5 rounded-full border border-transparent bg-surface-raised px-2.5 py-1 text-xs font-medium text-muted transition-colors",
+          "hover:bg-border hover:text-foreground",
+          "focus-visible:outline-none focus-visible:border-border-strong",
+          "aria-expanded:bg-border aria-expanded:text-foreground",
           pending && "opacity-60",
         )}
         disabled={pending}
@@ -101,14 +101,14 @@ export function HouseholdSwitcher({ memberships, activeId }: Props) {
         <Menu.Positioner sideOffset={6} align="start" className="z-50">
           <Menu.Popup
             className={cn(
-              "min-w-[16rem] overflow-hidden rounded-lg border bg-popover p-1 text-sm shadow-lg",
+              "min-w-[16rem] overflow-hidden rounded-lg border border-border bg-surface p-1 text-sm",
               "transition duration-150 ease-out",
               "data-starting-style:opacity-0 data-starting-style:-translate-y-1",
               "data-ending-style:opacity-0 data-ending-style:-translate-y-1",
             )}
           >
             <Menu.Group>
-              <Menu.GroupLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+              <Menu.GroupLabel className="px-2 py-1.5 text-xs font-medium text-muted">
                 Haushalte
               </Menu.GroupLabel>
               {memberships.map((m) => (
@@ -116,13 +116,13 @@ export function HouseholdSwitcher({ memberships, activeId }: Props) {
                   key={m.id}
                   onClick={() => handleSelect(m.id)}
                   className={cn(
-                    "flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 outline-none",
-                    "data-highlighted:bg-muted data-highlighted:text-foreground",
+                    "flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 outline-none",
+                    "data-highlighted:bg-surface-raised data-highlighted:text-foreground",
                   )}
                 >
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate font-medium">{m.name}</span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted">
                       {m.role === "owner" ? "Owner" : "Mitglied"}
                     </span>
                   </span>
@@ -138,8 +138,8 @@ export function HouseholdSwitcher({ memberships, activeId }: Props) {
                 <Link
                   href="/settings/haushalt"
                   className={cn(
-                    "flex items-center gap-2 rounded-md px-2 py-1.5 outline-none",
-                    "data-highlighted:bg-muted data-highlighted:text-foreground",
+                    "flex items-center gap-2 rounded-lg px-2 py-1.5 outline-none",
+                    "data-highlighted:bg-surface-raised data-highlighted:text-foreground",
                   )}
                 />
               }

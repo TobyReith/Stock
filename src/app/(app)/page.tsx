@@ -35,8 +35,8 @@ export default async function ListPage() {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
       <header className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Vorrat</h1>
-        <span className="text-sm text-muted-foreground">
+        <h1 className="font-serif text-[26px] font-medium tracking-tight">Vorrat</h1>
+        <span className="text-sm text-muted">
           {items.length} {items.length === 1 ? "Artikel" : "Artikel"}
         </span>
       </header>
@@ -49,10 +49,10 @@ export default async function ListPage() {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-16 text-center">
-      <Package className="size-12 text-muted-foreground" aria-hidden />
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border px-6 py-16 text-center">
+      <Package className="size-12 text-muted" aria-hidden />
       <h2 className="mt-4 text-lg font-medium">Noch nichts im Vorrat</h2>
-      <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+      <p className="mt-2 max-w-xs text-sm text-muted">
         Tippe unten auf <span className="font-medium">Hinzufügen</span>, um
         deinen ersten Artikel zu scannen.
       </p>
@@ -66,7 +66,7 @@ function EmptyState() {
 function UnauthedState() {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-muted">
         Bitte melde dich an, um deinen Vorrat zu sehen.
       </p>
     </div>
@@ -76,10 +76,10 @@ function UnauthedState() {
 function ErrorState({ message }: { message: string }) {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
-      <h1 className="mb-4 text-2xl font-semibold tracking-tight">Vorrat</h1>
+      <h1 className="mb-4 font-serif text-[26px] font-medium tracking-tight">Vorrat</h1>
       <div
         role="alert"
-        className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        className="rounded-lg border border-danger/30 bg-danger-subtle px-3 py-2 text-sm text-danger"
       >
         Konnte Vorrat nicht laden: {message}
       </div>
@@ -100,15 +100,15 @@ function ExpiryWidget({ items }: { items: ListItem[] }) {
   return (
     <Link
       href="/recipes"
-      className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 transition-colors hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-900/20 dark:hover:bg-amber-900/30"
+      className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-subtle px-4 py-3 transition-opacity hover:opacity-90"
     >
       <div className="flex items-center gap-3">
-        <ChefHat className="size-5 text-amber-600 dark:text-amber-400" aria-hidden />
+        <ChefHat className="size-5 text-warning" aria-hidden />
         <div>
-          <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+          <p className="text-sm font-medium text-warning">
             {expiring.length} {expiring.length === 1 ? "Artikel läuft" : "Artikel laufen"} bald ab
           </p>
-          <p className="text-xs text-amber-700 dark:text-amber-400">
+          <p className="text-xs text-warning/80">
             Rezeptideen ansehen →
           </p>
         </div>

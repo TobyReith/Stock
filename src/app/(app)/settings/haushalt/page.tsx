@@ -43,7 +43,7 @@ export default async function HaushaltPage() {
   if (!activeHouseholdId) {
     return (
       <Shell>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted">
           Du hast noch keinen Haushalt. Füge einen Artikel hinzu, um zu starten,
           oder nutze einen Einladungscode.
         </p>
@@ -93,11 +93,11 @@ export default async function HaushaltPage() {
       <section aria-labelledby="household-heading" className="flex flex-col gap-2">
         <h2
           id="household-heading"
-          className="text-sm font-medium text-muted-foreground"
+          className="text-[10px] font-semibold uppercase tracking-widest text-muted"
         >
           Aktueller Haushalt
         </h2>
-        <div className="rounded-lg border px-4 py-3">
+        <div className="rounded-lg border border-border bg-surface px-4 py-3">
           {isOwner && household ? (
             <RenameForm
               householdId={household.id}
@@ -108,7 +108,7 @@ export default async function HaushaltPage() {
               {household?.name ?? "Unbekannter Haushalt"}
             </p>
           )}
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-muted">
             {isOwner ? "Du bist Owner." : "Du bist Mitglied."}
           </p>
         </div>
@@ -117,10 +117,10 @@ export default async function HaushaltPage() {
       {isOwner && (
         <section aria-labelledby="invite-heading" className="flex flex-col gap-3">
           <div>
-            <h2 id="invite-heading" className="text-sm font-medium text-muted-foreground">
+            <h2 id="invite-heading" className="text-[10px] font-semibold uppercase tracking-widest text-muted">
               Einladungen
             </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <p className="mt-0.5 text-xs text-muted">
               Codes sind 7 Tage gültig und können nur einmal eingelöst werden.
             </p>
           </div>
@@ -130,7 +130,7 @@ export default async function HaushaltPage() {
       )}
 
       <section aria-labelledby="members-heading" className="flex flex-col gap-3">
-        <h2 id="members-heading" className="text-sm font-medium text-muted-foreground">
+        <h2 id="members-heading" className="text-[10px] font-semibold uppercase tracking-widest text-muted">
           Mitglieder
         </h2>
         <MemberList
@@ -165,7 +165,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         >
           <ArrowLeft aria-hidden />
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Haushalt</h1>
+        <h1 className="font-serif text-[26px] font-medium tracking-tight">Haushalt</h1>
       </header>
       <div className="flex flex-col gap-6">{children}</div>
     </div>

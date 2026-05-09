@@ -212,23 +212,23 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
       {/* Product preview (known path) — read-only summary so user knows
           what they're adding and where to tweak it (customName). */}
       {seedProduct && (
-        <div className="flex items-start gap-3 rounded-lg border p-3">
+        <div className="flex items-start gap-3 rounded-lg border border-border p-3">
           {seedProduct.imageUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={seedProduct.imageUrl}
               alt=""
-              className="size-16 shrink-0 rounded border object-contain"
+              className="size-16 shrink-0 rounded-lg border border-border object-contain"
             />
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium">{seedProduct.productName}</p>
             {seedProduct.brand && (
-              <p className="truncate text-sm text-muted-foreground">
+              <p className="truncate text-sm text-muted">
                 {seedProduct.brand}
               </p>
             )}
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted">
               {categories.find((c) => c.slug === seedProduct.category)?.name ??
                 getCategory(seedProduct.category).label}
             </p>
@@ -260,21 +260,21 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
               required
             />
             {(offBrand || offImageUrl) && (
-              <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-1.5">
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-2.5 py-1.5">
                 {offImageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={offImageUrl}
                     alt=""
-                    className="size-8 shrink-0 rounded border object-contain bg-white"
+                    className="size-8 shrink-0 rounded-lg border border-border bg-surface object-contain"
                   />
                 )}
                 <div className="min-w-0 flex-1">
                   {offBrand && (
-                    <p className="truncate text-sm text-muted-foreground">{offBrand}</p>
+                    <p className="truncate text-sm text-muted">{offBrand}</p>
                   )}
                   {offCategory && (
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="truncate text-xs text-muted">
                       {categories.find((c) => c.slug === offCategory)?.name ??
                         getCategory(offCategory).label}
                     </p>
@@ -289,7 +289,7 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
               id="category"
               value={category}
               onChange={(e) => handleCategoryChange(e.target.value)}
-              className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="h-9 rounded-lg border border-border bg-surface px-2.5 text-sm text-foreground outline-none focus:border-border-strong"
             >
               {categories.map((c) => (
                 <option key={c.slug} value={c.slug}>
@@ -304,7 +304,7 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
       {/* Alias — optional short name for the shelf ("Opas Honig"). */}
       <FieldRow>
         <Label htmlFor="custom-name">
-          Eigener Name <span className="text-muted-foreground">(optional)</span>
+          Eigener Name <span className="text-muted">(optional)</span>
         </Label>
         <Input
           id="custom-name"
@@ -331,7 +331,7 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
         </FieldRow>
         <FieldRow>
           <Label htmlFor="unit">
-            Einheit <span className="text-muted-foreground">(optional)</span>
+            Einheit <span className="text-muted">(optional)</span>
           </Label>
           <Input
             id="unit"
@@ -365,7 +365,7 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
           }}
           required
         />
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted">
           {mhdSource === "default" &&
             `Standard für ${categories.find((c) => c.slug === category)?.name ?? getCategory(category).label}. "MHD scannen" für Foto-Erkennung.`}
           {mhdSource === "ocr" && mhdRaw && `Erkannt: "${mhdRaw}"`}
@@ -376,7 +376,7 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
       {/* Location segmented control */}
       <FieldRow>
         <Label>Lagerort</Label>
-        <div className="grid grid-cols-3 gap-1 rounded-lg border p-1">
+        <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-1">
           {storageLocations.map(({ slug, name, icon }) => {
             const active = location === slug;
             return (
@@ -386,10 +386,10 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
                 onClick={() => setLocation(slug)}
                 aria-pressed={active}
                 className={cn(
-                  "flex flex-col items-center gap-1 rounded-md py-2 text-xs transition-colors",
+                  "flex flex-col items-center gap-1 rounded-lg py-2 text-xs transition-colors",
                   active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    ? "bg-primary text-primary-fg"
+                    : "text-muted hover:bg-surface-raised hover:text-foreground",
                 )}
               >
                 <span className="text-base leading-none" aria-hidden>{icon}</span>
@@ -402,14 +402,14 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
 
       <FieldRow>
         <Label htmlFor="note">
-          Notiz <span className="text-muted-foreground">(optional)</span>
+          Notiz <span className="text-muted">(optional)</span>
         </Label>
         <textarea
           id="note"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={2}
-          className="w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted outline-none focus:border-border-strong"
           placeholder="z.B. angebrochen, für Pizza"
         />
       </FieldRow>
@@ -417,7 +417,7 @@ export function ItemForm({ seed, prefill, categories, storageLocations, onCancel
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-lg border border-danger/30 bg-danger-subtle px-3 py-2 text-sm text-danger"
         >
           {error}
         </div>

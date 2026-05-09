@@ -128,22 +128,22 @@ export function SwipeableItemRow({
         <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-5">
           <motion.div
             style={{ opacity: consumeOpacity }}
-            className="text-emerald-600 dark:text-emerald-500"
+            className="text-primary-text"
           >
             <CheckCircle2 className="size-6" aria-hidden />
           </motion.div>
-          <motion.div style={{ opacity: discardOpacity }} className="text-destructive">
+          <motion.div style={{ opacity: discardOpacity }} className="text-danger">
             <Trash2 className="size-6" aria-hidden />
           </motion.div>
         </div>
 
         {/* Coloured background tints */}
         <motion.div
-          className="pointer-events-none absolute inset-0 bg-emerald-500/15"
+          className="pointer-events-none absolute inset-0 bg-primary-subtle"
           style={{ opacity: consumeOpacity }}
         />
         <motion.div
-          className="pointer-events-none absolute inset-0 bg-destructive/15"
+          className="pointer-events-none absolute inset-0 bg-danger-subtle"
           style={{ opacity: discardOpacity }}
         />
 
@@ -178,7 +178,7 @@ export function SwipeableItemRow({
         >
           <Link
             href={`/item/${item.id}`}
-            className="block outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="block outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
             onClick={(e) => {
               if (wasDragged.current) {
                 e.preventDefault();
@@ -199,19 +199,19 @@ export function SwipeableItemRow({
       {/* Action sheet — controlled via menuOpen state, no SheetTrigger needed */}
       <SheetContent side="bottom" className="rounded-t-xl px-0 pb-8">
         <SheetHeader className="px-4 pb-0">
-          <SheetTitle className="truncate text-left text-sm font-medium text-muted-foreground">
+          <SheetTitle className="truncate text-left text-sm font-medium text-muted">
             {displayName}
           </SheetTitle>
         </SheetHeader>
-        <div className="mt-2 flex flex-col divide-y">
+        <div className="mt-2 flex flex-col divide-y divide-border">
           <SheetClose
             render={
               <button
                 type="button"
                 onClick={() => void triggerConsume()}
-                className="flex items-center gap-3 px-4 py-3.5 text-sm hover:bg-muted"
+                className="flex items-center gap-3 px-4 py-3.5 text-sm hover:bg-surface-raised"
               >
-                <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-500" aria-hidden />
+                <CheckCircle2 className="size-5 text-primary-text" aria-hidden />
                 Verbraucht markieren
               </button>
             }
@@ -221,9 +221,9 @@ export function SwipeableItemRow({
               <button
                 type="button"
                 onClick={() => void triggerDiscard()}
-                className="flex items-center gap-3 px-4 py-3.5 text-sm hover:bg-muted"
+                className="flex items-center gap-3 px-4 py-3.5 text-sm hover:bg-surface-raised"
               >
-                <Trash2 className="size-5 text-destructive" aria-hidden />
+                <Trash2 className="size-5 text-danger" aria-hidden />
                 Als entsorgt markieren
               </button>
             }
@@ -233,9 +233,9 @@ export function SwipeableItemRow({
               <button
                 type="button"
                 onClick={() => void triggerFreeze()}
-                className="flex items-center gap-3 px-4 py-3.5 text-sm hover:bg-muted"
+                className="flex items-center gap-3 px-4 py-3.5 text-sm hover:bg-surface-raised"
               >
-                <Snowflake className="size-5 text-sky-500" aria-hidden />
+                <Snowflake className="size-5 text-primary-text" aria-hidden />
                 Einfrieren
               </button>
             }
@@ -245,9 +245,9 @@ export function SwipeableItemRow({
               <button
                 type="button"
                 onClick={() => void handleNachkaufen()}
-                className="flex items-center gap-3 px-4 py-3.5 text-sm hover:bg-muted"
+                className="flex items-center gap-3 px-4 py-3.5 text-sm hover:bg-surface-raised"
               >
-                <ShoppingCart className="size-5 text-primary" aria-hidden />
+                <ShoppingCart className="size-5 text-primary-text" aria-hidden />
                 Nachkaufen
               </button>
             }
@@ -275,7 +275,7 @@ function ActionMenuTrigger({ onOpen }: { onOpen: () => void }) {
         // Prevent framer-motion from starting a drag from this area.
         e.stopPropagation();
       }}
-      className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-raised hover:text-foreground"
     >
       <MoreVertical className="size-4" aria-hidden />
     </button>

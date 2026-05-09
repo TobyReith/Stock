@@ -151,11 +151,11 @@ function Section({
 }) {
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted">
         {title}
       </h2>
       {empty ? (
-        <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted">
           Nichts offen.
         </p>
       ) : (
@@ -167,10 +167,10 @@ function Section({
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-12 text-center">
-      <ShoppingBasket className="size-10 text-muted-foreground" aria-hidden />
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border px-6 py-12 text-center">
+      <ShoppingBasket className="size-10 text-muted" aria-hidden />
       <h2 className="mt-3 text-base font-medium">Liste ist leer</h2>
-      <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+      <p className="mt-1 max-w-xs text-sm text-muted">
         Tippe oben, was du brauchst — oder setz etwas aus dem Vorrat auf
         die Liste, sobald es leer wird.
       </p>
@@ -300,8 +300,8 @@ function Row({
   return (
     <li
       className={cn(
-        "flex items-center gap-2 rounded-lg border px-3 py-2 transition-opacity",
-        isBought ? "bg-muted/30" : "bg-background",
+        "flex items-center gap-2 rounded-lg border border-border px-3 py-2 transition-opacity",
+        isBought ? "bg-surface-raised" : "bg-surface",
       )}
     >
       <button
@@ -314,8 +314,8 @@ function Row({
         className={cn(
           "grid size-5 shrink-0 place-items-center rounded border transition-colors",
           isBought
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-muted-foreground/40 hover:border-primary",
+            ? "border-primary bg-primary text-primary-fg"
+            : "border-border hover:border-primary",
         )}
       >
         {isBought && (
@@ -336,18 +336,18 @@ function Row({
         <p
           className={cn(
             "truncate text-sm",
-            isBought ? "text-muted-foreground line-through" : "font-medium",
+            isBought ? "text-muted line-through" : "font-medium",
           )}
         >
           {name}
           {qtyLabel && (
-            <span className="ml-2 text-xs font-normal text-muted-foreground">
+            <span className="ml-2 font-mono text-xs font-normal text-muted">
               {qtyLabel}
             </span>
           )}
         </p>
         {entry.brand && !entry.customName && (
-          <p className="truncate text-xs text-muted-foreground">
+          <p className="truncate text-xs text-muted">
             {entry.brand}
           </p>
         )}
@@ -361,7 +361,7 @@ function Row({
       {isBought ? (
         <Link
           href={`/add?fromShopping=${entry.id}`}
-          className="inline-flex h-8 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          className="inline-flex h-8 items-center gap-1 rounded-lg bg-primary px-2.5 text-xs font-medium text-primary-fg hover:bg-sage-400"
         >
           <Package className="size-3.5" aria-hidden /> In den Vorrat
         </Link>
@@ -390,7 +390,7 @@ function Row({
         aria-label={
           isBought ? "Wieder als offen markieren" : "Eintrag löschen"
         }
-        className="text-muted-foreground hover:text-foreground"
+        className="text-muted hover:text-foreground"
       >
         {isBought ? (
           <Undo2 className="size-4" aria-hidden />
@@ -453,7 +453,7 @@ function ShareButton({ name }: { name: string }) {
     <button
       type="button"
       onClick={handleShare}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-raised hover:text-foreground"
       aria-label="Teilen (z.B. in Bring!)"
       title="Teilen (z.B. in Bring!)"
     >

@@ -85,10 +85,10 @@ export function StorageLocationsManager({ initialLocations }: Props) {
         {locations.map((loc, index) => (
           <li
             key={loc.id}
-            className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5"
+            className="flex items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2.5"
           >
             {/* Icon */}
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-base">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-base">
               {loc.icon}
             </span>
 
@@ -98,12 +98,12 @@ export function StorageLocationsManager({ initialLocations }: Props) {
                 <span className="truncate text-sm font-medium">{loc.name}</span>
                 {loc.isSystem && (
                   <Lock
-                    className="shrink-0 size-3 text-muted-foreground"
+                    className="shrink-0 size-3 text-muted"
                     aria-label="System-Lagerort"
                   />
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted">
                 {TEMPERATURE_HINT_LABELS[loc.temperatureHint]}
               </p>
             </div>
@@ -115,7 +115,7 @@ export function StorageLocationsManager({ initialLocations }: Props) {
                 onClick={() => move(index, -1)}
                 disabled={index === 0 || isPending}
                 aria-label="Nach oben"
-                className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                className="rounded p-0.5 text-muted hover:text-foreground disabled:opacity-30"
               >
                 <ChevronUp className="size-3.5" aria-hidden />
               </button>
@@ -124,7 +124,7 @@ export function StorageLocationsManager({ initialLocations }: Props) {
                 onClick={() => move(index, 1)}
                 disabled={index === locations.length - 1 || isPending}
                 aria-label="Nach unten"
-                className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                className="rounded p-0.5 text-muted hover:text-foreground disabled:opacity-30"
               >
                 <ChevronDown className="size-3.5" aria-hidden />
               </button>
@@ -135,7 +135,7 @@ export function StorageLocationsManager({ initialLocations }: Props) {
               type="button"
               onClick={() => setEditTarget(loc)}
               aria-label="Bearbeiten"
-              className="rounded p-1.5 text-muted-foreground hover:text-foreground"
+              className="rounded p-1.5 text-muted hover:text-foreground"
             >
               <Pencil className="size-4" aria-hidden />
             </button>
@@ -146,7 +146,7 @@ export function StorageLocationsManager({ initialLocations }: Props) {
                 type="button"
                 onClick={() => setDeleteTarget(loc)}
                 aria-label="Löschen"
-                className="rounded p-1.5 text-destructive/70 hover:text-destructive"
+                className="rounded p-1.5 text-danger/70 hover:text-danger"
               >
                 <Trash2 className="size-4" aria-hidden />
               </button>
@@ -283,8 +283,8 @@ function LocationForm({ existing, onSuccess, onCancel }: FormProps) {
               className={cn(
                 "flex size-9 items-center justify-center rounded-lg border text-lg transition-colors",
                 icon === emoji
-                  ? "border-primary bg-primary/10"
-                  : "border-border hover:bg-muted",
+                  ? "border-primary bg-primary-subtle"
+                  : "border-border hover:bg-surface-raised",
               )}
             >
               {emoji}
@@ -300,10 +300,10 @@ function LocationForm({ existing, onSuccess, onCancel }: FormProps) {
             placeholder="+"
             aria-label="Eigenes Emoji"
             className={cn(
-              "size-9 rounded-lg border text-center text-lg outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
+              "size-9 rounded-lg border text-center text-lg outline-none transition-colors focus:border-border-strong",
               !(STORAGE_LOCATION_ICONS as unknown as string[]).includes(icon)
-                ? "border-primary bg-primary/10"
-                : "border-dashed border-border hover:bg-muted",
+                ? "border-primary bg-primary-subtle"
+                : "border-dashed border-border hover:bg-surface-raised",
             )}
           />
         </div>
@@ -330,18 +330,18 @@ function LocationForm({ existing, onSuccess, onCancel }: FormProps) {
       </div>
 
       {/* Preview */}
-      <div className="flex items-center gap-2 rounded-lg border p-3">
-        <span className="flex size-8 items-center justify-center rounded-full bg-muted text-base">
+      <div className="flex items-center gap-2 rounded-lg border border-border p-3">
+        <span className="flex size-8 items-center justify-center rounded-full bg-surface-raised text-base">
           {icon}
         </span>
         <div>
           <p className="text-sm font-medium">{name || "Vorschau"}</p>
-          <p className="text-xs text-muted-foreground">{TEMPERATURE_HINT_LABELS[temperatureHint]}</p>
+          <p className="text-xs text-muted">{TEMPERATURE_HINT_LABELS[temperatureHint]}</p>
         </div>
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-destructive">{error}</p>
+        <p role="alert" className="text-sm text-danger">{error}</p>
       )}
 
       <div className="flex gap-2 pt-1">
@@ -399,7 +399,7 @@ function DeleteDialog({
           <DialogTitle>Lagerort löschen?</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted">
             <span className="font-medium text-foreground">
               {location.icon} {location.name}
             </span>{" "}
@@ -407,11 +407,11 @@ function DeleteDialog({
           </p>
 
           {itemCount === null && (
-            <p className="text-xs text-muted-foreground">Prüfe betroffene Artikel…</p>
+            <p className="text-xs text-muted">Prüfe betroffene Artikel…</p>
           )}
 
           {itemCount !== null && itemCount > 0 && (
-            <div className="flex flex-col gap-2 rounded-lg border bg-muted/50 p-3">
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3">
               <p className="text-sm">
                 {itemCount} {itemCount === 1 ? "Artikel wird" : "Artikel werden"} neu
                 zugeordnet:
@@ -419,7 +419,7 @@ function DeleteDialog({
               <select
                 value={reassignSlug}
                 onChange={(e) => setReassignSlug(e.target.value)}
-                className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:border-ring"
+                className="h-9 w-full rounded-lg border border-border bg-surface px-2.5 text-sm text-foreground outline-none focus:border-border-strong"
               >
                 <option value="other">📋 Sonstiges</option>
                 {otherLocations.map((l) => (
@@ -432,13 +432,13 @@ function DeleteDialog({
           )}
 
           {itemCount !== null && itemCount === 0 && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted">
               Keine Artikel an diesem Lagerort — Löschen hat keinen weiteren Effekt.
             </p>
           )}
 
           {error && (
-            <p role="alert" className="text-sm text-destructive">{error}</p>
+            <p role="alert" className="text-sm text-danger">{error}</p>
           )}
 
           <div className="flex gap-2">

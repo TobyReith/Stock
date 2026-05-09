@@ -48,10 +48,10 @@ export default async function AddPage({
         <ActiveHouseholdBadge />
       </div>
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <h1 className="font-serif text-[26px] font-medium tracking-tight">
           {initial ? "In den Vorrat" : "Hinzufügen"}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-muted">
           {initial
             ? "Ergänze MHD & Lagerort — den Rest haben wir von der Einkaufsliste übernommen."
             : "Barcode scannen, MHD erfassen, fertig."}

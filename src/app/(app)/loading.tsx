@@ -25,13 +25,13 @@ export default function AppLoading() {
       aria-hidden
     >
       {/* Household-switcher pill slot */}
-      <div className="mb-3 h-7 w-40 rounded-md bg-muted" />
+      <div className="mb-3 h-7 w-40 rounded-lg bg-surface-raised" />
       {/* Header: title + right-side meta */}
       <div className="mb-4 flex items-center justify-between">
-        <div className="h-8 w-32 rounded bg-muted" />
+        <div className="h-8 w-32 rounded bg-surface-raised" />
         <div className="flex items-center gap-3">
-          <div className="h-4 w-16 rounded bg-muted" />
-          <div className="size-8 rounded bg-muted" />
+          <div className="h-4 w-16 rounded bg-surface-raised" />
+          <div className="size-8 rounded bg-surface-raised" />
         </div>
       </div>
       {/* Row stack */}
@@ -39,14 +39,14 @@ export default function AppLoading() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="flex items-start gap-3 rounded-lg border bg-card p-3"
+            className="flex items-start gap-3 rounded-lg border border-border bg-surface p-3"
           >
-            <div className="size-14 shrink-0 rounded-md bg-muted" />
+            <div className="size-14 shrink-0 rounded-lg bg-surface-raised" />
             <div className="flex min-w-0 flex-1 flex-col gap-2 pt-1">
-              <div className="h-4 w-3/4 rounded bg-muted" />
-              <div className="h-3 w-1/2 rounded bg-muted" />
+              <div className="h-4 w-3/4 rounded bg-surface-raised" />
+              <div className="h-3 w-1/2 rounded bg-surface-raised" />
             </div>
-            <div className="h-4 w-10 rounded bg-muted" />
+            <div className="h-4 w-10 rounded bg-surface-raised" />
           </div>
         ))}
       </div>

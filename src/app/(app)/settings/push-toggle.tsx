@@ -191,13 +191,13 @@ function ToggleCard({
 }: ToggleCardProps) {
   const Icon = enabled ? Bell : BellOff;
   return (
-    <div className="flex items-start justify-between gap-3 rounded-lg border px-4 py-3">
+    <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <Icon aria-hidden className="size-4 text-muted-foreground" />
+          <Icon aria-hidden className="size-4 text-muted" />
           <span className="text-sm font-medium">{label}</span>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+        <p className="mt-1 text-xs text-muted">{description}</p>
       </div>
       <button
         type="button"
@@ -208,15 +208,15 @@ function ToggleCard({
         onClick={() => onChange?.(!enabled)}
         className={cn(
           "relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
-          "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          enabled ? "bg-foreground" : "bg-input",
+          enabled ? "bg-primary" : "bg-border",
         )}
       >
         <span
           aria-hidden
           className={cn(
-            "inline-block size-5 transform rounded-full bg-background transition-transform",
+            "inline-block size-5 transform rounded-full bg-surface transition-transform",
             enabled ? "translate-x-5" : "translate-x-0.5",
           )}
         />

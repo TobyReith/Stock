@@ -130,7 +130,7 @@ export function MhdCapture({ onDate, className }: Props) {
           </>
         )}
       </Button>
-      {hint && <p className="mt-2 text-xs text-destructive">{hint}</p>}
+      {hint && <p className="mt-2 text-xs text-danger">{hint}</p>}
     </div>
   );
 }
