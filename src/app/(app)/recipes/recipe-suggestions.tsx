@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useCallback } from "react";
-import { ChefHat, CheckCircle2, Clock, Heart, Loader2, Plus, RefreshCw, XCircle } from "lucide-react";
+import { ChefHat, CheckCircle2, ChevronDown, Clock, Heart, List, Loader2, Plus, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -234,10 +234,13 @@ export function RecipeCard({
   cookedCount?: number;
   lastCookedAt?: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [ingredientsOpen, setIngredientsOpen] = useState(false);
+  const [prepOpen, setPrepOpen] = useState(false);
   const [addingItem, setAddingItem] = useState<string | null>(null);
 
   const missingIngredients = recipe.ingredients.filter((i) => !i.isInPantry);
+  const totalCount = recipe.ingredients.length;
+  const missingCount = missingIngredients.length;
   const expiringCount = recipe.ingredients.filter((i) => i.isExpiringItem).length;
 
   const difficultyColor =
@@ -314,60 +317,93 @@ export function RecipeCard({
           <p className="text-sm italic text-muted">✏️ {notes}</p>
         )}
 
-        {/* Ingredients */}
-        <ul className="flex flex-col gap-1">
-          {recipe.ingredients.map((ing, i) => (
-            <li key={i} className="flex items-center gap-2 text-sm">
-              <span
-                className={cn(
-                  "size-4 shrink-0 rounded-full text-center text-xs leading-4",
-                  ing.isExpiringItem
-                    ? "bg-danger text-foreground"
-                    : ing.isInPantry
-                      ? "bg-primary text-primary-fg"
-                      : "bg-warning text-foreground",
-                )}
-                aria-label={ing.isExpiringItem ? "läuft ab" : ing.isInPantry ? "vorhanden" : "fehlt"}
-              >
-                {ing.isExpiringItem ? "!" : ing.isInPantry ? "✓" : "+"}
-              </span>
-              <span className={cn(!ing.isInPantry && !ing.isExpiringItem && "text-muted")}>
-                {ing.amount} {ing.unit} {ing.name}
-              </span>
-            </li>
-          ))}
-        </ul>
-
-        {recipe.feasibility === "limited" && recipe.limitedNote && (
-          <div className="rounded-lg border border-warning/30 bg-warning-subtle px-3 py-2 text-xs text-warning">
-            {recipe.limitedNote}
-          </div>
-        )}
-
-        {missingIngredients.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {missingIngredients.map((ing) => (
-              <button
-                key={ing.name}
-                onClick={() => void addMissingToShopping(ing)}
-                disabled={addingItem === ing.name}
-                className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs text-muted transition-colors hover:bg-surface-raised disabled:opacity-50"
-              >
-                <Plus className="size-2.5" aria-hidden />
-                {ing.name}
-              </button>
-            ))}
-          </div>
-        )}
-
+        {/* Section: Zutaten */}
         <button
           type="button"
-          onClick={() => setExpanded((e) => !e)}
-          className="text-left text-sm font-medium text-primary-text"
+          onClick={() => setIngredientsOpen((v) => !v)}
+          className="-mx-4 flex w-[calc(100%+2rem)] items-center justify-between border-t border-border px-4 py-[10px] text-left transition-colors hover:bg-surface-raised"
         >
-          {expanded ? "Zubereitung ausblenden ▲" : "Zubereitung anzeigen ▼"}
+          <span className="flex items-center gap-2 text-[13px] font-medium text-foreground">
+            <List size={14} className="text-muted" aria-hidden />
+            Zutaten
+            <span className="text-[12px] font-normal text-muted">
+              {totalCount} · <span className="text-warning">{missingCount} fehlen</span>
+            </span>
+          </span>
+          <ChevronDown
+            size={14}
+            className={cn("text-muted transition-transform", ingredientsOpen && "rotate-180")}
+            aria-hidden
+          />
         </button>
-        {expanded && (
+
+        {ingredientsOpen && (
+          <div className="flex flex-col gap-3">
+            <ul className="flex flex-col gap-1">
+              {recipe.ingredients.map((ing, i) => (
+                <li key={i} className="flex items-center gap-2 text-sm">
+                  <span
+                    className={cn(
+                      "size-4 shrink-0 rounded-full text-center text-xs leading-4",
+                      ing.isExpiringItem
+                        ? "bg-danger text-foreground"
+                        : ing.isInPantry
+                          ? "bg-primary text-primary-fg"
+                          : "bg-warning text-foreground",
+                    )}
+                    aria-label={ing.isExpiringItem ? "läuft ab" : ing.isInPantry ? "vorhanden" : "fehlt"}
+                  >
+                    {ing.isExpiringItem ? "!" : ing.isInPantry ? "✓" : "+"}
+                  </span>
+                  <span className={cn(!ing.isInPantry && !ing.isExpiringItem && "text-muted")}>
+                    {ing.amount} {ing.unit} {ing.name}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            {recipe.feasibility === "limited" && recipe.limitedNote && (
+              <div className="rounded-lg border border-warning/30 bg-warning-subtle px-3 py-2 text-xs text-warning">
+                {recipe.limitedNote}
+              </div>
+            )}
+
+            {missingIngredients.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {missingIngredients.map((ing) => (
+                  <button
+                    key={ing.name}
+                    onClick={() => void addMissingToShopping(ing)}
+                    disabled={addingItem === ing.name}
+                    className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs text-muted transition-colors hover:bg-surface-raised disabled:opacity-50"
+                  >
+                    <Plus className="size-2.5" aria-hidden />
+                    {ing.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Section: Zubereitung */}
+        <button
+          type="button"
+          onClick={() => setPrepOpen((v) => !v)}
+          className="-mx-4 flex w-[calc(100%+2rem)] items-center justify-between border-t border-border px-4 py-[10px] text-left transition-colors hover:bg-surface-raised"
+        >
+          <span className="flex items-center gap-2 text-[13px] font-medium text-foreground">
+            <ChefHat size={14} className="text-muted" aria-hidden />
+            Zubereitung
+          </span>
+          <ChevronDown
+            size={14}
+            className={cn("text-muted transition-transform", prepOpen && "rotate-180")}
+            aria-hidden
+          />
+        </button>
+
+        {prepOpen && (
           <ol className="flex flex-col gap-2">
             {recipe.steps.map((step, i) => (
               <li key={i} className="flex gap-2 text-sm">
