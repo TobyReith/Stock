@@ -37,10 +37,10 @@ export type ListItem = {
 };
 
 const CATEGORY_TABS = [
-  { key: "food" as const, label: "Lebensmittel", emoji: "🥦" },
-  { key: "hygiene" as const, label: "Hygiene", emoji: "🧴" },
-  { key: "medicine" as const, label: "Medikamente", emoji: "💊" },
-] satisfies { key: ItemCategoryType; label: string; emoji: string }[];
+  { key: "food" as const, label: "Lebensmittel", shortLabel: "Essen", emoji: "🥦" },
+  { key: "hygiene" as const, label: "Hygiene", shortLabel: "Hygiene", emoji: "🧴" },
+  { key: "medicine" as const, label: "Medikamente", shortLabel: "Medizin", emoji: "💊" },
+] satisfies { key: ItemCategoryType; label: string; shortLabel: string; emoji: string }[];
 
 type Props = {
   items: ListItem[];
@@ -103,32 +103,32 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
         aria-label="Kategorie"
         className="flex gap-1 rounded-xl bg-surface-raised p-1"
       >
-        {CATEGORY_TABS.map(({ key, label, emoji }) => {
+        {CATEGORY_TABS.map(({ key, label, shortLabel, emoji }) => {
           const count = items.filter((i) => i.itemCategory === key).length;
           return (
             <button
               key={key}
               role="tab"
               aria-selected={activeTab === key}
+              aria-label={label}
               type="button"
               onClick={() => {
                 setActiveTab(key);
                 setQuery("");
               }}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
+                "flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors",
                 activeTab === key
                   ? "bg-surface text-foreground shadow-sm"
                   : "text-muted hover:text-foreground",
               )}
             >
-              <span aria-hidden>{emoji}</span>
-              <span className="hidden sm:inline">{label}</span>
-              <span className="sm:hidden">{label.split(" ")[0]}</span>
+              <span aria-hidden className="shrink-0">{emoji}</span>
+              <span className="truncate">{shortLabel}</span>
               {count > 0 && (
                 <span
                   className={cn(
-                    "ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
+                    "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
                     activeTab === key
                       ? "bg-primary-subtle text-primary-text"
                       : "bg-border text-muted",
