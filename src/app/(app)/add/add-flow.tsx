@@ -79,10 +79,12 @@ export type AddFlowInitial = {
 
 export function AddFlow({
   initial,
+  initialItemCategory = "food",
   categories,
   storageLocations,
 }: {
   initial?: AddFlowInitial;
+  initialItemCategory?: "food" | "hygiene" | "medicine" | "other";
   categories: CategoryDisplay[];
   storageLocations: StorageLocationDisplay[];
 }) {
@@ -137,6 +139,7 @@ export function AddFlow({
       <ItemForm
         seed={stage.seed}
         prefill={initial?.prefill}
+        initialItemCategory={initialItemCategory}
         categories={categories}
         storageLocations={storageLocations}
         onCancel={resetToScanner}

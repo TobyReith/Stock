@@ -39,6 +39,9 @@ export const barcodeSchema = z
   .string()
   .regex(/^\d{6,14}$/, "Barcode muss 6–14 Ziffern haben");
 
+export const itemCategorySchema = z.enum(["food", "hygiene", "medicine", "other"]);
+export type ItemCategoryType = z.infer<typeof itemCategorySchema>;
+
 /**
  * Input shape for the Add-Flow form. Either `productId` (existing product
  * in our cache) OR enough inline product info to create one.
@@ -56,6 +59,7 @@ export const addItemSchema = z
     category: z.string().max(40).optional(),
 
     // Item-specific fields:
+    itemCategory: itemCategorySchema.default("food"),
     customName: z.string().max(200).optional(),
     quantity: z.coerce.number().positive("Menge muss > 0 sein").default(1),
     unit: z.string().max(20).optional(),

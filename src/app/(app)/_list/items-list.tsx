@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
+import Link from "next/link";
+import { Package, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SwipeableItemRow } from "./swipeable-item-row";
 import { FiltersSheet } from "./filters-sheet";
@@ -11,6 +12,8 @@ import { daysUntil, mhdUrgency, type MhdUrgency } from "@/lib/date";
 import { useFilterState } from "@/lib/hooks/use-filter-state";
 import { applyItemFilters, applyItemSort } from "@/lib/filters/items";
 import { isDefaultFilterState } from "@/lib/schemas/filters";
+import { cn } from "@/lib/utils";
+import type { ItemCategoryType } from "@/lib/schemas/items";
 
 /**
  * Flat projection of the items+product join that the list needs.
@@ -30,7 +33,14 @@ export type ListItem = {
   category: string | null;
   imageUrl: string | null;
   frozenAt: string | null; // YYYY-MM-DD
+  itemCategory: ItemCategoryType;
 };
+
+const CATEGORY_TABS = [
+  { key: "food" as const, label: "Lebensmittel", emoji: "🥦" },
+  { key: "hygiene" as const, label: "Hygiene", emoji: "🧴" },
+  { key: "medicine" as const, label: "Medikamente", emoji: "💊" },
+] satisfies { key: ItemCategoryType; label: string; emoji: string }[];
 
 type Props = {
   items: ListItem[];
@@ -39,37 +49,28 @@ type Props = {
 };
 
 /**
- * Interactive list shell: search + filter/sort + grouped rendering.
+ * Interactive list shell: category tabs + search + filter/sort + grouped rendering.
  *
- * Pipeline (cheap enough to rerun on every keystroke — lists are small,
- * <100 items for most households — so no debounce):
- *
+ * Pipeline:
  *   items
+ *     → tab filter       (active itemCategory tab — local state)
  *     → applyItemFilters (URL-driven chips: category / location / urgency)
  *     → substring search (ephemeral local state)
  *     → applyItemSort    (URL-driven sort key + direction)
  *     → [optional] groupByUrgency
- *
- * Grouping is only applied when sorting by MHD — the urgency headers
- * sit naturally on top of a chronological order. Any other sort (name,
- * brand, updated) would fight the groups, so we render a flat list
- * instead.
- *
- * The search is kept as local state (not in the URL) because it's a
- * transient "I'm looking for something right now" action — unlike
- * filter chips, a shared link with a half-typed query in it would be
- * more confusing than useful.
  */
 export function ItemsList({ items, categories, storageLocations }: Props) {
   const { state } = useFilterState();
   const [query, setQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<ItemCategoryType>("food");
 
   // Snapshot `now` once per render so the filter pass and the grouping
   // pass can't disagree on a midnight-edge case.
   const now = useMemo(() => new Date(), []);
 
   const filtered = useMemo(() => {
-    const base = applyItemFilters(items, state, now);
+    const byTab = items.filter((i) => i.itemCategory === activeTab);
+    const base = applyItemFilters(byTab, state, now);
     const q = query.trim().toLowerCase();
     if (!q) return base;
     return base.filter((item) => {
@@ -77,7 +78,7 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
       const brand = (item.brand ?? "").toLowerCase();
       return name.includes(q) || brand.includes(q);
     });
-  }, [items, state, now, query]);
+  }, [items, activeTab, state, now, query]);
 
   const sorted = useMemo(
     () => applyItemSort(filtered, state.sort, state.dir),
@@ -96,6 +97,51 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Category tabs */}
+      <div
+        role="tablist"
+        aria-label="Kategorie"
+        className="flex gap-1 rounded-xl bg-surface-raised p-1"
+      >
+        {CATEGORY_TABS.map(({ key, label, emoji }) => {
+          const count = items.filter((i) => i.itemCategory === key).length;
+          return (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={activeTab === key}
+              type="button"
+              onClick={() => {
+                setActiveTab(key);
+                setQuery("");
+              }}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
+                activeTab === key
+                  ? "bg-surface text-foreground shadow-sm"
+                  : "text-muted hover:text-foreground",
+              )}
+            >
+              <span aria-hidden>{emoji}</span>
+              <span className="hidden sm:inline">{label}</span>
+              <span className="sm:hidden">{label.split(" ")[0]}</span>
+              {count > 0 && (
+                <span
+                  className={cn(
+                    "ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
+                    activeTab === key
+                      ? "bg-primary-subtle text-primary-text"
+                      : "bg-border text-muted",
+                  )}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search
@@ -130,6 +176,24 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
             ? `Keine Treffer für "${query}".`
             : "Keine Artikel für diese Filter."}
         </p>
+      )}
+
+      {!showNoResults && sorted.length === 0 && !hasActiveFilters && !hasQuery && (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border px-6 py-12 text-center">
+          <Package className="size-10 text-muted" aria-hidden />
+          <p className="mt-3 text-sm font-medium">
+            Keine {CATEGORY_TABS.find((t) => t.key === activeTab)?.label ?? "Artikel"}
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            Tippe unten auf <span className="font-medium">+</span> um einen Artikel hinzuzufügen.
+          </p>
+          <Link
+            href={`/add?cat=${activeTab}`}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-fg hover:bg-sage-400"
+          >
+            Jetzt hinzufügen
+          </Link>
+        </div>
       )}
 
       {groups
