@@ -211,9 +211,9 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
   }
 
   const ITEM_CATEGORIES = [
-    { key: "food", label: "Lebensmittel", emoji: "🥦" },
+    { key: "food", label: "Essen", emoji: "🥦" },
     { key: "hygiene", label: "Hygiene", emoji: "🧴" },
-    { key: "medicine", label: "Medikamente", emoji: "💊" },
+    { key: "medicine", label: "Medizin", emoji: "💊" },
     { key: "other", label: "Sonstiges", emoji: "📦" },
   ] as const;
 
