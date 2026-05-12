@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Package, Plus, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -262,6 +262,12 @@ function SubcategoryChips({ categories, items, activeSub, onSelect }: Subcategor
   }, [items]);
 
   const visibleCategories = categories.filter((c) => occupiedSlugs.has(c.slug));
+
+  useEffect(() => {
+    if (activeSub !== null && !visibleCategories.some((c) => c.slug === activeSub)) {
+      onSelect(null);
+    }
+  }, [activeSub, visibleCategories, onSelect]);
 
   if (visibleCategories.length === 0) return null;
 

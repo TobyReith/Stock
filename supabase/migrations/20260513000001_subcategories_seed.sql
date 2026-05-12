@@ -2,7 +2,7 @@
 -- then re-seed all existing households (idempotent via ON CONFLICT DO NOTHING).
 
 CREATE OR REPLACE FUNCTION seed_household_categories(p_household_id UUID)
-RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   INSERT INTO categories (household_id, name, icon, color, sort_order, is_system, slug, parent_category)
   VALUES

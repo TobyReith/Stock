@@ -40,7 +40,7 @@ CREATE POLICY "categories_delete" ON categories
 
 -- 3. Seed function (SECURITY DEFINER → runs as postgres, bypasses RLS)
 CREATE OR REPLACE FUNCTION seed_household_categories(p_household_id UUID)
-RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   INSERT INTO categories (household_id, name, icon, color, sort_order, is_system, slug)
   VALUES
@@ -63,7 +63,7 @@ $$;
 
 -- 4. Trigger: auto-seed on new household
 CREATE OR REPLACE FUNCTION trigger_seed_household_categories()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   PERFORM seed_household_categories(NEW.id);
   RETURN NEW;

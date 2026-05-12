@@ -63,10 +63,14 @@ export function CategoriesManager({ initialCategories }: Props) {
       return newTabOrder.findIndex((t) => t.id === a.id) -
              newTabOrder.findIndex((t) => t.id === b.id);
     });
+    const prevCategories = categories;
     setCategories(newAll);
     startTransition(async () => {
       const res = await reorderCategories(newTabOrder.map((c) => c.id));
-      if (!res.ok) toast.error(res.error);
+      if (!res.ok) {
+        setCategories(prevCategories);
+        toast.error(res.error);
+      }
     });
   }
 
@@ -284,7 +288,7 @@ function CategoryForm({ existing, parentCategory, onSuccess, onCancel }: FormPro
         if (!res.ok) { setError(res.error); return; }
         onSuccess({
           id: res.data.id,
-          slug: "custom_pending",
+          slug: `pending-${res.data.id}`,
           name: name.trim(),
           icon,
           color,
