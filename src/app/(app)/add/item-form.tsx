@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { addItem } from "@/lib/actions/items";
-import type { AddItemInput } from "@/lib/schemas/items";
+import type { AddItemInput, ItemCategoryType } from "@/lib/schemas/items";
 import {
   defaultBestBeforeDate,
   getCategory,
@@ -49,6 +49,7 @@ export type FormSeed =
       imageUrl: string | null;
       category: string;
       barcode: string | null;
+      itemCategory?: ItemCategoryType;
     }
   | {
       kind: "off";
@@ -57,6 +58,7 @@ export type FormSeed =
       imageUrl: string | null;
       category: string;
       barcode: string;
+      itemCategory?: ItemCategoryType;
     }
   | {
       kind: "unknown";
@@ -71,6 +73,7 @@ export type FormSeed =
       brand: string | null;
       imageUrl: string | null;
       category: string;
+      itemCategory?: ItemCategoryType;
     };
 
 /**
@@ -113,7 +116,10 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
     seedProduct?.productName ?? prefill?.customName ?? "",
   );
   const [category, setCategory] = useState<string>(seedCategory);
-  const [itemCategory, setItemCategory] = useState<"food" | "hygiene" | "medicine" | "other">(initialItemCategory);
+  const [itemCategory, setItemCategory] = useState<ItemCategoryType>(
+    (seed.kind !== "unknown" && seed.kind !== "manual" ? seed.itemCategory : undefined)
+    ?? initialItemCategory
+  );
   const [customName, setCustomName] = useState(
     // Only pre-fill `customName` when we *have* a product — otherwise the
     // shopping-list text already lives in `productName` above and dupli-

@@ -1,4 +1,5 @@
 import type { CategoryKey } from "@/lib/constants/categories";
+import type { ItemCategoryType } from "@/lib/schemas/items";
 
 /**
  * Map Open Food Facts `categories_tags` (e.g. `["en:dairies","en:cheeses"]`)
@@ -41,6 +42,32 @@ const RULES: ReadonlyArray<{ key: CategoryKey; patterns: readonly string[] }> = 
 /** Strip a `xx:` or `xxx:` language prefix from an OFF tag. */
 function normalizeTag(tag: string): string {
   return tag.replace(/^[a-z]{2,3}:/, "").toLowerCase();
+}
+
+const HYGIENE_PATTERNS = [
+  "tissues", "paper-handkerchiefs", "hygiene-articles", "hygiene",
+  "cosmetics", "soaps", "shampoos", "dental-care", "oral-hygiene",
+  "toothpastes", "mouthwashes", "deodorants", "skincare", "body-care",
+  "hair-care", "feminine-hygiene", "cleaning-products", "detergents",
+  "laundry", "paper-products", "razors", "shaving",
+] as const;
+
+const MEDICINE_PATTERNS = [
+  "dietary-supplements", "food-supplements", "vitamins", "minerals",
+  "medicines", "medicaments", "health-products", "nasal", "wound-care",
+  "bandages", "eye-care", "ear-care", "pain-relief", "cold-remedies",
+  "thermometers", "medical-devices",
+] as const;
+
+export function mapItemCategory(tags: readonly string[]): ItemCategoryType {
+  const normalized = tags.map(normalizeTag);
+  for (const tag of normalized) {
+    if (MEDICINE_PATTERNS.some((p) => tag.includes(p))) return "medicine";
+  }
+  for (const tag of normalized) {
+    if (HYGIENE_PATTERNS.some((p) => tag.includes(p))) return "hygiene";
+  }
+  return "food";
 }
 
 export function mapCategory(tags: readonly string[]): CategoryKey {

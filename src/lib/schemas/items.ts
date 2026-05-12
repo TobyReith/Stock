@@ -85,6 +85,7 @@ export type AddItemInput = z.infer<typeof addItemSchema>;
  */
 export const updateItemSchema = z.object({
   id: z.string().uuid(),
+  itemCategory: itemCategorySchema.optional(),
   customName: z.string().max(200).nullable().optional(),
   customBrand: z.string().max(120).nullable().optional(),
   customCategory: z.string().max(80).nullable().optional(),

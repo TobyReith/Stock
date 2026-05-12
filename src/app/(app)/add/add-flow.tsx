@@ -396,6 +396,7 @@ function LookupPreview({
                       imageUrl: data.product.imageUrl,
                       category: data.product.category ?? "other",
                       barcode,
+                      itemCategory: data.product.itemCategory,
                     }
                   : {
                       kind: "off",
@@ -404,6 +405,7 @@ function LookupPreview({
                       imageUrl: data.product.imageUrl,
                       category: data.product.category,
                       barcode,
+                      itemCategory: data.product.itemCategory,
                     };
               onContinue(seed);
             }}
@@ -431,6 +433,8 @@ function PhotoCandidatesPicker({
   onReset: () => void;
 }) {
   function seedFromCandidate(c: ProductCandidate): FormSeed {
+    // Derive itemCategory from CategoryKey: known food sub-type → food, else undefined.
+    const itemCategory = c.category && c.category !== "other" ? ("food" as const) : undefined;
     // Enriched vision candidates and pure OFF candidates both have a barcode →
     // use the "off" path which guarantees the OFF image lands on the item.
     if ((c.source === "vision+off" || c.source === "off") && c.offBarcode) {
@@ -441,6 +445,7 @@ function PhotoCandidatesPicker({
         imageUrl: c.offImageUrl ?? null,
         category: c.category,
         barcode: c.offBarcode,
+        itemCategory,
       };
     }
     // Pure vision candidate — no OFF match found, no barcode, no image.
@@ -450,6 +455,7 @@ function PhotoCandidatesPicker({
       brand: c.brand,
       imageUrl: null,
       category: c.category,
+      itemCategory,
     };
   }
 

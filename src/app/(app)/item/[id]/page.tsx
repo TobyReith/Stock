@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/supabase/session";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import { buttonVariants } from "@/components/ui/button";
 import { EditItemForm, type DetailItem } from "./edit-item-form";
+import type { ItemCategoryType } from "@/lib/schemas/items";
 import { DeleteItemButton } from "./delete-item-button";
 import { AddToShoppingButton } from "./add-to-shopping-button";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
@@ -49,7 +50,7 @@ export default async function ItemDetailPage({
       .select(
         `
         id, quantity, unit, best_before, location, custom_name,
-        custom_brand, custom_category, note,
+        custom_brand, custom_category, note, item_category,
         consumed_at, discarded_at, added_at, frozen_at,
         product:products ( id, name, brand, category, image_url, barcode )
         `,
@@ -103,6 +104,7 @@ export default async function ItemDetailPage({
     unit: data.unit,
     bestBefore: data.best_before,
     location: data.location as DetailItem["location"],
+    itemCategory: (data.item_category as ItemCategoryType | null) ?? "food",
     customName: data.custom_name,
     customBrand: data.custom_brand,
     customCategory: data.custom_category,
