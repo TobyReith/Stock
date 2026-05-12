@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -56,6 +56,7 @@ type LookupResult = Awaited<ReturnType<typeof lookupBarcode>>;
 type Stage =
   | { kind: "scan" }
   | { kind: "manual-barcode" }
+  | { kind: "validating-barcode"; barcode: string }
   | { kind: "looking-up"; barcode: string }
   | { kind: "lookup-error"; message: string; barcode: string }
   | { kind: "preview"; barcode: string; result: LookupResult }
@@ -93,6 +94,7 @@ export function AddFlow({
     initial ? { kind: "form", seed: initial.seed } : { kind: "scan" },
   );
   const [, startTransition] = useTransition();
+  const failedBarcodesRef = useRef<Set<string>>(new Set());
 
   const runLookup = useCallback((barcode: string) => {
     setStage({ kind: "looking-up", barcode });
@@ -106,14 +108,26 @@ export function AddFlow({
     });
   }, []);
 
-  // Debounce during in-flight lookup so duplicate scan frames don't pile up.
   const handleDetected = useCallback(
     (barcode: string) => {
-      if (stage.kind === "looking-up") return;
+      if (stage.kind === "looking-up" || stage.kind === "validating-barcode") return;
       if (stage.kind === "preview" && stage.barcode === barcode) return;
-      runLookup(barcode);
+      if (failedBarcodesRef.current.has(barcode)) return;
+
+      setStage({ kind: "validating-barcode", barcode });
+
+      startTransition(async () => {
+        const res = await lookupBarcode(barcode);
+        if (!res.ok || res.data.source === "unknown") {
+          // Network/server errors and "not found" alike: blacklist and keep scanning.
+          failedBarcodesRef.current.add(barcode);
+          setStage({ kind: "scan" });
+          return;
+        }
+        setStage({ kind: "preview", barcode, result: res });
+      });
     },
-    [stage, runLookup],
+    [stage, startTransition],
   );
 
   const resetToScanner = useCallback(() => {
@@ -150,15 +164,23 @@ export function AddFlow({
 
   return (
     <div className="flex flex-col gap-4">
-      {stage.kind === "scan" && (
-        <LiveScanner
-          onBarcodeDetected={handleDetected}
-          onPhotoAnalyzing={() => setStage({ kind: "photo-analyzing" })}
-          onPhotoCandidates={(candidates) => setStage({ kind: "photo-candidates", candidates })}
-          onPhotoError={(msg) => toast.error(msg)}
-          onManualBarcode={() => setStage({ kind: "manual-barcode" })}
-          onManualEntry={() => setStage({ kind: "form", seed: { kind: "manual" } })}
-        />
+      {(stage.kind === "scan" || stage.kind === "validating-barcode") && (
+        <div className="relative">
+          <LiveScanner
+            onBarcodeDetected={handleDetected}
+            onPhotoAnalyzing={() => setStage({ kind: "photo-analyzing" })}
+            onPhotoCandidates={(candidates) => setStage({ kind: "photo-candidates", candidates })}
+            onPhotoError={(msg) => toast.error(msg)}
+            onManualBarcode={() => setStage({ kind: "manual-barcode" })}
+            onManualEntry={() => setStage({ kind: "form", seed: { kind: "manual" } })}
+          />
+          {stage.kind === "validating-barcode" && (
+            <div className="absolute left-1/2 top-3 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-foreground/40 px-3 py-1 backdrop-blur-sm">
+              <Loader2 className="size-3 animate-spin text-neutral-0" aria-hidden />
+              <span className="text-xs text-neutral-0">Prüfe…</span>
+            </div>
+          )}
+        </div>
       )}
 
       {stage.kind === "manual-barcode" && (

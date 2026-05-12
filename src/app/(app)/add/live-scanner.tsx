@@ -12,6 +12,16 @@ import {
 import { identifyProductFromPhoto } from "@/lib/actions/vision";
 import type { ProductCandidate } from "@/lib/vision/types";
 
+interface ExtendedCapabilities extends MediaTrackCapabilities {
+  focusMode?: string[];
+  torch?: boolean;
+}
+
+interface ExtendedConstraintSet extends MediaTrackConstraintSet {
+  pointOfInterest?: { x: number; y: number };
+  focusMode?: string;
+}
+
 /**
  * Unified live-camera scanner for the Add-Flow.
  *
@@ -72,6 +82,9 @@ export function LiveScanner({
   const [showPhotoHint, setShowPhotoHint] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  const [focusMode, setFocusMode] = useState<"single-shot" | "manual" | null>(null);
+  const [focusRing, setFocusRing] = useState<{ x: number; y: number; fading: boolean } | null>(null);
+  const focusRingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onBarcodeRef = useRef(onBarcodeDetected);
   useEffect(() => {
@@ -89,6 +102,9 @@ export function LiveScanner({
     if (videoRef.current) videoRef.current.srcObject = null;
     setTorchOn(false);
     setTorchSupported(false);
+    setFocusMode(null);
+    setFocusRing(null);
+    if (focusRingTimerRef.current) clearTimeout(focusRingTimerRef.current);
   }, []);
 
   const start = useCallback(async () => {
@@ -112,11 +128,16 @@ export function LiveScanner({
       });
       streamRef.current = stream;
 
-      // Check torch support after acquiring the stream.
+      // Check torch and focus support after acquiring the stream.
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
-        const caps = videoTrack.getCapabilities() as MediaTrackCapabilities;
+        const caps = videoTrack.getCapabilities() as ExtendedCapabilities;
         setTorchSupported(!!caps.torch);
+        const modes = caps.focusMode ?? [];
+        setFocusMode(
+          modes.includes("single-shot") ? "single-shot" :
+          modes.includes("manual")      ? "manual"       : null
+        );
       }
 
       const video = videoRef.current;
@@ -211,6 +232,38 @@ export function LiveScanner({
     }
   }, [torchOn]);
 
+  const handleTapToFocus = useCallback(async (e: React.MouseEvent<HTMLVideoElement>) => {
+    if (!focusMode) return;
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pixelX = e.clientX - rect.left;
+    const pixelY = e.clientY - rect.top;
+    const normX = pixelX / rect.width;
+    const normY = pixelY / rect.height;
+
+    // Show focus ring, then fade it out after 500 ms (300 ms fade duration).
+    if (focusRingTimerRef.current) clearTimeout(focusRingTimerRef.current);
+    setFocusRing({ x: pixelX, y: pixelY, fading: false });
+    focusRingTimerRef.current = setTimeout(() => {
+      setFocusRing((prev) => (prev ? { ...prev, fading: true } : null));
+      focusRingTimerRef.current = setTimeout(() => setFocusRing(null), 300);
+    }, 500);
+
+    try {
+      await track.applyConstraints({ advanced: [{ pointOfInterest: { x: normX, y: normY }, focusMode } as ExtendedConstraintSet] });
+      // 'single-shot' returns to continuous automatically; 'manual' needs an explicit reset.
+      if (focusMode === "manual") {
+        setTimeout(() => {
+          void track.applyConstraints({ advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet] }).catch(() => {});
+        }, 2000);
+      }
+    } catch {
+      // Device does not support pointOfInterest — silently ignore.
+    }
+  }, [focusMode]);
+
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       {/* Camera viewport */}
@@ -220,9 +273,23 @@ export function LiveScanner({
           className={cn(
             "h-full w-full object-cover transition-opacity",
             status === "running" ? "opacity-100" : "opacity-0",
+            focusMode !== null && status === "running" && "cursor-crosshair",
           )}
           aria-label="Kamera-Vorschau"
+          onClick={(e) => void handleTapToFocus(e)}
         />
+
+        {/* Tap-to-focus ring — appears at tap position, fades out */}
+        {focusRing && (
+          <div
+            className={cn(
+              "pointer-events-none absolute size-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-neutral-0 transition-opacity duration-300",
+              focusRing.fading ? "opacity-0" : "opacity-100",
+            )}
+            style={{ left: focusRing.x, top: focusRing.y }}
+            aria-hidden
+          />
+        )}
 
         {/* Viewfinder + shutter button (only when camera is live) */}
         {status === "running" && (
