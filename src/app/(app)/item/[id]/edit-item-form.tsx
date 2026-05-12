@@ -355,7 +355,12 @@ export function EditItemForm({
             <button
               key={key}
               type="button"
-              onClick={() => setItemCategory(key)}
+              onClick={() => {
+                setItemCategory(key);
+                if (customCategory && !categories.some((c) => c.slug === customCategory && c.parentCategory === key)) {
+                  setCustomCategory("");
+                }
+              }}
               className={cn(
                 "flex flex-col items-center gap-0.5 rounded-lg border px-1 py-2 text-[10px] font-medium transition-colors",
                 itemCategory === key
