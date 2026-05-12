@@ -137,6 +137,7 @@ export type Database = {
           id: string
           is_system: boolean
           name: string
+          parent_category: string
           slug: string
           sort_order: number
         }
@@ -148,6 +149,7 @@ export type Database = {
           id?: string
           is_system?: boolean
           name: string
+          parent_category?: string
           slug: string
           sort_order?: number
         }
@@ -159,6 +161,7 @@ export type Database = {
           id?: string
           is_system?: boolean
           name?: string
+          parent_category?: string
           slug?: string
           sort_order?: number
         }

@@ -115,11 +115,11 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
   const [productName, setProductName] = useState(
     seedProduct?.productName ?? prefill?.customName ?? "",
   );
-  const [category, setCategory] = useState<string>(seedCategory);
   const [itemCategory, setItemCategory] = useState<ItemCategoryType>(
     (seed.kind !== "unknown" && seed.kind !== "manual" ? seed.itemCategory : undefined)
     ?? initialItemCategory
   );
+  const [category, setCategory] = useState<string>(seedCategory);
   const [customName, setCustomName] = useState(
     // Only pre-fill `customName` when we *have* a product — otherwise the
     // shopping-list text already lives in `productName` above and dupli-
@@ -154,6 +154,12 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
   const [offBarcode, setOffBarcode] = useState<string | null>(null);
   const [offCategory, setOffCategory] = useState<string | null>(null);
 
+  // Categories filtered by the currently selected itemCategory.
+  const visibleCategories = useMemo(
+    () => categories.filter((c) => c.parentCategory === itemCategory),
+    [categories, itemCategory],
+  );
+
   // When the user changes the category on an unknown/manual entry, bump
   // the default MHD + location — but only if they haven't customized them.
   function handleCategoryChange(next: string) {
@@ -162,6 +168,16 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
       setBestBefore(defaultBestBeforeDate(next));
     }
     setLocation(resolveDefaultLocation(next, storageLocations));
+  }
+
+  function handleItemCategoryChange(next: ItemCategoryType) {
+    setItemCategory(next);
+    // Reset to the "sonstiges"-equivalent for the new top-level category.
+    const nextCats = categories.filter((c) => c.parentCategory === next);
+    const fallback =
+      nextCats.find((c) => c.slug.includes("sonstiges") || c.slug === "other") ??
+      nextCats[0];
+    if (fallback) handleCategoryChange(fallback.slug);
   }
 
   function handleAutocompleteSelect(result: ProductSearchResult) {
@@ -233,7 +249,7 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
             <button
               key={key}
               type="button"
-              onClick={() => setItemCategory(key)}
+              onClick={() => handleItemCategoryChange(key)}
               aria-pressed={itemCategory === key}
               className={cn(
                 "flex flex-col items-center gap-0.5 rounded-lg py-2 text-xs transition-colors",
@@ -331,7 +347,7 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
               onChange={(e) => handleCategoryChange(e.target.value)}
               className="h-9 rounded-lg border border-border bg-surface px-2.5 text-sm text-foreground outline-none focus:border-border-strong"
             >
-              {categories.map((c) => (
+              {visibleCategories.map((c) => (
                 <option key={c.slug} value={c.slug}>
                   {c.icon} {c.name}
                 </option>
