@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { CategoryKey } from "@/lib/constants/categories";
-import { mapCategory } from "./category-map";
+import type { ItemCategoryType } from "@/lib/schemas/items";
+import { mapCategory, mapItemCategory } from "./category-map";
 
 /**
  * Open Food Facts API v2 client.
@@ -43,6 +44,7 @@ export type OFFProduct = {
   name: string;
   brand: string | null;
   category: CategoryKey;
+  itemCategory: ItemCategoryType;
   imageUrl: string | null;
   quantity: string | null;
   /** Raw response, persisted to `products.off_data` for future reprocessing. */
@@ -118,6 +120,7 @@ export async function fetchProductByBarcode(barcode: string): Promise<OFFProduct
     name,
     brand,
     category: mapCategory(p.categories_tags ?? []),
+    itemCategory: mapItemCategory(p.categories_tags ?? []),
     imageUrl: p.image_url?.trim() || null,
     quantity: p.quantity?.trim() || null,
     raw: p,
