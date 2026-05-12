@@ -17,6 +17,11 @@ interface ExtendedCapabilities extends MediaTrackCapabilities {
   torch?: boolean;
 }
 
+interface ExtendedConstraintSet extends MediaTrackConstraintSet {
+  pointOfInterest?: { x: number; y: number };
+  focusMode?: string;
+}
+
 /**
  * Unified live-camera scanner for the Add-Flow.
  *
@@ -243,10 +248,10 @@ export function LiveScanner({
     }, 500);
 
     try {
-      await track.applyConstraints({ advanced: [{ pointOfInterest: { x: normX, y: normY }, focusMode: "manual" }] });
+      await track.applyConstraints({ advanced: [{ pointOfInterest: { x: normX, y: normY }, focusMode: "manual" } as ExtendedConstraintSet] });
       // Return to continuous autofocus after 2 s.
       setTimeout(() => {
-        void track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
+        void track.applyConstraints({ advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet] }).catch(() => {});
       }, 2000);
     } catch {
       // Device does not support pointOfInterest — silently ignore.
