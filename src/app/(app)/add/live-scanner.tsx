@@ -82,7 +82,7 @@ export function LiveScanner({
   const [showPhotoHint, setShowPhotoHint] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
-  const [focusSupported, setFocusSupported] = useState(false);
+  const [focusMode, setFocusMode] = useState<"single-shot" | "manual" | null>(null);
   const [focusRing, setFocusRing] = useState<{ x: number; y: number; fading: boolean } | null>(null);
   const focusRingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -102,7 +102,7 @@ export function LiveScanner({
     if (videoRef.current) videoRef.current.srcObject = null;
     setTorchOn(false);
     setTorchSupported(false);
-    setFocusSupported(false);
+    setFocusMode(null);
     setFocusRing(null);
     if (focusRingTimerRef.current) clearTimeout(focusRingTimerRef.current);
   }, []);
@@ -133,7 +133,11 @@ export function LiveScanner({
       if (videoTrack) {
         const caps = videoTrack.getCapabilities() as ExtendedCapabilities;
         setTorchSupported(!!caps.torch);
-        setFocusSupported(Array.isArray(caps.focusMode) && caps.focusMode.includes("manual"));
+        const modes = caps.focusMode ?? [];
+        setFocusMode(
+          modes.includes("single-shot") ? "single-shot" :
+          modes.includes("manual")      ? "manual"       : null
+        );
       }
 
       const video = videoRef.current;
@@ -229,7 +233,7 @@ export function LiveScanner({
   }, [torchOn]);
 
   const handleTapToFocus = useCallback(async (e: React.MouseEvent<HTMLVideoElement>) => {
-    if (!focusSupported) return;
+    if (!focusMode) return;
     const track = streamRef.current?.getVideoTracks()[0];
     if (!track) return;
 
@@ -248,15 +252,17 @@ export function LiveScanner({
     }, 500);
 
     try {
-      await track.applyConstraints({ advanced: [{ pointOfInterest: { x: normX, y: normY }, focusMode: "manual" } as ExtendedConstraintSet] });
-      // Return to continuous autofocus after 2 s.
-      setTimeout(() => {
-        void track.applyConstraints({ advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet] }).catch(() => {});
-      }, 2000);
+      await track.applyConstraints({ advanced: [{ pointOfInterest: { x: normX, y: normY }, focusMode } as ExtendedConstraintSet] });
+      // 'single-shot' returns to continuous automatically; 'manual' needs an explicit reset.
+      if (focusMode === "manual") {
+        setTimeout(() => {
+          void track.applyConstraints({ advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet] }).catch(() => {});
+        }, 2000);
+      }
     } catch {
       // Device does not support pointOfInterest — silently ignore.
     }
-  }, [focusSupported]);
+  }, [focusMode]);
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
@@ -267,7 +273,7 @@ export function LiveScanner({
           className={cn(
             "h-full w-full object-cover transition-opacity",
             status === "running" ? "opacity-100" : "opacity-0",
-            focusSupported && status === "running" && "cursor-crosshair",
+            focusMode !== null && status === "running" && "cursor-crosshair",
           )}
           aria-label="Kamera-Vorschau"
           onClick={(e) => void handleTapToFocus(e)}

@@ -118,11 +118,8 @@ export function AddFlow({
 
       startTransition(async () => {
         const res = await lookupBarcode(barcode);
-        if (!res.ok) {
-          setStage({ kind: "lookup-error", message: res.error, barcode });
-          return;
-        }
-        if (res.data.source === "unknown") {
+        if (!res.ok || res.data.source === "unknown") {
+          // Network/server errors and "not found" alike: blacklist and keep scanning.
           failedBarcodesRef.current.add(barcode);
           setStage({ kind: "scan" });
           return;
