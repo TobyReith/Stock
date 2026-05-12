@@ -18,6 +18,7 @@ import {
   barcodeSchema,
   type AddItemInput,
   type UpdateItemInput,
+  type ItemCategoryType,
 } from "@/lib/schemas/items";
 import {
   ensureActiveHousehold,
@@ -53,7 +54,7 @@ export async function lookupBarcode(barcode: string): Promise<
     // 1. Cache hit?
     const { data: cached } = await supabase
       .from("products")
-      .select("id, name, brand, category, image_url")
+      .select("id, name, brand, category, image_url, item_category_hint")
       .eq("barcode", code)
       .maybeSingle();
 
@@ -68,6 +69,7 @@ export async function lookupBarcode(barcode: string): Promise<
             brand: cached.brand,
             category: cached.category,
             imageUrl: cached.image_url,
+            itemCategory: (cached.item_category_hint as ItemCategoryType | null) ?? undefined,
           },
         },
       };
@@ -96,6 +98,7 @@ type CachedProduct = {
   brand: string | null;
   category: string | null;
   imageUrl: string | null;
+  itemCategory: ItemCategoryType | undefined;
 };
 
 /**
@@ -127,7 +130,16 @@ export async function addItem(input: AddItemInput): Promise<ActionResult<{ itemI
         .select("id")
         .eq("barcode", v.barcode)
         .maybeSingle();
-      productId = existing?.id ?? null;
+      if (existing?.id) {
+        productId = existing.id;
+        // Propagate the detected item_category back onto the product row so
+        // future cache hits can return the right hint without a fresh OFF call.
+        createAdminClient()
+          .from("products")
+          .update({ item_category_hint: v.itemCategory })
+          .eq("id", existing.id)
+          .then(() => {});
+      }
     }
 
     if (!productId) {
@@ -144,6 +156,7 @@ export async function addItem(input: AddItemInput): Promise<ActionResult<{ itemI
           category: v.category ?? null,
           image_url: v.imageUrl ?? null,
           source: v.barcode ? "openfoodfacts" : "manual",
+          item_category_hint: v.itemCategory,
         })
         .select("id")
         .single();
@@ -196,6 +209,7 @@ export async function updateItem(input: UpdateItemInput): Promise<ActionResult> 
     if (!user) return fail("Nicht angemeldet");
 
     const patch: ItemUpdate = {};
+    if (v.itemCategory !== undefined) patch.item_category = v.itemCategory;
     if (v.customName !== undefined) patch.custom_name = v.customName;
     if (v.customBrand !== undefined) patch.custom_brand = v.customBrand;
     if (v.customCategory !== undefined) patch.custom_category = v.customCategory;

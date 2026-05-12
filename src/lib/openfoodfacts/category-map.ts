@@ -47,13 +47,16 @@ function normalizeTag(tag: string): string {
 const HYGIENE_PATTERNS = [
   "tissues", "paper-handkerchiefs", "hygiene-articles", "hygiene",
   "cosmetics", "soaps", "shampoos", "dental-care", "oral-hygiene",
-  "deodorants", "skincare", "body-care", "hair-care", "feminine-hygiene",
-  "cleaning-products", "detergents", "laundry", "paper-products",
+  "toothpastes", "mouthwashes", "deodorants", "skincare", "body-care",
+  "hair-care", "feminine-hygiene", "cleaning-products", "detergents",
+  "laundry", "paper-products", "razors", "shaving",
 ] as const;
 
 const MEDICINE_PATTERNS = [
   "dietary-supplements", "food-supplements", "vitamins", "minerals",
-  "medicines", "medicaments", "health-products",
+  "medicines", "medicaments", "health-products", "nasal", "wound-care",
+  "bandages", "eye-care", "ear-care", "pain-relief", "cold-remedies",
+  "thermometers", "medical-devices",
 ] as const;
 
 export function mapItemCategory(tags: readonly string[]): ItemCategoryType {

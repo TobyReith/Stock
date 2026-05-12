@@ -396,12 +396,7 @@ function LookupPreview({
                       imageUrl: data.product.imageUrl,
                       category: data.product.category ?? "other",
                       barcode,
-                      // Cache only has CategoryKey — if it's a known food sub-type,
-                      // treat as food; otherwise let ItemForm fall back to active tab.
-                      itemCategory:
-                        data.product.category && data.product.category !== "other"
-                          ? "food"
-                          : undefined,
+                      itemCategory: data.product.itemCategory,
                     }
                   : {
                       kind: "off",

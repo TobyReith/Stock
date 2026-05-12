@@ -23,7 +23,7 @@ import {
   updateItem,
 } from "@/lib/actions/items";
 import { addShoppingItem } from "@/lib/actions/shopping";
-import type { UpdateItemInput } from "@/lib/schemas/items";
+import type { UpdateItemInput, ItemCategoryType } from "@/lib/schemas/items";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import { FieldRow } from "@/components/ui/form-field";
@@ -44,6 +44,7 @@ export type DetailItem = {
   unit: string | null;
   bestBefore: string;
   location: string;
+  itemCategory: ItemCategoryType;
   customName: string | null;
   customBrand: string | null;
   customCategory: string | null;
@@ -81,6 +82,7 @@ export function EditItemForm({
   const [location, setLocation] = useState(item.location);
   const [note, setNote] = useState(item.note ?? "");
   const [frozenAt, setFrozenAt] = useState<string | null>(item.frozenAt);
+  const [itemCategory, setItemCategory] = useState<ItemCategoryType>(item.itemCategory);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -98,6 +100,11 @@ export function EditItemForm({
   function buildPatch(): UpdateItemInput | null {
     const patch: UpdateItemInput = { id: item.id };
     let changed = false;
+
+    if (itemCategory !== item.itemCategory) {
+      patch.itemCategory = itemCategory;
+      changed = true;
+    }
 
     const nextCustom = customName.trim() || null;
     if (nextCustom !== (item.customName ?? null)) {
@@ -333,6 +340,35 @@ export function EditItemForm({
           )}
         </div>
       </div>
+
+      <FieldRow>
+        <Label>Art</Label>
+        <div className="grid grid-cols-4 gap-1">
+          {(
+            [
+              { key: "food", emoji: "🥦", label: "Essen" },
+              { key: "hygiene", emoji: "🧴", label: "Hygiene" },
+              { key: "medicine", emoji: "💊", label: "Medizin" },
+              { key: "other", emoji: "📦", label: "Sonstiges" },
+            ] as const
+          ).map(({ key, emoji, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setItemCategory(key)}
+              className={cn(
+                "flex flex-col items-center gap-0.5 rounded-lg border px-1 py-2 text-[10px] font-medium transition-colors",
+                itemCategory === key
+                  ? "border-primary bg-primary-subtle text-primary-text"
+                  : "border-border bg-surface text-muted hover:text-foreground",
+              )}
+            >
+              <span aria-hidden className="text-base">{emoji}</span>
+              {label}
+            </button>
+          ))}
+        </div>
+      </FieldRow>
 
       <FieldRow>
         <Label htmlFor="custom-name">

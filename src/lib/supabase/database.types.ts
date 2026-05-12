@@ -323,6 +323,7 @@ export type Database = {
           created_at: string
           id: string
           image_url: string | null
+          item_category_hint: string | null
           name: string
           off_data: Json | null
           source: string
@@ -334,6 +335,7 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          item_category_hint?: string | null
           name: string
           off_data?: Json | null
           source: string
@@ -345,6 +347,7 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          item_category_hint?: string | null
           name?: string
           off_data?: Json | null
           source?: string
