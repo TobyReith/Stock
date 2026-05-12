@@ -162,14 +162,6 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
         })}
       </div>
 
-      {/* Subcategory chip bar */}
-      <SubcategoryChips
-        categories={tabCategories}
-        items={items.filter((i) => i.itemCategory === activeTab)}
-        activeSub={activeSub}
-        onSelect={setActiveSub}
-      />
-
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search
@@ -197,6 +189,14 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
         </div>
         <FiltersSheet categories={tabCategories} storageLocations={storageLocations} />
       </div>
+
+      {/* Subcategory chip bar */}
+      <SubcategoryChips
+        categories={tabCategories}
+        items={items.filter((i) => i.itemCategory === activeTab)}
+        activeSub={activeSub}
+        onSelect={setActiveSub}
+      />
 
       {showNoResults && (
         <p className="py-6 text-center text-sm text-muted">
