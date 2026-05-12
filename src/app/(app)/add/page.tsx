@@ -95,7 +95,7 @@ async function loadPageCategories(): Promise<CategoryDisplay[]> {
   if (!householdId) return [];
   const { data } = await supabase
     .from("categories")
-    .select("id, name, icon, color, sort_order, is_system, slug")
+    .select("id, name, icon, color, sort_order, is_system, slug, parent_category")
     .eq("household_id", householdId)
     .order("sort_order", { ascending: true });
   return (data ?? []).map((c) => ({
@@ -106,6 +106,7 @@ async function loadPageCategories(): Promise<CategoryDisplay[]> {
     color: c.color,
     sortOrder: c.sort_order,
     isSystem: c.is_system,
+    parentCategory: c.parent_category,
   }));
 }
 
