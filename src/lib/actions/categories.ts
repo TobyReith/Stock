@@ -33,7 +33,7 @@ export async function listCategories(): Promise<ActionResult<CategoryDisplay[]>>
 
   const { data, error } = await supabase
     .from("categories")
-    .select("id, name, icon, color, sort_order, is_system, slug")
+    .select("id, name, icon, color, sort_order, is_system, slug, parent_category")
     .eq("household_id", householdId)
     .order("sort_order", { ascending: true });
 
@@ -49,6 +49,7 @@ export async function listCategories(): Promise<ActionResult<CategoryDisplay[]>>
       color: c.color,
       sortOrder: c.sort_order,
       isSystem: c.is_system,
+      parentCategory: c.parent_category,
     })),
   };
 }
@@ -95,6 +96,7 @@ export async function createCategory(
       sort_order: sortOrder,
       is_system: false,
       slug,
+      parent_category: v.parentCategory,
     })
     .select("id")
     .single();

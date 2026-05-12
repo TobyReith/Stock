@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Package, Search, X } from "lucide-react";
+import { Package, Plus, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SwipeableItemRow } from "./swipeable-item-row";
 import { FiltersSheet } from "./filters-sheet";
@@ -49,28 +49,45 @@ type Props = {
 };
 
 /**
- * Interactive list shell: category tabs + search + filter/sort + grouped rendering.
+ * Interactive list shell: category tabs + subcategory chips + search + filter/sort + grouped rendering.
  *
  * Pipeline:
  *   items
  *     → tab filter       (active itemCategory tab — local state)
+ *     → sub filter       (active subcategory chip — local state)
  *     → applyItemFilters (URL-driven chips: category / location / urgency)
  *     → substring search (ephemeral local state)
  *     → applyItemSort    (URL-driven sort key + direction)
  *     → [optional] groupByUrgency
  */
 export function ItemsList({ items, categories, storageLocations }: Props) {
-  const { state } = useFilterState();
+  const { state, patch } = useFilterState();
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<ItemCategoryType>("food");
+  const [activeSub, setActiveSub] = useState<string | null>(null);
 
   // Snapshot `now` once per render so the filter pass and the grouping
   // pass can't disagree on a midnight-edge case.
   const now = useMemo(() => new Date(), []);
 
+  function handleTabChange(tab: ItemCategoryType) {
+    setActiveTab(tab);
+    setActiveSub(null);
+    setQuery("");
+    // Reset URL category filter — selected slugs from the previous tab
+    // would silently hide all items in the new tab.
+    if (state.categories.length > 0) {
+      patch({ categories: [] });
+    }
+  }
+
   const filtered = useMemo(() => {
     const byTab = items.filter((i) => i.itemCategory === activeTab);
-    const base = applyItemFilters(byTab, state, now);
+    const bySub =
+      activeSub === null
+        ? byTab
+        : byTab.filter((i) => i.category === activeSub);
+    const base = applyItemFilters(bySub, state, now);
     const q = query.trim().toLowerCase();
     if (!q) return base;
     return base.filter((item) => {
@@ -78,7 +95,7 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
       const brand = (item.brand ?? "").toLowerCase();
       return name.includes(q) || brand.includes(q);
     });
-  }, [items, activeTab, state, now, query]);
+  }, [items, activeTab, activeSub, state, now, query]);
 
   const sorted = useMemo(
     () => applyItemSort(filtered, state.sort, state.dir),
@@ -93,7 +110,13 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
 
   const hasActiveFilters = !isDefaultFilterState(state);
   const hasQuery = query.trim().length > 0;
-  const showNoResults = sorted.length === 0 && (hasActiveFilters || hasQuery);
+  const showNoResults = sorted.length === 0 && (hasActiveFilters || hasQuery || activeSub !== null);
+
+  // Only pass categories relevant to the active tab into FiltersSheet.
+  const tabCategories = useMemo(
+    () => categories.filter((c) => c.parentCategory === activeTab),
+    [categories, activeTab],
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -112,10 +135,7 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
               aria-selected={activeTab === key}
               aria-label={label}
               type="button"
-              onClick={() => {
-                setActiveTab(key);
-                setQuery("");
-              }}
+              onClick={() => handleTabChange(key)}
               className={cn(
                 "flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors",
                 activeTab === key
@@ -167,8 +187,16 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
             </button>
           )}
         </div>
-        <FiltersSheet categories={categories} storageLocations={storageLocations} />
+        <FiltersSheet categories={tabCategories} storageLocations={storageLocations} />
       </div>
+
+      {/* Subcategory chip bar */}
+      <SubcategoryChips
+        categories={tabCategories}
+        items={items.filter((i) => i.itemCategory === activeTab)}
+        activeSub={activeSub}
+        onSelect={setActiveSub}
+      />
 
       {showNoResults && (
         <p className="py-6 text-center text-sm text-muted">
@@ -178,7 +206,7 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
         </p>
       )}
 
-      {!showNoResults && sorted.length === 0 && !hasActiveFilters && !hasQuery && (
+      {!showNoResults && sorted.length === 0 && !hasActiveFilters && !hasQuery && activeSub === null && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border px-6 py-12 text-center">
           <Package className="size-10 text-muted" aria-hidden />
           <p className="mt-3 text-sm font-medium">
@@ -209,6 +237,86 @@ export function ItemsList({ items, categories, storageLocations }: Props) {
           )
         : sorted.length > 0 && <ItemLinks items={sorted} storageLocations={storageLocations} />}
     </div>
+  );
+}
+
+type SubcategoryChipsProps = {
+  categories: CategoryDisplay[];
+  items: ListItem[];
+  activeSub: string | null;
+  onSelect: (slug: string | null) => void;
+};
+
+/**
+ * Horizontal scrollable chip bar showing subcategories for the active top-level tab.
+ * Only chips that have at least one item are shown (plus "Alle").
+ * Hidden entirely when no items exist for any subcategory.
+ */
+function SubcategoryChips({ categories, items, activeSub, onSelect }: SubcategoryChipsProps) {
+  const occupiedSlugs = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of items) {
+      if (item.category) set.add(item.category);
+    }
+    return set;
+  }, [items]);
+
+  const visibleCategories = categories.filter((c) => occupiedSlugs.has(c.slug));
+
+  useEffect(() => {
+    if (activeSub !== null && !visibleCategories.some((c) => c.slug === activeSub)) {
+      onSelect(null);
+    }
+  }, [activeSub, visibleCategories, onSelect]);
+
+  if (visibleCategories.length === 0) return null;
+
+  return (
+    <div
+      className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 scrollbar-none"
+      role="group"
+      aria-label="Unterkategorie"
+    >
+      <SubChip
+        label="Alle"
+        active={activeSub === null}
+        onClick={() => onSelect(null)}
+      />
+      {visibleCategories.map((cat) => (
+        <SubChip
+          key={cat.slug}
+          label={`${cat.icon} ${cat.name}`}
+          active={activeSub === cat.slug}
+          onClick={() => onSelect(activeSub === cat.slug ? null : cat.slug)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SubChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "inline-flex h-7 shrink-0 items-center rounded-full border px-3 text-xs font-medium transition-colors",
+        active
+          ? "border-primary bg-primary text-primary-fg"
+          : "border-border bg-surface text-foreground hover:bg-surface-raised",
+      )}
+    >
+      {label}
+    </button>
   );
 }
 

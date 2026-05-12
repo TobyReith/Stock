@@ -60,7 +60,7 @@ export default async function ItemDetailPage({
       .maybeSingle(),
     supabase
       .from("categories")
-      .select("id, name, icon, color, sort_order, is_system, slug")
+      .select("id, name, icon, color, sort_order, is_system, slug, parent_category")
       .eq("household_id", activeHouseholdId)
       .order("sort_order", { ascending: true }),
     supabase
@@ -86,6 +86,7 @@ export default async function ItemDetailPage({
     color: c.color,
     sortOrder: c.sort_order,
     isSystem: c.is_system,
+    parentCategory: c.parent_category,
   }));
 
   const storageLocations: StorageLocationDisplay[] = (storageLocationsData.data ?? []).map((l) => ({

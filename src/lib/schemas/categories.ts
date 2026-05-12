@@ -7,6 +7,9 @@ export const createCategorySchema = z.object({
     .string()
     .regex(/^#[0-9a-f]{6}$/i, "Ungültige Farbe")
     .default("#6b7280"),
+  parentCategory: z
+    .enum(["food", "hygiene", "medicine", "other"])
+    .default("food"),
 });
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 
@@ -31,6 +34,14 @@ export type CategoryDisplay = {
   color: string;
   sortOrder: number;
   isSystem: boolean;
+  parentCategory: string;
+};
+
+export const PARENT_CATEGORY_LABELS: Record<string, string> = {
+  food: "Lebensmittel",
+  hygiene: "Hygiene",
+  medicine: "Medikamente",
+  other: "Sonstiges",
 };
 
 /** Emoji options shown in the icon picker. */

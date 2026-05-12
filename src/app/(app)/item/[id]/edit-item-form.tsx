@@ -355,7 +355,12 @@ export function EditItemForm({
             <button
               key={key}
               type="button"
-              onClick={() => setItemCategory(key)}
+              onClick={() => {
+                setItemCategory(key);
+                if (customCategory && !categories.some((c) => c.slug === customCategory && c.parentCategory === key)) {
+                  setCustomCategory("");
+                }
+              }}
               className={cn(
                 "flex flex-col items-center gap-0.5 rounded-lg border px-1 py-2 text-[10px] font-medium transition-colors",
                 itemCategory === key
@@ -396,10 +401,7 @@ export function EditItemForm({
       </FieldRow>
 
       <FieldRow>
-        <Label htmlFor="custom-category">
-          Eigene Kategorie{" "}
-          <span className="text-muted">(überschreibt Datenbank)</span>
-        </Label>
+        <Label htmlFor="custom-category">Kategorie</Label>
         <select
           id="custom-category"
           value={customCategory}
@@ -407,7 +409,7 @@ export function EditItemForm({
           className="h-9 w-full rounded-lg border border-border bg-surface px-2.5 text-sm text-foreground outline-none focus:border-border-strong"
         >
           <option value="">— keine Auswahl —</option>
-          {categories.map((c) => (
+          {categories.filter((c) => c.parentCategory === itemCategory).map((c) => (
             <option key={c.slug} value={c.slug}>
               {c.icon} {c.name}
             </option>

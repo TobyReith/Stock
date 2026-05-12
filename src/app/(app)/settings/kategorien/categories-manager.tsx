@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import {
   CATEGORY_COLORS,
   CATEGORY_ICONS,
+  PARENT_CATEGORY_LABELS,
   type CategoryDisplay,
   type CreateCategoryInput,
   type UpdateCategoryInput,
@@ -34,22 +35,42 @@ import {
 
 type Props = { initialCategories: CategoryDisplay[] };
 
+const PARENT_TABS = ["food", "hygiene", "medicine"] as const;
+type ParentTab = (typeof PARENT_TABS)[number];
+
 export function CategoriesManager({ initialCategories }: Props) {
   const [categories, setCategories] = useState(initialCategories);
+  const [activeParent, setActiveParent] = useState<ParentTab>("food");
   const [editTarget, setEditTarget] = useState<CategoryDisplay | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CategoryDisplay | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  const tabCategories = categories.filter((c) => c.parentCategory === activeParent);
+
   function move(index: number, direction: -1 | 1) {
-    const next = [...categories];
     const swapIdx = index + direction;
-    if (swapIdx < 0 || swapIdx >= next.length) return;
-    [next[index], next[swapIdx]] = [next[swapIdx], next[index]];
-    setCategories(next);
+    if (swapIdx < 0 || swapIdx >= tabCategories.length) return;
+    const newTabOrder = [...tabCategories];
+    [newTabOrder[index], newTabOrder[swapIdx]] = [newTabOrder[swapIdx]!, newTabOrder[index]!];
+    // Merge the reordered tab slice back into the full list (other tabs untouched).
+    const slugSet = new Set(newTabOrder.map((c) => c.id));
+    const newAll = [
+      ...categories.filter((c) => !slugSet.has(c.id)),
+      ...newTabOrder,
+    ].sort((a, b) => {
+      if (a.parentCategory !== b.parentCategory) return 0;
+      return newTabOrder.findIndex((t) => t.id === a.id) -
+             newTabOrder.findIndex((t) => t.id === b.id);
+    });
+    const prevCategories = categories;
+    setCategories(newAll);
     startTransition(async () => {
-      const res = await reorderCategories(next.map((c) => c.id));
-      if (!res.ok) toast.error(res.error);
+      const res = await reorderCategories(newTabOrder.map((c) => c.id));
+      if (!res.ok) {
+        setCategories(prevCategories);
+        toast.error(res.error);
+      }
     });
   }
 
@@ -72,6 +93,31 @@ export function CategoriesManager({ initialCategories }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Parent category tabs */}
+      <div
+        role="tablist"
+        aria-label="Kategoriegruppe"
+        className="flex gap-1 rounded-xl bg-surface-raised p-1"
+      >
+        {PARENT_TABS.map((key) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={activeParent === key}
+            type="button"
+            onClick={() => setActiveParent(key)}
+            className={cn(
+              "flex flex-1 items-center justify-center rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
+              activeParent === key
+                ? "bg-surface text-foreground shadow-sm"
+                : "text-muted hover:text-foreground",
+            )}
+          >
+            {PARENT_CATEGORY_LABELS[key]}
+          </button>
+        ))}
+      </div>
+
       <Button
         variant="outline"
         size="sm"
@@ -82,7 +128,7 @@ export function CategoriesManager({ initialCategories }: Props) {
       </Button>
 
       <ul className="flex flex-col gap-2">
-        {categories.map((cat, index) => (
+        {tabCategories.map((cat, index) => (
           <li
             key={cat.id}
             className="flex items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2.5"
@@ -120,7 +166,7 @@ export function CategoriesManager({ initialCategories }: Props) {
               <button
                 type="button"
                 onClick={() => move(index, 1)}
-                disabled={index === categories.length - 1 || isPending}
+                disabled={index === tabCategories.length - 1 || isPending}
                 aria-label="Nach unten"
                 className="rounded p-0.5 text-muted hover:text-foreground disabled:opacity-30"
               >
@@ -160,6 +206,7 @@ export function CategoriesManager({ initialCategories }: Props) {
             <DialogTitle>Neue Kategorie</DialogTitle>
           </DialogHeader>
           <CategoryForm
+            parentCategory={activeParent}
             onSuccess={handleCreated}
             onCancel={() => setShowCreate(false)}
           />
@@ -175,6 +222,7 @@ export function CategoriesManager({ initialCategories }: Props) {
           {editTarget && (
             <CategoryForm
               existing={editTarget}
+              parentCategory={editTarget.parentCategory as ParentTab}
               onSuccess={handleUpdated}
               onCancel={() => setEditTarget(null)}
             />
@@ -209,10 +257,10 @@ function firstGrapheme(str: string): string {
 // ─── Category create/edit form ───────────────────────────────────────────────
 
 type FormProps =
-  | { existing?: undefined; onSuccess: (created: CategoryDisplay) => void; onCancel: () => void }
-  | { existing: CategoryDisplay; onSuccess: (updated: CategoryDisplay) => void; onCancel: () => void };
+  | { existing?: undefined; parentCategory: ParentTab; onSuccess: (created: CategoryDisplay) => void; onCancel: () => void }
+  | { existing: CategoryDisplay; parentCategory: ParentTab; onSuccess: (updated: CategoryDisplay) => void; onCancel: () => void };
 
-function CategoryForm({ existing, onSuccess, onCancel }: FormProps) {
+function CategoryForm({ existing, parentCategory, onSuccess, onCancel }: FormProps) {
   const [name, setName] = useState(existing?.name ?? "");
   const [icon, setIcon] = useState<string>(existing?.icon ?? "📦");
   const [color, setColor] = useState(existing?.color ?? "#6b7280");
@@ -235,17 +283,18 @@ function CategoryForm({ existing, onSuccess, onCancel }: FormProps) {
         onSuccess({ ...existing, name: name.trim(), icon, color });
         toast.success("Gespeichert");
       } else {
-        const input: CreateCategoryInput = { name: name.trim(), icon, color };
+        const input: CreateCategoryInput = { name: name.trim(), icon, color, parentCategory };
         const res = await createCategory(input);
         if (!res.ok) { setError(res.error); return; }
         onSuccess({
           id: res.data.id,
-          slug: "custom_pending", // will be refreshed on next navigation
+          slug: `pending-${res.data.id}`,
           name: name.trim(),
           icon,
           color,
           sortOrder: 999,
           isSystem: false,
+          parentCategory,
         });
         toast.success("Kategorie angelegt");
       }
