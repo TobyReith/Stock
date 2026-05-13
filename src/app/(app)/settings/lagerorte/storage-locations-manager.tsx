@@ -20,6 +20,7 @@ import {
   STORAGE_LOCATION_ICONS,
   TEMPERATURE_HINT_LABELS,
   type StorageLocationDisplay,
+  type ItemCategoryKey,
   type CreateStorageLocationInput,
   type UpdateStorageLocationInput,
   type TemperatureHint,
@@ -30,6 +31,7 @@ import {
   deleteStorageLocation,
   reorderStorageLocations,
   countItemsByStorageLocation,
+  setStorageLocationCategories,
 } from "@/lib/actions/storage-locations";
 
 type Props = { initialLocations: StorageLocationDisplay[] };
@@ -70,6 +72,12 @@ export function StorageLocationsManager({ initialLocations }: Props) {
     setDeleteTarget(null);
   }
 
+  function handleCategoriesChanged(id: string, categories: ItemCategoryKey[]) {
+    setLocations((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, categories } : l)),
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <Button
@@ -85,72 +93,81 @@ export function StorageLocationsManager({ initialLocations }: Props) {
         {locations.map((loc, index) => (
           <li
             key={loc.id}
-            className="flex items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2.5"
+            className="flex flex-col gap-2 rounded-lg border border-border bg-surface px-3 py-2.5"
           >
-            {/* Icon */}
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-base">
-              {loc.icon}
-            </span>
+            {/* Top row: icon + name/hint + controls */}
+            <div className="flex items-center gap-3">
+              {/* Icon */}
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-base">
+                {loc.icon}
+              </span>
 
-            {/* Name + temperature hint */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="truncate text-sm font-medium">{loc.name}</span>
-                {loc.isSystem && (
-                  <Lock
-                    className="shrink-0 size-3 text-muted"
-                    aria-label="System-Lagerort"
-                  />
-                )}
+              {/* Name + temperature hint */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-sm font-medium">{loc.name}</span>
+                  {loc.isSystem && (
+                    <Lock
+                      className="shrink-0 size-3 text-muted"
+                      aria-label="System-Lagerort"
+                    />
+                  )}
+                </div>
+                <p className="text-xs text-muted">
+                  {TEMPERATURE_HINT_LABELS[loc.temperatureHint]}
+                </p>
               </div>
-              <p className="text-xs text-muted">
-                {TEMPERATURE_HINT_LABELS[loc.temperatureHint]}
-              </p>
+
+              {/* Reorder */}
+              <div className="flex flex-col">
+                <button
+                  type="button"
+                  onClick={() => move(index, -1)}
+                  disabled={index === 0 || isPending}
+                  aria-label="Nach oben"
+                  className="rounded p-0.5 text-muted hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronUp className="size-3.5" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => move(index, 1)}
+                  disabled={index === locations.length - 1 || isPending}
+                  aria-label="Nach unten"
+                  className="rounded p-0.5 text-muted hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronDown className="size-3.5" aria-hidden />
+                </button>
+              </div>
+
+              {/* Edit */}
+              <button
+                type="button"
+                onClick={() => setEditTarget(loc)}
+                aria-label="Bearbeiten"
+                className="rounded p-1.5 text-muted hover:text-foreground"
+              >
+                <Pencil className="size-4" aria-hidden />
+              </button>
+
+              {/* Delete — custom only */}
+              {!loc.isSystem && (
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(loc)}
+                  aria-label="Löschen"
+                  className="rounded p-1.5 text-danger/70 hover:text-danger"
+                >
+                  <Trash2 className="size-4" aria-hidden />
+                </button>
+              )}
             </div>
 
-            {/* Reorder */}
-            <div className="flex flex-col">
-              <button
-                type="button"
-                onClick={() => move(index, -1)}
-                disabled={index === 0 || isPending}
-                aria-label="Nach oben"
-                className="rounded p-0.5 text-muted hover:text-foreground disabled:opacity-30"
-              >
-                <ChevronUp className="size-3.5" aria-hidden />
-              </button>
-              <button
-                type="button"
-                onClick={() => move(index, 1)}
-                disabled={index === locations.length - 1 || isPending}
-                aria-label="Nach unten"
-                className="rounded p-0.5 text-muted hover:text-foreground disabled:opacity-30"
-              >
-                <ChevronDown className="size-3.5" aria-hidden />
-              </button>
-            </div>
-
-            {/* Edit */}
-            <button
-              type="button"
-              onClick={() => setEditTarget(loc)}
-              aria-label="Bearbeiten"
-              className="rounded p-1.5 text-muted hover:text-foreground"
-            >
-              <Pencil className="size-4" aria-hidden />
-            </button>
-
-            {/* Delete — custom only */}
-            {!loc.isSystem && (
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(loc)}
-                aria-label="Löschen"
-                className="rounded p-1.5 text-danger/70 hover:text-danger"
-              >
-                <Trash2 className="size-4" aria-hidden />
-              </button>
-            )}
+            {/* Category toggles */}
+            <CategoryToggles
+              location={loc}
+              onChanged={(cats) => handleCategoriesChanged(loc.id, cats)}
+            />
           </li>
         ))}
       </ul>
@@ -248,6 +265,7 @@ function LocationForm({ existing, onSuccess, onCancel }: FormProps) {
           sortOrder: 999,
           isSystem: false,
           temperatureHint,
+          categories: [],
         });
         toast.success("Lagerort angelegt");
       }
@@ -354,6 +372,80 @@ function LocationForm({ existing, onSuccess, onCancel }: FormProps) {
         </Button>
       </div>
     </form>
+  );
+}
+
+// ─── Category toggles ─────────────────────────────────────────────────────────
+
+const CATEGORY_TOGGLE_OPTIONS: Array<{ key: ItemCategoryKey; label: string; emoji: string }> = [
+  { key: "food",     label: "Essen",   emoji: "🥦" },
+  { key: "hygiene",  label: "Hygiene", emoji: "🧴" },
+  { key: "medicine", label: "Medizin", emoji: "💊" },
+];
+
+function CategoryToggles({
+  location,
+  onChanged,
+}: {
+  location: StorageLocationDisplay;
+  onChanged: (categories: ItemCategoryKey[]) => void;
+}) {
+  const [isPending, startTransition] = useTransition();
+
+  if (location.slug === "other") {
+    return (
+      <p className="text-xs text-muted pl-11">
+        Universeller Fallback — gilt für alle Kategorien
+      </p>
+    );
+  }
+
+  function toggle(key: ItemCategoryKey) {
+    const prev = location.categories;
+    const next = prev.includes(key) ? prev.filter((c) => c !== key) : [...prev, key];
+    onChanged(next);
+    startTransition(async () => {
+      const res = await setStorageLocationCategories({
+        storageLocationId: location.id,
+        categories: next,
+      });
+      if (!res.ok) {
+        onChanged(prev);
+        toast.error(res.error);
+      }
+    });
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 pl-11" aria-label="Kategorien">
+      {CATEGORY_TOGGLE_OPTIONS.map(({ key, label, emoji }) => {
+        const enabled = location.categories.includes(key);
+        return (
+          <button
+            key={key}
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            aria-label={label}
+            disabled={isPending}
+            onClick={() => toggle(key)}
+            className={cn(
+              "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-colors",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              enabled
+                ? "bg-primary text-primary-fg"
+                : "bg-surface-raised text-muted hover:text-foreground",
+            )}
+          >
+            <span aria-hidden>{emoji}</span>
+            {label}
+          </button>
+        );
+      })}
+      {location.categories.length === 0 && (
+        <span className="text-xs text-muted ml-1">alle</span>
+      )}
+    </div>
   );
 }
 

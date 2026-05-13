@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export type TemperatureHint = "cold" | "frozen" | "ambient";
 
+export type ItemCategoryKey = "food" | "hygiene" | "medicine" | "other";
+
 export type StorageLocationDisplay = {
   id: string;
   slug: string;
@@ -10,6 +12,7 @@ export type StorageLocationDisplay = {
   sortOrder: number;
   isSystem: boolean;
   temperatureHint: TemperatureHint;
+  categories: ItemCategoryKey[];
 };
 
 export const TEMPERATURE_HINT_LABELS: Record<TemperatureHint, string> = {
@@ -37,5 +40,11 @@ export const updateStorageLocationSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 
+export const setStorageLocationCategoriesSchema = z.object({
+  storageLocationId: z.string().uuid(),
+  categories: z.array(z.enum(["food", "hygiene", "medicine", "other"])),
+});
+
 export type CreateStorageLocationInput = z.infer<typeof createStorageLocationSchema>;
 export type UpdateStorageLocationInput = z.infer<typeof updateStorageLocationSchema>;
+export type SetStorageLocationCategoriesInput = z.infer<typeof setStorageLocationCategoriesSchema>;

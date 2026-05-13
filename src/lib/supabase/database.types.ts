@@ -604,6 +604,32 @@ export type Database = {
         }
         Relationships: []
       }
+      storage_location_categories: {
+        Row: {
+          category: string
+          id: string
+          storage_location_id: string
+        }
+        Insert: {
+          category: string
+          id?: string
+          storage_location_id: string
+        }
+        Update: {
+          category?: string
+          id?: string
+          storage_location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storage_location_categories_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       storage_locations: {
         Row: {
           created_at: string
@@ -657,6 +683,7 @@ export type Database = {
       is_household_owner: { Args: { h_id: string }; Returns: boolean }
       seed_household_categories: { Args: { p_household_id: string }; Returns: undefined }
       seed_household_storage_locations: { Args: { p_household_id: string }; Returns: undefined }
+      seed_storage_location_categories: { Args: { p_household_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

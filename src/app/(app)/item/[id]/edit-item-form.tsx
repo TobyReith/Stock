@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -85,6 +85,17 @@ export function EditItemForm({
   const [itemCategory, setItemCategory] = useState<ItemCategoryType>(item.itemCategory);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const filteredStorageLocations = useMemo(
+    () =>
+      storageLocations.filter(
+        (l) =>
+          l.categories.length === 0 ||
+          l.slug === "other" ||
+          l.categories.includes(itemCategory),
+      ),
+    [storageLocations, itemCategory],
+  );
 
   /**
    * Effective category the user currently sees. Used to decide whether
@@ -360,6 +371,12 @@ export function EditItemForm({
                 if (customCategory && !categories.some((c) => c.slug === customCategory && c.parentCategory === key)) {
                   setCustomCategory("");
                 }
+                const validLocs = storageLocations.filter(
+                  (l) => l.categories.length === 0 || l.slug === "other" || l.categories.includes(key),
+                );
+                if (!validLocs.find((l) => l.slug === location)) {
+                  setLocation(validLocs[0]?.slug ?? "other");
+                }
               }}
               className={cn(
                 "flex flex-col items-center gap-0.5 rounded-lg border px-1 py-2 text-[10px] font-medium transition-colors",
@@ -465,7 +482,7 @@ export function EditItemForm({
       <FieldRow>
         <Label>Lagerort</Label>
         <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-1">
-          {storageLocations.map(({ slug, name, icon }) => {
+          {filteredStorageLocations.map(({ slug, name, icon }) => {
             const active = location === slug;
             return (
               <button

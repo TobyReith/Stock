@@ -31,7 +31,7 @@ export default async function LagerorteSettingsPage() {
         <div>
           <h1 className="font-serif text-[26px] font-medium tracking-tight">Lagerorte</h1>
           <p className="text-sm text-muted">
-            Anlegen, umbenennen, sortieren.
+            Anlegen, umbenennen, sortieren. Kategorien zuordnen.
           </p>
         </div>
       </header>
@@ -47,7 +47,7 @@ async function loadStorageLocations(
 ): Promise<StorageLocationDisplay[]> {
   const { data } = await supabase
     .from("storage_locations")
-    .select("id, name, icon, slug, sort_order, is_system, temperature_hint")
+    .select("id, name, icon, slug, sort_order, is_system, temperature_hint, storage_location_categories(category)")
     .eq("household_id", householdId)
     .order("sort_order", { ascending: true });
   return (data ?? []).map((l) => ({
@@ -58,5 +58,8 @@ async function loadStorageLocations(
     sortOrder: l.sort_order,
     isSystem: l.is_system,
     temperatureHint: l.temperature_hint as StorageLocationDisplay["temperatureHint"],
+    categories: (l.storage_location_categories ?? []).map(
+      (c) => c.category as StorageLocationDisplay["categories"][number],
+    ),
   }));
 }

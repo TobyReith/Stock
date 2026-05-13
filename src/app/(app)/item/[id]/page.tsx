@@ -65,7 +65,7 @@ export default async function ItemDetailPage({
       .order("sort_order", { ascending: true }),
     supabase
       .from("storage_locations")
-      .select("id, name, icon, slug, sort_order, is_system, temperature_hint")
+      .select("id, name, icon, slug, sort_order, is_system, temperature_hint, storage_location_categories(category)")
       .eq("household_id", activeHouseholdId)
       .order("sort_order", { ascending: true }),
   ]);
@@ -97,6 +97,9 @@ export default async function ItemDetailPage({
     sortOrder: l.sort_order,
     isSystem: l.is_system,
     temperatureHint: l.temperature_hint as StorageLocationDisplay["temperatureHint"],
+    categories: (l.storage_location_categories ?? []).map(
+      (c) => c.category as StorageLocationDisplay["categories"][number],
+    ),
   }));
 
   const item: DetailItem = {
