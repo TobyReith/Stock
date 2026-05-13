@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
+  CheckCheck,
   Loader2,
+  Minus,
   Package,
   Plus,
-  Share2,
   ShoppingBasket,
   Trash2,
   Undo2,
@@ -19,8 +20,11 @@ import { Input } from "@/components/ui/input";
 import {
   addShoppingItem,
   deleteShoppingItem,
+  markAllShoppingItemsBought,
   toggleShoppingItemBought,
+  updateShoppingItemQuantity,
 } from "@/lib/actions/shopping";
+import { CATEGORIES } from "@/lib/constants/categories";
 
 /**
  * Client shell for the shopping list.
@@ -63,10 +67,12 @@ type Props = {
 type OptimisticAction =
   | { kind: "add"; entry: ShoppingEntry }
   | { kind: "toggle"; id: string; boughtAt: string | null }
-  | { kind: "remove"; id: string };
+  | { kind: "remove"; id: string }
+  | { kind: "updateQty"; id: string; quantity: number | null };
 
 export function ShoppingList({ open, recent }: Props) {
   const router = useRouter();
+  const [pending, startTransition] = useTransition();
   const all = [...open, ...recent];
 
   const [entries, applyOptimistic] = useOptimistic(
@@ -81,6 +87,10 @@ export function ShoppingList({ open, recent }: Props) {
           );
         case "remove":
           return state.filter((e) => e.id !== action.id);
+        case "updateQty":
+          return state.map((e) =>
+            e.id === action.id ? { ...e, quantity: action.quantity } : e,
+          );
       }
     },
   );
@@ -89,6 +99,31 @@ export function ShoppingList({ open, recent }: Props) {
   const recentItems = entries
     .filter((e) => e.boughtAt)
     .sort((a, b) => (b.boughtAt ?? "").localeCompare(a.boughtAt ?? ""));
+
+  // Build category groups in CATEGORIES order; null/unknown → "other"
+  const grouped = new Map<string, ShoppingEntry[]>();
+  for (const cat of CATEGORIES) grouped.set(cat.key, []);
+  for (const item of openItems) {
+    const key =
+      item.category && grouped.has(item.category) ? item.category : "other";
+    grouped.get(key)!.push(item);
+  }
+
+  function handleMarkAll() {
+    const now = new Date().toISOString();
+    startTransition(async () => {
+      for (const item of openItems) {
+        applyOptimistic({ kind: "toggle", id: item.id, boughtAt: now });
+      }
+      const res = await markAllShoppingItemsBought();
+      if (!res.ok) {
+        toast.error(res.error);
+        router.refresh();
+      } else {
+        router.refresh();
+      }
+    });
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -101,21 +136,63 @@ export function ShoppingList({ open, recent }: Props) {
         <EmptyState />
       ) : (
         <>
-          <Section title="Noch zu kaufen" empty={openItems.length === 0}>
-            {openItems.map((e) => (
-              <Row
-                key={e.id}
-                entry={e}
-                onOptimisticToggle={(id, boughtAt) =>
-                  applyOptimistic({ kind: "toggle", id, boughtAt })
-                }
-                onOptimisticRemove={(id) =>
-                  applyOptimistic({ kind: "remove", id })
-                }
-                onRefresh={() => router.refresh()}
-              />
-            ))}
-          </Section>
+          {/* Open items section — grouped by category */}
+          <section className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Noch zu kaufen
+              </p>
+              {openItems.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handleMarkAll}
+                  disabled={pending}
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <CheckCheck className="size-3.5" aria-hidden />
+                  Alle abhaken
+                </button>
+              )}
+            </div>
+
+            {openItems.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted">
+                Nichts offen.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {CATEGORIES.map((cat) => {
+                  const items = grouped.get(cat.key) ?? [];
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={cat.key} className="flex flex-col gap-2">
+                      <p className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {cat.label}
+                      </p>
+                      <ul className="flex flex-col gap-2">
+                        {items.map((e) => (
+                          <Row
+                            key={e.id}
+                            entry={e}
+                            onOptimisticToggle={(id, boughtAt) =>
+                              applyOptimistic({ kind: "toggle", id, boughtAt })
+                            }
+                            onOptimisticRemove={(id) =>
+                              applyOptimistic({ kind: "remove", id })
+                            }
+                            onOptimisticUpdateQty={(id, quantity) =>
+                              applyOptimistic({ kind: "updateQty", id, quantity })
+                            }
+                            onRefresh={() => router.refresh()}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
           {recentItems.length > 0 && (
             <Section title="Zuletzt gekauft">
@@ -256,6 +333,7 @@ type RowProps = {
   entry: ShoppingEntry;
   onOptimisticToggle: (id: string, boughtAt: string | null) => void;
   onOptimisticRemove: (id: string) => void;
+  onOptimisticUpdateQty?: (id: string, quantity: number | null) => void;
   onRefresh: () => void;
 };
 
@@ -263,6 +341,7 @@ function Row({
   entry,
   onOptimisticToggle,
   onOptimisticRemove,
+  onOptimisticUpdateQty,
   onRefresh,
 }: RowProps) {
   const [pending, startTransition] = useTransition();
@@ -292,8 +371,29 @@ function Row({
     });
   }
 
+  function handleDecrement() {
+    const nextQty = entry.quantity === 1 ? null : (entry.quantity ?? 1) - 1;
+    startTransition(async () => {
+      onOptimisticUpdateQty?.(entry.id, nextQty);
+      const res = await updateShoppingItemQuantity(entry.id, nextQty);
+      if (!res.ok) toast.error(res.error);
+      onRefresh();
+    });
+  }
+
+  function handleIncrement() {
+    const nextQty = (entry.quantity ?? 0) + 1;
+    startTransition(async () => {
+      onOptimisticUpdateQty?.(entry.id, nextQty);
+      const res = await updateShoppingItemQuantity(entry.id, nextQty);
+      if (!res.ok) toast.error(res.error);
+      onRefresh();
+    });
+  }
+
+  // For bought items only — quantity shown inline in the name area
   const qtyLabel =
-    entry.quantity != null
+    isBought && entry.quantity != null
       ? `${entry.quantity}${entry.unit ? ` ${entry.unit}` : ""}`
       : null;
 
@@ -354,10 +454,8 @@ function Row({
       </div>
 
       {/* Right-hand actions. Order depends on state:
-          - open   → Share-Button (Bring!/andere Apps), Löschen
-          - bought → "In den Vorrat" (primary), Undo (unten)
-          The "In den Vorrat" link is a prominent primary so the
-          "check off → move to stock" loop is one tap. */}
+          - open   → Quantity editor (− n +), Löschen
+          - bought → "In den Vorrat" (primary), Undo */}
       {isBought ? (
         <Link
           href={`/add?fromShopping=${entry.id}`}
@@ -366,7 +464,54 @@ function Row({
           <Package className="size-3.5" aria-hidden /> In den Vorrat
         </Link>
       ) : (
-        <ShareButton name={name} />
+        <div className="flex items-center">
+          {entry.quantity === null ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              onClick={handleIncrement}
+              disabled={pending}
+              aria-label="Menge hinzufügen"
+            >
+              <Plus className="size-3.5" aria-hidden />
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                onClick={handleDecrement}
+                disabled={pending}
+                aria-label="Menge verringern"
+              >
+                <Minus className="size-3.5" aria-hidden />
+              </Button>
+              <span className="w-5 text-center text-sm tabular-nums">
+                {entry.quantity}
+              </span>
+              {entry.unit && (
+                <span className="text-xs text-muted-foreground">
+                  {entry.unit}
+                </span>
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                onClick={handleIncrement}
+                disabled={pending}
+                aria-label="Menge erhöhen"
+              >
+                <Plus className="size-3.5" aria-hidden />
+              </Button>
+            </>
+          )}
+        </div>
       )}
 
       <Button
@@ -399,65 +544,5 @@ function Row({
         )}
       </Button>
     </li>
-  );
-}
-
-/**
- * Share the entry's name through the native OS share sheet.
- *
- * Bring! and all other shopping / note / messaging apps register
- * themselves as share targets for `text/plain`, so this is the
- * platform-correct path for "send this item to Bring!" (or WhatsApp,
- * or Notes, or …) without needing an app-specific deeplink. Bring!
- * does not publish a single-item import URL scheme — the recipe
- * deeplink (`api.getbring.com/rest/bringrecipes/deeplink`) expects a
- * full hosted recipe URL, which we don't have for a plain shopping
- * entry.
- *
- * Fallbacks, in order:
- *   1. `navigator.share` — mobile Safari / Chrome / most Android
- *   2. `navigator.clipboard.writeText` — desktop & older mobile
- *   3. toast.error — truly ancient browser, user is on their own
- */
-function ShareButton({ name }: { name: string }) {
-  async function handleShare() {
-    if (typeof navigator !== "undefined" && "share" in navigator) {
-      try {
-        await navigator.share({ text: name, title: name });
-        return;
-      } catch (err) {
-        // AbortError = user cancelled — bail silently
-        if (err instanceof Error && err.name === "AbortError") return;
-        // Any other failure: fall through to clipboard
-      }
-    }
-    if (
-      typeof navigator !== "undefined" &&
-      navigator.clipboard?.writeText
-    ) {
-      try {
-        await navigator.clipboard.writeText(name);
-        toast.success("Name kopiert", {
-          description: "In Bring! einfügen oder in der gewünschten App teilen.",
-          duration: 4000,
-        });
-        return;
-      } catch {
-        // fall through
-      }
-    }
-    toast.error("Teilen nicht unterstützt");
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleShare}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-raised hover:text-foreground"
-      aria-label="Teilen (z.B. in Bring!)"
-      title="Teilen (z.B. in Bring!)"
-    >
-      <Share2 className="size-4" aria-hidden />
-    </button>
   );
 }

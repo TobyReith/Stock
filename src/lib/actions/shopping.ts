@@ -171,6 +171,76 @@ export async function markShoppingItemBought(
 }
 
 /**
+ * Update the quantity on a shopping-list entry.
+ * Pass `null` to clear the quantity ("keine Angabe").
+ */
+export async function updateShoppingItemQuantity(
+  id: string,
+  quantity: number | null,
+): Promise<ActionResult> {
+  const parsedId = shoppingItemIdSchema.safeParse(id);
+  if (!parsedId.success) return fail("Ungültige ID");
+  if (quantity !== null && (typeof quantity !== "number" || quantity <= 0)) {
+    return fail("Menge muss > 0 sein");
+  }
+
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return fail("Nicht angemeldet");
+
+    const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+    if (!activeHouseholdId) return fail("Kein aktiver Haushalt");
+
+    const { error } = await supabase
+      .from("shopping_list_items")
+      .update({ quantity })
+      .eq("id", parsedId.data)
+      .eq("household_id", activeHouseholdId);
+    if (error) return fail(error.message);
+
+    revalidatePath("/shopping");
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Unbekannter Fehler");
+  }
+}
+
+/**
+ * Mark all open shopping-list entries as bought in one go.
+ * Returns the number of rows updated.
+ */
+export async function markAllShoppingItemsBought(): Promise<
+  ActionResult<{ count: number }>
+> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return fail("Nicht angemeldet");
+
+    const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+    if (!activeHouseholdId) return fail("Kein aktiver Haushalt");
+
+    const { data, error } = await supabase
+      .from("shopping_list_items")
+      .update({ bought_at: new Date().toISOString() })
+      .eq("household_id", activeHouseholdId)
+      .is("bought_at", null)
+      .select("id");
+    if (error) return fail(error.message);
+
+    revalidatePath("/shopping");
+    return { ok: true, data: { count: data?.length ?? 0 } };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Unbekannter Fehler");
+  }
+}
+
+/**
  * Hard-delete a shopping-list entry. Used when the user adds
  * something by mistake, or cleans up historical "bought" rows.
  *
