@@ -113,7 +113,7 @@ export function ShoppingItemSheet({
             )}
             <div className="min-w-0">
               <SheetTitle className="truncate">{name}</SheetTitle>
-              {entry?.brand && entry.productId && (
+              {entry?.brand && (
                 <p className="truncate text-sm text-muted-foreground">
                   {entry.brand}
                 </p>

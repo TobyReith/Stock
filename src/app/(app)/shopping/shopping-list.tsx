@@ -470,7 +470,7 @@ function Row({
             </span>
           )}
         </p>
-        {entry.brand && entry.productId && (
+        {entry.brand && (
           <p className="truncate text-xs text-muted-foreground">
             {entry.brand}
           </p>
