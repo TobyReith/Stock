@@ -185,11 +185,12 @@ export function ShoppingItemSheet({
           </Button>
 
           {entry?.boughtAt !== null && entry?.boughtAt !== undefined && (
-            <Button className="w-full" variant="default" asChild>
-              <Link href={`/add?fromShopping=${entry.id}`}>
-                <Package aria-hidden /> In den Vorrat
-              </Link>
-            </Button>
+            <Link
+              href={`/add?fromShopping=${entry.id}`}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-fg hover:bg-sage-400"
+            >
+              <Package className="size-4" aria-hidden /> In den Vorrat
+            </Link>
           )}
 
           <div className="border-t border-border" />
