@@ -23,12 +23,14 @@ export function AddToShoppingButton({
   productId,
   productName,
   customName,
+  brand,
   quantity,
   unit,
 }: {
   productId: string | null;
   productName: string;
   customName: string | null;
+  brand: string | null;
   quantity: number;
   unit: string | null;
 }) {
@@ -46,6 +48,7 @@ export function AddToShoppingButton({
       const res = await addShoppingItem({
         productId: productId ?? undefined,
         customName: displayName || undefined,
+        brand: brand ?? undefined,
         quantity: quantity > 0 ? quantity : undefined,
         unit: unit ?? undefined,
       });

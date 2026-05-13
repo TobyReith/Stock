@@ -49,6 +49,7 @@ export function SwipeableItemRow({
   async function handleNachkaufen() {
     const result = await addShoppingItem({
       customName: displayName,
+      brand: item.brand ?? undefined,
       quantity: item.quantity,
       unit: item.unit ?? undefined,
     });
