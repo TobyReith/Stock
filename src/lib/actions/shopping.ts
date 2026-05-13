@@ -241,6 +241,71 @@ export async function markAllShoppingItemsBought(): Promise<
 }
 
 /**
+ * Patch editable fields on a shopping-list entry.
+ * Only fields present (not `undefined`) in `patch` are written.
+ */
+export async function updateShoppingItemDetails(
+  id: string,
+  patch: {
+    customName?: string | null;
+    quantity?: number | null;
+    unit?: string | null;
+    note?: string | null;
+  },
+): Promise<ActionResult> {
+  const parsedId = shoppingItemIdSchema.safeParse(id);
+  if (!parsedId.success) return fail("Ungültige ID");
+
+  if (
+    patch.customName !== undefined &&
+    (patch.customName === null || patch.customName.trim().length === 0)
+  ) {
+    return fail("Bezeichnung darf nicht leer sein");
+  }
+  if (
+    patch.quantity !== undefined &&
+    patch.quantity !== null &&
+    patch.quantity <= 0
+  ) {
+    return fail("Menge muss > 0 sein");
+  }
+
+  const update: ShoppingUpdate = {};
+  if (patch.customName !== undefined)
+    update.custom_name = patch.customName?.trim() ?? null;
+  if (patch.quantity !== undefined) update.quantity = patch.quantity;
+  if (patch.unit !== undefined) update.unit = patch.unit?.trim() || null;
+  if (patch.note !== undefined) update.note = patch.note?.trim() || null;
+
+  if (Object.keys(update).length === 0) {
+    return { ok: true, data: undefined };
+  }
+
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return fail("Nicht angemeldet");
+
+    const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
+    if (!activeHouseholdId) return fail("Kein aktiver Haushalt");
+
+    const { error } = await supabase
+      .from("shopping_list_items")
+      .update(update)
+      .eq("id", parsedId.data)
+      .eq("household_id", activeHouseholdId);
+    if (error) return fail(error.message);
+
+    revalidatePath("/shopping");
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Unbekannter Fehler");
+  }
+}
+
+/**
  * Hard-delete a shopping-list entry. Used when the user adds
  * something by mistake, or cleans up historical "bought" rows.
  *

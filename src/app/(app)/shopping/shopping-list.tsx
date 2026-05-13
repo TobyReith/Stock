@@ -24,6 +24,7 @@ import {
   toggleShoppingItemBought,
   updateShoppingItemQuantity,
 } from "@/lib/actions/shopping";
+import { ShoppingItemSheet } from "./shopping-item-sheet";
 import { CATEGORIES } from "@/lib/constants/categories";
 
 /**
@@ -68,11 +69,13 @@ type OptimisticAction =
   | { kind: "add"; entry: ShoppingEntry }
   | { kind: "toggle"; id: string; boughtAt: string | null }
   | { kind: "remove"; id: string }
-  | { kind: "updateQty"; id: string; quantity: number | null };
+  | { kind: "updateQty"; id: string; quantity: number | null }
+  | { kind: "update"; id: string; patch: Partial<ShoppingEntry> };
 
 export function ShoppingList({ open, recent }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [sheetEntry, setSheetEntry] = useState<ShoppingEntry | null>(null);
   const all = [...open, ...recent];
 
   const [entries, applyOptimistic] = useOptimistic(
@@ -90,6 +93,10 @@ export function ShoppingList({ open, recent }: Props) {
         case "updateQty":
           return state.map((e) =>
             e.id === action.id ? { ...e, quantity: action.quantity } : e,
+          );
+        case "update":
+          return state.map((e) =>
+            e.id === action.id ? { ...e, ...action.patch } : e,
           );
       }
     },
@@ -129,6 +136,15 @@ export function ShoppingList({ open, recent }: Props) {
     <div className="flex flex-col gap-5">
       <AddForm
         onOptimisticAdd={(entry) => applyOptimistic({ kind: "add", entry })}
+        onRefresh={() => router.refresh()}
+      />
+      <ShoppingItemSheet
+        entry={sheetEntry}
+        onClose={() => setSheetEntry(null)}
+        onOptimisticUpdate={(id, patch) =>
+          applyOptimistic({ kind: "update", id, patch })
+        }
+        onOptimisticRemove={(id) => applyOptimistic({ kind: "remove", id })}
         onRefresh={() => router.refresh()}
       />
 
@@ -183,6 +199,7 @@ export function ShoppingList({ open, recent }: Props) {
                             onOptimisticUpdateQty={(id, quantity) =>
                               applyOptimistic({ kind: "updateQty", id, quantity })
                             }
+                            onOpenDetail={() => setSheetEntry(e)}
                             onRefresh={() => router.refresh()}
                           />
                         ))}
@@ -206,6 +223,7 @@ export function ShoppingList({ open, recent }: Props) {
                   onOptimisticRemove={(id) =>
                     applyOptimistic({ kind: "remove", id })
                   }
+                  onOpenDetail={() => setSheetEntry(e)}
                   onRefresh={() => router.refresh()}
                 />
               ))}
@@ -334,6 +352,7 @@ type RowProps = {
   onOptimisticToggle: (id: string, boughtAt: string | null) => void;
   onOptimisticRemove: (id: string) => void;
   onOptimisticUpdateQty?: (id: string, quantity: number | null) => void;
+  onOpenDetail: () => void;
   onRefresh: () => void;
 };
 
@@ -342,6 +361,7 @@ function Row({
   onOptimisticToggle,
   onOptimisticRemove,
   onOptimisticUpdateQty,
+  onOpenDetail,
   onRefresh,
 }: RowProps) {
   const [pending, startTransition] = useTransition();
@@ -432,7 +452,11 @@ function Row({
         )}
       </button>
 
-      <div className="min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={onOpenDetail}
+        className="min-w-0 flex-1 text-left"
+      >
         <p
           className={cn(
             "truncate text-sm",
@@ -446,12 +470,12 @@ function Row({
             </span>
           )}
         </p>
-        {entry.brand && !entry.customName && (
-          <p className="truncate text-xs text-muted">
+        {entry.brand && (
+          <p className="truncate text-xs text-muted-foreground">
             {entry.brand}
           </p>
         )}
-      </div>
+      </button>
 
       {/* Right-hand actions. Order depends on state:
           - open   → Quantity editor (− n +), Löschen
