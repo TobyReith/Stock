@@ -144,6 +144,7 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
     resolveDefaultLocation(seedCategory, storageLocations),
   );
   const [note, setNote] = useState("");
+  const [locationResetHint, setLocationResetHint] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -160,6 +161,19 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
     [categories, itemCategory],
   );
 
+  // Storage locations filtered for the active item category.
+  // A location with an empty categories array is a universal fallback.
+  const filteredStorageLocations = useMemo(
+    () =>
+      storageLocations.filter(
+        (l) =>
+          l.categories.length === 0 ||
+          l.slug === "other" ||
+          l.categories.includes(itemCategory),
+      ),
+    [storageLocations, itemCategory],
+  );
+
   // When the user changes the category on an unknown/manual entry, bump
   // the default MHD + location — but only if they haven't customized them.
   function handleCategoryChange(next: string) {
@@ -171,6 +185,7 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
   }
 
   function handleItemCategoryChange(next: ItemCategoryType) {
+    setLocationResetHint(false);
     setItemCategory(next);
     // Reset to the "sonstiges"-equivalent for the new top-level category.
     const nextCats = categories.filter((c) => c.parentCategory === next);
@@ -178,6 +193,22 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
       nextCats.find((c) => c.slug.includes("sonstiges") || c.slug === "other") ??
       nextCats[0];
     if (fallback) handleCategoryChange(fallback.slug);
+
+    // If the current location isn't valid for the new category, reset it.
+    const currentLoc = storageLocations.find((l) => l.slug === location);
+    const isStillValid =
+      !currentLoc ||
+      currentLoc.categories.length === 0 ||
+      currentLoc.slug === "other" ||
+      currentLoc.categories.includes(next);
+
+    if (!isStillValid) {
+      const validLocs = storageLocations.filter(
+        (l) => l.categories.length === 0 || l.slug === "other" || l.categories.includes(next),
+      );
+      setLocation(resolveDefaultLocation(fallback?.slug ?? "other", validLocs));
+      setLocationResetHint(true);
+    }
   }
 
   function handleAutocompleteSelect(result: ProductSearchResult) {
@@ -433,13 +464,16 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
       <FieldRow>
         <Label>Lagerort</Label>
         <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-1">
-          {storageLocations.map(({ slug, name, icon }) => {
+          {filteredStorageLocations.map(({ slug, name, icon }) => {
             const active = location === slug;
             return (
               <button
                 key={slug}
                 type="button"
-                onClick={() => setLocation(slug)}
+                onClick={() => {
+                  setLocation(slug);
+                  setLocationResetHint(false);
+                }}
                 aria-pressed={active}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-lg py-2 text-xs transition-colors",
@@ -454,6 +488,11 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
             );
           })}
         </div>
+        {locationResetHint && (
+          <p className="text-xs text-warning">
+            Lagerort wurde für die neue Kategorie angepasst.
+          </p>
+        )}
       </FieldRow>
 
       <FieldRow>

@@ -7,14 +7,43 @@ import { getActiveHouseholdId } from "@/lib/households/active";
 import {
   createStorageLocationSchema,
   updateStorageLocationSchema,
+  setStorageLocationCategoriesSchema,
   type StorageLocationDisplay,
+  type ItemCategoryKey,
   type CreateStorageLocationInput,
   type UpdateStorageLocationInput,
+  type SetStorageLocationCategoriesInput,
 } from "@/lib/schemas/storage-locations";
 import { type ActionResult, fail } from "@/lib/actions/result";
 import type { Database } from "@/lib/supabase/database.types";
 
 type StorageLocationUpdate = Database["public"]["Tables"]["storage_locations"]["Update"];
+
+type RawStorageLocation = {
+  id: string;
+  slug: string;
+  name: string;
+  icon: string;
+  sort_order: number;
+  is_system: boolean;
+  temperature_hint: string;
+  storage_location_categories: Array<{ category: string }> | null;
+};
+
+function mapStorageLocation(l: RawStorageLocation): StorageLocationDisplay {
+  return {
+    id: l.id,
+    slug: l.slug,
+    name: l.name,
+    icon: l.icon,
+    sortOrder: l.sort_order,
+    isSystem: l.is_system,
+    temperatureHint: l.temperature_hint as StorageLocationDisplay["temperatureHint"],
+    categories: (l.storage_location_categories ?? []).map(
+      (c) => c.category as ItemCategoryKey,
+    ),
+  };
+}
 
 export async function listStorageLocations(): Promise<ActionResult<StorageLocationDisplay[]>> {
   const supabase = await createClient();
@@ -26,7 +55,7 @@ export async function listStorageLocations(): Promise<ActionResult<StorageLocati
 
   const { data, error } = await supabase
     .from("storage_locations")
-    .select("id, name, icon, slug, sort_order, is_system, temperature_hint")
+    .select("id, name, icon, slug, sort_order, is_system, temperature_hint, storage_location_categories(category)")
     .eq("household_id", householdId)
     .order("sort_order", { ascending: true });
 
@@ -34,15 +63,7 @@ export async function listStorageLocations(): Promise<ActionResult<StorageLocati
 
   return {
     ok: true,
-    data: (data ?? []).map((l) => ({
-      id: l.id,
-      slug: l.slug,
-      name: l.name,
-      icon: l.icon,
-      sortOrder: l.sort_order,
-      isSystem: l.is_system,
-      temperatureHint: l.temperature_hint as StorageLocationDisplay["temperatureHint"],
-    })),
+    data: (data ?? []).map((l) => mapStorageLocation(l)),
   };
 }
 
@@ -199,6 +220,54 @@ export async function reorderStorageLocations(
 
   const firstErr = results.find((r) => r.error);
   if (firstErr?.error) return fail(firstErr.error.message);
+
+  revalidatePath("/settings/lagerorte");
+  revalidatePath("/");
+  return { ok: true, data: undefined };
+}
+
+export async function setStorageLocationCategories(
+  input: SetStorageLocationCategoriesInput,
+): Promise<ActionResult> {
+  const parsed = setStorageLocationCategoriesSchema.safeParse(input);
+  if (!parsed.success)
+    return fail(parsed.error.issues.map((i) => i.message).join("; "));
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return fail("Nicht angemeldet");
+
+  const householdId = await getActiveHouseholdId(supabase, user.id);
+  if (!householdId) return fail("Kein aktiver Haushalt");
+
+  const { data: loc } = await supabase
+    .from("storage_locations")
+    .select("id")
+    .eq("id", v.storageLocationId)
+    .eq("household_id", householdId)
+    .maybeSingle();
+
+  if (!loc) return fail("Lagerort nicht gefunden");
+
+  const { error: delErr } = await supabase
+    .from("storage_location_categories")
+    .delete()
+    .eq("storage_location_id", v.storageLocationId);
+
+  if (delErr) return fail(delErr.message);
+
+  if (v.categories.length > 0) {
+    const { error: insErr } = await supabase
+      .from("storage_location_categories")
+      .insert(
+        v.categories.map((category) => ({
+          storage_location_id: v.storageLocationId,
+          category,
+        })),
+      );
+    if (insErr) return fail(insErr.message);
+  }
 
   revalidatePath("/settings/lagerorte");
   revalidatePath("/");
