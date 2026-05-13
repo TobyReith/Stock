@@ -145,6 +145,7 @@ export async function generateRecipeSuggestions(
           "id, quantity, unit, best_before, custom_name, product:products(name, brand)",
         )
         .eq("household_id", householdId)
+        .eq("item_category", "food")
         .is("consumed_at", null)
         .is("discarded_at", null)
         .lte("best_before", thresholdStr)
@@ -213,11 +214,12 @@ export async function generateRecipeSuggestions(
       return { ok: false, reason: "quota_exceeded" };
     }
 
-    // Load pantry items.
+    // Load pantry items (food only — hygiene/medicine are irrelevant for recipes).
     const pantryQuery = supabase
       .from("items")
       .select("custom_name, custom_category, product:products(name, category), quantity, unit")
       .eq("household_id", householdId)
+      .eq("item_category", "food")
       .is("consumed_at", null)
       .is("discarded_at", null)
       .gt("quantity", 0)

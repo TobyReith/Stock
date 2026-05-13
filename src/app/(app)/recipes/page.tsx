@@ -42,6 +42,7 @@ export default async function RecipesPage({
         .from("items")
         .select("id, best_before, custom_name, quantity, unit, product:products(name)")
         .eq("household_id", householdId)
+        .eq("item_category", "food")
         .is("consumed_at", null)
         .is("discarded_at", null)
         .lte("best_before", thresholdStr)
