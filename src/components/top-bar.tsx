@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveHouseholdId, listMemberships } from "@/lib/households/active";
 import { HouseholdSwitcher } from "@/app/(app)/_header/household-switcher";
 import { buttonVariants } from "@/components/ui/button";
+import { FeedbackButton } from "@/components/feedback/feedback-button";
 
 export async function TopBar() {
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
@@ -19,13 +20,16 @@ export async function TopBar() {
     <header className="fixed inset-x-0 top-0 z-40 h-11 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-full max-w-md items-center justify-between px-4">
         <HouseholdSwitcher memberships={memberships} activeId={activeHouseholdId} />
-        <Link
-          href="/settings"
-          aria-label="Einstellungen"
-          className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-        >
-          <Settings className="size-4" aria-hidden />
-        </Link>
+        <div className="flex items-center gap-1">
+          <FeedbackButton />
+          <Link
+            href="/settings"
+            aria-label="Einstellungen"
+            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+          >
+            <Settings className="size-4" aria-hidden />
+          </Link>
+        </div>
       </div>
     </header>
   );
