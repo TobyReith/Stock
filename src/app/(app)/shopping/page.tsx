@@ -97,6 +97,30 @@ async function loadShoppingEntries(
     parentCategory: c.parent_category,
   }));
 
+  // For shopping entries that pre-date the item_category column (null), infer
+  // the type from the matching Vorrat item so the correct category set is shown
+  // in the detail sheet without requiring manual correction.
+  const nullTypedProductIds = (itemsResult.data ?? [])
+    .filter((r) => !r.item_category && r.product_id)
+    .map((r) => r.product_id!);
+
+  const inferredItemCategory = new Map<string, string>();
+  if (nullTypedProductIds.length > 0) {
+    const { data: stockItems } = await supabase
+      .from("items")
+      .select("product_id, item_category")
+      .in("product_id", nullTypedProductIds)
+      .eq("household_id", householdId)
+      .is("consumed_at", null)
+      .is("discarded_at", null);
+
+    for (const si of stockItems ?? []) {
+      if (si.product_id && si.item_category && !inferredItemCategory.has(si.product_id)) {
+        inferredItemCategory.set(si.product_id, si.item_category);
+      }
+    }
+  }
+
   const open: ShoppingEntry[] = [];
   const recent: ShoppingEntry[] = [];
   for (const row of itemsResult.data ?? []) {
@@ -113,7 +137,7 @@ async function loadShoppingEntries(
       brand: row.product?.brand ?? row.brand ?? null,
       imageUrl: row.product?.image_url ?? row.image_url ?? null,
       category: row.product?.category ?? row.category ?? null,
-      itemCategory: (row.item_category ?? "food") as ShoppingEntry["itemCategory"],
+      itemCategory: (row.item_category ?? inferredItemCategory.get(row.product_id ?? "") ?? "food") as ShoppingEntry["itemCategory"],
     };
     if (row.bought_at) recent.push(entry);
     else open.push(entry);
