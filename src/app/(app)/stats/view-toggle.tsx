@@ -11,7 +11,7 @@ export function ViewToggle({
   current: ViewKey;
   range: RangeKey;
 }) {
-  const rangeParam = range === "30" ? "" : `&range=${range}`;
+  const rangeParam = range === "30" ? "" : `range=${range}`;
 
   return (
     <nav
@@ -19,19 +19,7 @@ export function ViewToggle({
       className="grid grid-cols-2 gap-1 rounded-lg border border-border p-1"
     >
       <Link
-        href={`/stats${rangeParam}`}
-        aria-current={current === "history" ? "page" : undefined}
-        className={cn(
-          "rounded-lg py-1.5 text-center text-xs font-medium transition-colors",
-          current === "history"
-            ? "bg-primary text-primary-fg"
-            : "text-muted hover:bg-surface-raised hover:text-foreground",
-        )}
-      >
-        Historie
-      </Link>
-      <Link
-        href={`/stats?view=stats${rangeParam}`}
+        href={rangeParam ? `/stats?${rangeParam}` : "/stats"}
         aria-current={current === "stats" ? "page" : undefined}
         className={cn(
           "rounded-lg py-1.5 text-center text-xs font-medium transition-colors",
@@ -41,6 +29,18 @@ export function ViewToggle({
         )}
       >
         Statistik
+      </Link>
+      <Link
+        href={`/stats?view=history${rangeParam ? `&${rangeParam}` : ""}`}
+        aria-current={current === "history" ? "page" : undefined}
+        className={cn(
+          "rounded-lg py-1.5 text-center text-xs font-medium transition-colors",
+          current === "history"
+            ? "bg-primary text-primary-fg"
+            : "text-muted hover:bg-surface-raised hover:text-foreground",
+        )}
+      >
+        Historie
       </Link>
     </nav>
   );

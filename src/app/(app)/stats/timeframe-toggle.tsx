@@ -22,7 +22,7 @@ export function TimeframeToggle({
   current: RangeKey;
   view: ViewKey;
 }) {
-  const viewParam = view === "stats" ? "view=stats&" : "";
+  const viewParam = view === "history" ? "view=history&" : "";
 
   return (
     <nav

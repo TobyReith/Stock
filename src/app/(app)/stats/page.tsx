@@ -10,19 +10,21 @@ import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 import { TimeframeToggle, type RangeKey, RANGE_DAYS } from "./timeframe-toggle";
 import { ViewToggle, type ViewKey } from "./view-toggle";
+import { ArtToggle, type ArtKey } from "./art-toggle";
 import { HistoryView, type HistoryEvent } from "./history-view";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Historie" };
+export const metadata: Metadata = { title: "Statistik" };
 
 export default async function StatsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; view?: string }>;
+  searchParams: Promise<{ range?: string; view?: string; art?: string }>;
 }) {
   const params = await searchParams;
   const range = parseRange(params.range);
-  const view: ViewKey = params.view === "stats" ? "stats" : "history";
+  const view: ViewKey = params.view === "history" ? "history" : "stats";
+  const art = parseArt(params.art);
 
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   if (!user) return <AuthPrompt />;
@@ -66,7 +68,7 @@ export default async function StatsPage({
   // ── Stats view ──────────────────────────────────────────────────────────────
   const base = supabase
     .from("items")
-    .select("consumed_at, discarded_at, custom_category, product:products ( category )")
+    .select("consumed_at, discarded_at, custom_category, item_category, product:products ( category )")
     .eq("household_id", activeHouseholdId)
     .or("consumed_at.not.is.null,discarded_at.not.is.null");
 
@@ -80,8 +82,10 @@ export default async function StatsPage({
   const rows = (data ?? []).map((r) => ({
     closed: closedKind(r.consumed_at, r.discarded_at, cutoffIso),
     category: (r.custom_category ?? r.product?.category ?? "other") as CategoryKey,
+    itemCategory: r.item_category ?? "food",
   }));
-  const effective = rows.filter((r) => r.closed !== null);
+
+  const effective = rows.filter((r) => r.closed !== null && r.itemCategory === art);
   const totals = {
     consumed: effective.filter((r) => r.closed === "consumed").length,
     discarded: effective.filter((r) => r.closed === "discarded").length,
@@ -94,6 +98,7 @@ export default async function StatsPage({
     <PageShell>
       <ViewToggle current={view} range={range} />
       <TimeframeToggle current={range} view={view} />
+      <ArtToggle current={art} range={range} />
 
       {closedTotal === 0 ? (
         <EmptyForRange range={range} />
@@ -123,13 +128,19 @@ export default async function StatsPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {byCategory.map(({ key, consumed, discarded }) => (
-                    <tr key={key} className="border-t border-border">
-                      <td className="px-3 py-2">{getCategory(key).label}</td>
-                      <td className="px-3 py-2 text-right font-mono tabular-nums">{consumed}</td>
-                      <td className="px-3 py-2 text-right font-mono tabular-nums">{discarded}</td>
-                    </tr>
-                  ))}
+                  {byCategory.map(({ key, consumed, discarded }) => {
+                    const cat = getCategory(key);
+                    return (
+                      <tr key={key} className="border-t border-border">
+                        <td className="px-3 py-2">
+                          <span aria-hidden className="mr-1.5">{cat.icon}</span>
+                          {cat.label}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums">{consumed}</td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums">{discarded}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -220,7 +231,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
       <header className="mb-4">
-        <h1 className="font-serif text-[26px] font-medium tracking-tight">Historie</h1>
+        <h1 className="font-serif text-[26px] font-medium tracking-tight">Statistik</h1>
       </header>
       <div className="flex flex-col gap-4">{children}</div>
     </div>
@@ -233,6 +244,12 @@ function parseRange(raw: string | undefined): RangeKey {
   if (raw === "90") return "90";
   if (raw === "all") return "all";
   return "30";
+}
+
+function parseArt(raw: string | undefined): ArtKey {
+  if (raw === "hygiene") return "hygiene";
+  if (raw === "medicine") return "medicine";
+  return "food";
 }
 
 function rangeCutoff(range: RangeKey): string | null {
@@ -307,7 +324,7 @@ function AuthPrompt() {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
       <p className="text-sm text-muted">
-        Bitte melde dich an, um die Historie zu sehen.
+        Bitte melde dich an, um die Statistik zu sehen.
       </p>
     </div>
   );
