@@ -52,6 +52,7 @@ export function SwipeableItemRow({
       brand: item.brand ?? undefined,
       imageUrl: item.imageUrl ?? undefined,
       category: item.category ?? undefined,
+      itemCategory: item.itemCategory as "food" | "hygiene" | "medicine" | "other",
       quantity: item.quantity,
       unit: item.unit ?? undefined,
     });

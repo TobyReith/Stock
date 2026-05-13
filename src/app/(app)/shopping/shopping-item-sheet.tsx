@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Loader2, Minus, Package, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Loader2, Minus, Package, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,12 +16,13 @@ import {
   deleteShoppingItem,
   updateShoppingItemDetails,
 } from "@/lib/actions/shopping";
-import { CATEGORIES } from "@/lib/constants/categories";
 import { cn } from "@/lib/utils";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { ShoppingEntry } from "./shopping-list";
 
 type Props = {
   entry: ShoppingEntry | null;
+  categories: CategoryDisplay[];
   onClose: () => void;
   onOptimisticUpdate: (id: string, patch: Partial<ShoppingEntry>) => void;
   onOptimisticRemove: (id: string) => void;
@@ -30,6 +31,7 @@ type Props = {
 
 export function ShoppingItemSheet({
   entry,
+  categories,
   onClose,
   onOptimisticUpdate,
   onOptimisticRemove,
@@ -41,6 +43,7 @@ export function ShoppingItemSheet({
   const [unit, setUnit] = useState("");
   const [note, setNote] = useState("");
   const [category, setCategory] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     if (entry) {
@@ -49,6 +52,7 @@ export function ShoppingItemSheet({
       setUnit(entry.unit ?? "");
       setNote(entry.note ?? "");
       setCategory(entry.category);
+      setPickerOpen(false);
     }
   }, [entry]);
 
@@ -95,6 +99,11 @@ export function ShoppingItemSheet({
       onRefresh();
     });
   }
+
+  const relevantCats = categories.filter(
+    (c) => c.parentCategory === (entry?.itemCategory ?? "food"),
+  );
+  const currentCat = relevantCats.find((c) => c.slug === category);
 
   const name = entry
     ? (entry.customName ?? entry.productName ?? "Unbenannt")
@@ -187,23 +196,33 @@ export function ShoppingItemSheet({
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[13px] font-medium">Kategorie</label>
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.key}
-                  type="button"
-                  onClick={() => setCategory(cat.key)}
-                  className={cn(
-                    "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
-                    category === cat.key
-                      ? "border-primary bg-primary text-primary-fg"
-                      : "border-border text-muted-foreground hover:border-border-strong hover:text-foreground",
-                  )}
-                >
-                  {cat.icon} {cat.label}
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={() => setPickerOpen((o) => !o)}
+              className="flex items-center gap-2 self-start rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-border-strong"
+            >
+              {currentCat ? <>{currentCat.icon} {currentCat.name}</> : "Keine Kategorie"}
+              <ChevronDown className={cn("size-3 text-muted-foreground transition-transform", pickerOpen && "rotate-180")} aria-hidden />
+            </button>
+            {pickerOpen && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {relevantCats.map((cat) => (
+                  <button
+                    key={cat.slug}
+                    type="button"
+                    onClick={() => { setCategory(cat.slug); setPickerOpen(false); }}
+                    className={cn(
+                      "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      category === cat.slug
+                        ? "border-primary bg-primary text-primary-fg"
+                        : "border-border text-muted-foreground hover:border-border-strong hover:text-foreground",
+                    )}
+                  >
+                    {cat.icon} {cat.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <Button className="w-full" onClick={handleSave} disabled={pending}>

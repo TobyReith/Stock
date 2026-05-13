@@ -26,6 +26,7 @@ export function AddToShoppingButton({
   brand,
   imageUrl,
   category,
+  itemCategory,
   quantity,
   unit,
 }: {
@@ -35,6 +36,7 @@ export function AddToShoppingButton({
   brand: string | null;
   imageUrl: string | null;
   category: string | null;
+  itemCategory: string;
   quantity: number;
   unit: string | null;
 }) {
@@ -55,6 +57,7 @@ export function AddToShoppingButton({
         brand: brand ?? undefined,
         imageUrl: imageUrl ?? undefined,
         category: category ?? undefined,
+        itemCategory: itemCategory as "food" | "hygiene" | "medicine" | "other",
         quantity: quantity > 0 ? quantity : undefined,
         unit: unit ?? undefined,
       });

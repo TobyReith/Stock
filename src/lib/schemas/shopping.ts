@@ -24,6 +24,7 @@ export const addShoppingItemSchema = z
     brand: z.string().trim().max(200).optional(),
     imageUrl: z.string().url().optional(),
     category: z.string().max(40).optional(),
+    itemCategory: z.enum(["food", "hygiene", "medicine", "other"]).optional(),
     quantity: z.coerce.number().positive("Menge muss > 0 sein").optional(),
     unit: z.string().trim().max(20).optional(),
     note: z.string().trim().max(500).optional(),

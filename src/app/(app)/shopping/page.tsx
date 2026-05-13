@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/session";
 import { getActiveHouseholdId } from "@/lib/households/active";
 import type { Database } from "@/lib/supabase/database.types";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
 import { ShoppingList, type ShoppingEntry } from "./shopping-list";
 
 export const metadata: Metadata = { title: "Einkauf" };
@@ -14,9 +15,9 @@ export default async function ShoppingPage() {
 
   const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
 
-  const { open, recent, error } = activeHouseholdId
+  const { open, recent, categories, error } = activeHouseholdId
     ? await loadShoppingEntries(supabase, activeHouseholdId)
-    : { open: [] as ShoppingEntry[], recent: [] as ShoppingEntry[], error: null };
+    : { open: [] as ShoppingEntry[], recent: [] as ShoppingEntry[], categories: [] as CategoryDisplay[], error: null };
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6">
@@ -35,7 +36,7 @@ export default async function ShoppingPage() {
           Konnte Liste nicht laden: {error}
         </div>
       ) : (
-        <ShoppingList open={open} recent={recent} />
+        <ShoppingList open={open} recent={recent} categories={categories} />
       )}
     </div>
   );
@@ -57,29 +58,48 @@ async function loadShoppingEntries(
 ): Promise<{
   open: ShoppingEntry[];
   recent: ShoppingEntry[];
+  categories: CategoryDisplay[];
   error: string | null;
 }> {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 7);
 
-  const { data, error } = await supabase
-    .from("shopping_list_items")
-    .select(
-      `
-      id, custom_name, brand, image_url, category, quantity, unit, note, added_at, bought_at, product_id,
-      product:products ( id, name, brand, image_url, category )
-      `,
-    )
-    .eq("household_id", householdId)
-    .or(`bought_at.is.null,bought_at.gte.${cutoff.toISOString()}`)
-    .order("added_at", { ascending: false });
+  const [itemsResult, categoriesResult] = await Promise.all([
+    supabase
+      .from("shopping_list_items")
+      .select(
+        `
+        id, custom_name, brand, image_url, category, item_category, quantity, unit, note, added_at, bought_at, product_id,
+        product:products ( id, name, brand, image_url, category )
+        `,
+      )
+      .eq("household_id", householdId)
+      .or(`bought_at.is.null,bought_at.gte.${cutoff.toISOString()}`)
+      .order("added_at", { ascending: false }),
+    supabase
+      .from("categories")
+      .select("id, name, icon, slug, sort_order, is_system, color, parent_category")
+      .eq("household_id", householdId)
+      .order("sort_order", { ascending: true }),
+  ]);
 
-  if (error)
-    return { open: [], recent: [], error: error.message };
+  if (itemsResult.error)
+    return { open: [], recent: [], categories: [], error: itemsResult.error.message };
+
+  const categories: CategoryDisplay[] = (categoriesResult.data ?? []).map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    name: c.name,
+    icon: c.icon,
+    color: c.color,
+    sortOrder: c.sort_order,
+    isSystem: c.is_system,
+    parentCategory: c.parent_category,
+  }));
 
   const open: ShoppingEntry[] = [];
   const recent: ShoppingEntry[] = [];
-  for (const row of data ?? []) {
+  for (const row of itemsResult.data ?? []) {
     const entry: ShoppingEntry = {
       id: row.id,
       customName: row.custom_name,
@@ -93,6 +113,7 @@ async function loadShoppingEntries(
       brand: row.product?.brand ?? row.brand ?? null,
       imageUrl: row.product?.image_url ?? row.image_url ?? null,
       category: row.product?.category ?? row.category ?? null,
+      itemCategory: (row.item_category ?? "food") as ShoppingEntry["itemCategory"],
     };
     if (row.bought_at) recent.push(entry);
     else open.push(entry);
@@ -100,5 +121,5 @@ async function loadShoppingEntries(
 
   recent.sort((a, b) => (b.boughtAt ?? "").localeCompare(a.boughtAt ?? ""));
 
-  return { open, recent, error: null };
+  return { open, recent, categories, error: null };
 }

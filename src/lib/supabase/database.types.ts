@@ -534,6 +534,7 @@ export type Database = {
           household_id: string
           id: string
           image_url: string | null
+          item_category: string | null
           note: string | null
           product_id: string | null
           quantity: number | null
@@ -549,6 +550,7 @@ export type Database = {
           household_id: string
           id?: string
           image_url?: string | null
+          item_category?: string | null
           note?: string | null
           product_id?: string | null
           quantity?: number | null
@@ -564,6 +566,7 @@ export type Database = {
           household_id?: string
           id?: string
           image_url?: string | null
+          item_category?: string | null
           note?: string | null
           product_id?: string | null
           quantity?: number | null
