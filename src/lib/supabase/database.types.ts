@@ -528,9 +528,11 @@ export type Database = {
           added_at: string
           added_by: string | null
           bought_at: string | null
+          brand: string | null
           custom_name: string | null
           household_id: string
           id: string
+          image_url: string | null
           note: string | null
           product_id: string | null
           quantity: number | null
@@ -540,9 +542,11 @@ export type Database = {
           added_at?: string
           added_by?: string | null
           bought_at?: string | null
+          brand?: string | null
           custom_name?: string | null
           household_id: string
           id?: string
+          image_url?: string | null
           note?: string | null
           product_id?: string | null
           quantity?: number | null
@@ -552,9 +556,11 @@ export type Database = {
           added_at?: string
           added_by?: string | null
           bought_at?: string | null
+          brand?: string | null
           custom_name?: string | null
           household_id?: string
           id?: string
+          image_url?: string | null
           note?: string | null
           product_id?: string | null
           quantity?: number | null

@@ -66,7 +66,7 @@ async function loadShoppingEntries(
     .from("shopping_list_items")
     .select(
       `
-      id, custom_name, quantity, unit, note, added_at, bought_at, product_id,
+      id, custom_name, brand, image_url, quantity, unit, note, added_at, bought_at, product_id,
       product:products ( id, name, brand, image_url, category )
       `,
     )
@@ -90,8 +90,8 @@ async function loadShoppingEntries(
       boughtAt: row.bought_at,
       productId: row.product_id,
       productName: row.product?.name ?? null,
-      brand: row.product?.brand ?? null,
-      imageUrl: row.product?.image_url ?? null,
+      brand: row.product?.brand ?? row.brand ?? null,
+      imageUrl: row.product?.image_url ?? row.image_url ?? null,
       category: row.product?.category ?? null,
     };
     if (row.bought_at) recent.push(entry);
