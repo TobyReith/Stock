@@ -51,6 +51,7 @@ export function SwipeableItemRow({
       customName: displayName,
       brand: item.brand ?? undefined,
       imageUrl: item.imageUrl ?? undefined,
+      category: item.category ?? undefined,
       quantity: item.quantity,
       unit: item.unit ?? undefined,
     });

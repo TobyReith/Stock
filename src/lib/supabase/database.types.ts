@@ -529,6 +529,7 @@ export type Database = {
           added_by: string | null
           bought_at: string | null
           brand: string | null
+          category: string | null
           custom_name: string | null
           household_id: string
           id: string
@@ -543,6 +544,7 @@ export type Database = {
           added_by?: string | null
           bought_at?: string | null
           brand?: string | null
+          category?: string | null
           custom_name?: string | null
           household_id: string
           id?: string
@@ -557,6 +559,7 @@ export type Database = {
           added_by?: string | null
           bought_at?: string | null
           brand?: string | null
+          category?: string | null
           custom_name?: string | null
           household_id?: string
           id?: string

@@ -63,6 +63,7 @@ export async function addShoppingItem(
         custom_name: v.customName ?? null,
         brand: v.brand ?? null,
         image_url: v.imageUrl ?? null,
+        category: v.category ?? null,
         quantity: v.quantity ?? null,
         unit: v.unit ?? null,
         note: v.note ?? null,
@@ -253,6 +254,7 @@ export async function updateShoppingItemDetails(
     quantity?: number | null;
     unit?: string | null;
     note?: string | null;
+    category?: string | null;
   },
 ): Promise<ActionResult> {
   const parsedId = shoppingItemIdSchema.safeParse(id);
@@ -278,6 +280,7 @@ export async function updateShoppingItemDetails(
   if (patch.quantity !== undefined) update.quantity = patch.quantity;
   if (patch.unit !== undefined) update.unit = patch.unit?.trim() || null;
   if (patch.note !== undefined) update.note = patch.note?.trim() || null;
+  if (patch.category !== undefined) update.category = patch.category;
 
   if (Object.keys(update).length === 0) {
     return { ok: true, data: undefined };
@@ -293,6 +296,15 @@ export async function updateShoppingItemDetails(
     const activeHouseholdId = await getActiveHouseholdId(supabase, user.id);
     if (!activeHouseholdId) return fail("Kein aktiver Haushalt");
 
+    // Fetch product_id upfront so we can sync category to Vorrat items.
+    const { data: existing } = await supabase
+      .from("shopping_list_items")
+      .select("product_id")
+      .eq("id", parsedId.data)
+      .eq("household_id", activeHouseholdId)
+      .maybeSingle();
+    if (!existing) return fail("Eintrag nicht gefunden");
+
     const { error } = await supabase
       .from("shopping_list_items")
       .update(update)
@@ -301,6 +313,19 @@ export async function updateShoppingItemDetails(
     if (error) return fail(error.message);
 
     revalidatePath("/shopping");
+
+    // Propagate category change to matching active Vorrat items.
+    if (patch.category !== undefined && existing.product_id) {
+      await supabase
+        .from("items")
+        .update({ custom_category: patch.category })
+        .eq("product_id", existing.product_id)
+        .eq("household_id", activeHouseholdId)
+        .is("consumed_at", null)
+        .is("discarded_at", null);
+      revalidatePath("/");
+    }
+
     return { ok: true, data: undefined };
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Unbekannter Fehler");

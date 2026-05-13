@@ -16,6 +16,8 @@ import {
   deleteShoppingItem,
   updateShoppingItemDetails,
 } from "@/lib/actions/shopping";
+import { CATEGORIES } from "@/lib/constants/categories";
+import { cn } from "@/lib/utils";
 import type { ShoppingEntry } from "./shopping-list";
 
 type Props = {
@@ -38,6 +40,7 @@ export function ShoppingItemSheet({
   const [quantity, setQuantity] = useState<number | null>(null);
   const [unit, setUnit] = useState("");
   const [note, setNote] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
 
   useEffect(() => {
     if (entry) {
@@ -45,6 +48,7 @@ export function ShoppingItemSheet({
       setQuantity(entry.quantity);
       setUnit(entry.unit ?? "");
       setNote(entry.note ?? "");
+      setCategory(entry.category);
     }
   }, [entry]);
 
@@ -58,6 +62,7 @@ export function ShoppingItemSheet({
     if (quantity !== entry.quantity) patch.quantity = quantity;
     if ((unit.trim() || null) !== entry.unit) patch.unit = unit.trim() || null;
     if ((note.trim() || null) !== entry.note) patch.note = note.trim() || null;
+    if ((category ?? null) !== entry.category) patch.category = category ?? null;
 
     startTransition(async () => {
       onOptimisticUpdate(entry.id, {
@@ -67,6 +72,7 @@ export function ShoppingItemSheet({
         ...(patch.quantity !== undefined ? { quantity: patch.quantity } : {}),
         ...(patch.unit !== undefined ? { unit: patch.unit } : {}),
         ...(patch.note !== undefined ? { note: patch.note } : {}),
+        ...(patch.category !== undefined ? { category: patch.category } : {}),
       });
       const res = await updateShoppingItemDetails(entry.id, patch);
       if (!res.ok) {
@@ -177,6 +183,27 @@ export function ShoppingItemSheet({
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[13px] font-medium">Kategorie</label>
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.key}
+                  type="button"
+                  onClick={() => setCategory(cat.key)}
+                  className={cn(
+                    "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
+                    category === cat.key
+                      ? "border-primary bg-primary text-primary-fg"
+                      : "border-border text-muted-foreground hover:border-border-strong hover:text-foreground",
+                  )}
+                >
+                  {cat.icon} {cat.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <Button className="w-full" onClick={handleSave} disabled={pending}>
