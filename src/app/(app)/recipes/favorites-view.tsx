@@ -133,7 +133,7 @@ export function FavoritesView({ initialFavorites, householdTags }: Props) {
         </div>
 
         {/* Filter chips */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-2 overflow-x-auto pb-2">
           {/* Sort */}
           <select
             value={sortBy}
