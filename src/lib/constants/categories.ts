@@ -28,6 +28,7 @@ export type CategoryKey =
 export type Category = {
   key: CategoryKey;
   label: string;
+  icon: string;
   /** Default shelf life if we have nothing else. In days. */
   defaultShelfLifeDays: number;
   /** Typical storage location for this category (matches storage_locations.slug). */
@@ -35,19 +36,19 @@ export type Category = {
 };
 
 export const CATEGORIES: readonly Category[] = [
-  { key: "dairy",          label: "Milch & Käse",       defaultShelfLifeDays: 7,   defaultLocation: "fridge" },
-  { key: "meat_fish",      label: "Fleisch & Fisch",    defaultShelfLifeDays: 3,   defaultLocation: "fridge" },
-  { key: "produce",        label: "Obst & Gemüse",      defaultShelfLifeDays: 7,   defaultLocation: "fridge" },
-  { key: "frozen",         label: "Tiefkühl",           defaultShelfLifeDays: 180, defaultLocation: "freezer" },
-  { key: "canned",         label: "Konserven",          defaultShelfLifeDays: 730, defaultLocation: "pantry" },
-  { key: "dry_pasta_rice", label: "Nudeln & Reis",      defaultShelfLifeDays: 730, defaultLocation: "pantry" },
-  { key: "dry_baking",     label: "Mehl & Zucker",      defaultShelfLifeDays: 365, defaultLocation: "pantry" },
-  { key: "bread",          label: "Brot & Backwaren",   defaultShelfLifeDays: 5,   defaultLocation: "pantry" },
-  { key: "spices",         label: "Gewürze",            defaultShelfLifeDays: 730, defaultLocation: "pantry" },
-  { key: "condiments",     label: "Saucen & Öl",        defaultShelfLifeDays: 365, defaultLocation: "pantry" },
-  { key: "snacks",         label: "Snacks & Süßes",     defaultShelfLifeDays: 180, defaultLocation: "pantry" },
-  { key: "beverages",      label: "Getränke",           defaultShelfLifeDays: 365, defaultLocation: "pantry" },
-  { key: "other",          label: "Sonstiges",          defaultShelfLifeDays: 90,  defaultLocation: "pantry" },
+  { key: "dairy",          icon: "🥛", label: "Milch & Käse",       defaultShelfLifeDays: 7,   defaultLocation: "fridge" },
+  { key: "meat_fish",      icon: "🥩", label: "Fleisch & Fisch",    defaultShelfLifeDays: 3,   defaultLocation: "fridge" },
+  { key: "produce",        icon: "🥦", label: "Obst & Gemüse",      defaultShelfLifeDays: 7,   defaultLocation: "fridge" },
+  { key: "frozen",         icon: "❄️",  label: "Tiefkühl",           defaultShelfLifeDays: 180, defaultLocation: "freezer" },
+  { key: "canned",         icon: "🥫", label: "Konserven",          defaultShelfLifeDays: 730, defaultLocation: "pantry" },
+  { key: "dry_pasta_rice", icon: "🍝", label: "Nudeln & Reis",      defaultShelfLifeDays: 730, defaultLocation: "pantry" },
+  { key: "dry_baking",     icon: "🌾", label: "Mehl & Zucker",      defaultShelfLifeDays: 365, defaultLocation: "pantry" },
+  { key: "bread",          icon: "🍞", label: "Brot & Backwaren",   defaultShelfLifeDays: 5,   defaultLocation: "pantry" },
+  { key: "spices",         icon: "🧂", label: "Gewürze",            defaultShelfLifeDays: 730, defaultLocation: "pantry" },
+  { key: "condiments",     icon: "🫙", label: "Saucen & Öl",        defaultShelfLifeDays: 365, defaultLocation: "pantry" },
+  { key: "snacks",         icon: "🍿", label: "Snacks & Süßes",     defaultShelfLifeDays: 180, defaultLocation: "pantry" },
+  { key: "beverages",      icon: "🧃", label: "Getränke",           defaultShelfLifeDays: 365, defaultLocation: "pantry" },
+  { key: "other",          icon: "📦", label: "Sonstiges",          defaultShelfLifeDays: 90,  defaultLocation: "pantry" },
 ] as const;
 
 const byKey = new Map<CategoryKey, Category>(CATEGORIES.map((c) => [c.key, c]));
