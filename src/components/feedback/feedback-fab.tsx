@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { MessageSquarePlus } from "lucide-react";
 import { FeedbackSheet } from "./feedback-sheet";
 import { useTrack } from "@/lib/posthog/use-track";
@@ -8,6 +9,9 @@ import { useTrack } from "@/lib/posthog/use-track";
 export function FeedbackFab() {
   const [open, setOpen] = useState(false);
   const track = useTrack();
+  const pathname = usePathname();
+
+  if (pathname.startsWith("/settings")) return null;
 
   return (
     <>

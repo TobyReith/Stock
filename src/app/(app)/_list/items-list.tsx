@@ -273,7 +273,7 @@ function SubcategoryChips({ categories, items, activeSub, onSelect }: Subcategor
 
   return (
     <div
-      className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 scrollbar-none"
+      className="-mx-4 flex gap-2 overflow-x-auto px-4 pt-0.5 pb-2 scrollbar-none"
       role="group"
       aria-label="Unterkategorie"
     >
