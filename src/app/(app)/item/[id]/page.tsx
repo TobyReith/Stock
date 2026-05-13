@@ -147,6 +147,7 @@ export default async function ItemDetailPage({
           productName={item.productName}
           customName={item.customName}
           brand={item.brand}
+          imageUrl={item.imageUrl}
           quantity={item.quantity}
           unit={item.unit}
         />

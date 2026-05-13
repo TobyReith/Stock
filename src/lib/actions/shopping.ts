@@ -62,6 +62,7 @@ export async function addShoppingItem(
         product_id: v.productId ?? null,
         custom_name: v.customName ?? null,
         brand: v.brand ?? null,
+        image_url: v.imageUrl ?? null,
         quantity: v.quantity ?? null,
         unit: v.unit ?? null,
         note: v.note ?? null,

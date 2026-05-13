@@ -230,6 +230,7 @@ export function EditItemForm({
               productId: item.productId ?? undefined,
               customName: displayName || undefined,
               brand: item.brand ?? undefined,
+              imageUrl: item.imageUrl ?? undefined,
               quantity: item.quantity > 0 ? item.quantity : undefined,
               unit: item.unit ?? undefined,
             });
