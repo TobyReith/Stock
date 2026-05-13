@@ -120,7 +120,7 @@ export function HistoryView({
           value={catFilter}
           onChange={(e) => setCatFilter(e.target.value)}
           aria-label="Kategorie filtern"
-          className="h-8 flex-1 rounded-lg border border-border bg-surface px-2.5 text-xs text-foreground outline-none focus:border-border-strong"
+          className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-surface px-2.5 text-xs text-foreground outline-none focus:border-border-strong"
         >
           <option value="all">Alle Kategorien</option>
           {categories.map((c) => (
@@ -133,7 +133,7 @@ export function HistoryView({
           value={locFilter}
           onChange={(e) => setLocFilter(e.target.value)}
           aria-label="Lagerort filtern"
-          className="h-8 flex-1 rounded-lg border border-border bg-surface px-2.5 text-xs text-foreground outline-none focus:border-border-strong"
+          className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-surface px-2.5 text-xs text-foreground outline-none focus:border-border-strong"
         >
           <option value="all">Alle Lagerorte</option>
           {storageLocations.map((l) => (

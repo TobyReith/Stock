@@ -18,7 +18,7 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-dvh flex-col">
       <TopBar />
-      <main className="flex-1 pt-11 pb-[calc(5rem+env(safe-area-inset-bottom))]">
+      <main className="flex-1 pt-11 pb-[calc(5rem+env(safe-area-inset-bottom))] overflow-x-hidden">
         {children}
       </main>
       <BottomNav />

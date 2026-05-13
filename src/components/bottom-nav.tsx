@@ -25,19 +25,21 @@ export function BottomNav() {
 
   return (
     <>
-      {/* Floating action button */}
-      <Link
-        href="/add"
-        aria-label="Hinzufügen"
-        className={cn(
-          "fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] right-4 z-50",
-          "flex size-14 items-center justify-center rounded-full",
-          "bg-primary text-primary-fg transition-opacity hover:bg-sage-400",
-          pathname.startsWith("/add") && "opacity-70",
-        )}
-      >
-        <Plus className="size-6" aria-hidden />
-      </Link>
+      {/* Floating action button — hidden on settings pages */}
+      {!pathname.startsWith("/settings") && (
+        <Link
+          href="/add"
+          aria-label="Hinzufügen"
+          className={cn(
+            "fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] right-4 z-50",
+            "flex size-14 items-center justify-center rounded-full",
+            "bg-primary text-primary-fg transition-opacity hover:bg-sage-400",
+            pathname.startsWith("/add") && "opacity-70",
+          )}
+        >
+          <Plus className="size-6" aria-hidden />
+        </Link>
+      )}
 
       {/* Bottom navigation bar */}
       <nav
