@@ -61,6 +61,7 @@ export async function addShoppingItem(
         household_id: householdId,
         product_id: v.productId ?? null,
         custom_name: v.customName ?? null,
+        brand: v.brand ?? null,
         quantity: v.quantity ?? null,
         unit: v.unit ?? null,
         note: v.note ?? null,

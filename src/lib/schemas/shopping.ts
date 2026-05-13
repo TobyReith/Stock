@@ -21,6 +21,7 @@ export const addShoppingItemSchema = z
   .object({
     productId: z.string().uuid().optional(),
     customName: z.string().trim().max(200).optional(),
+    brand: z.string().trim().max(200).optional(),
     quantity: z.coerce.number().positive("Menge muss > 0 sein").optional(),
     unit: z.string().trim().max(20).optional(),
     note: z.string().trim().max(500).optional(),
