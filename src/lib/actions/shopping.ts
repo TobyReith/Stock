@@ -256,7 +256,6 @@ export async function updateShoppingItemDetails(
     unit?: string | null;
     note?: string | null;
     category?: string | null;
-    itemCategory?: string | null;
   },
 ): Promise<ActionResult> {
   const parsedId = shoppingItemIdSchema.safeParse(id);
@@ -283,7 +282,6 @@ export async function updateShoppingItemDetails(
   if (patch.unit !== undefined) update.unit = patch.unit?.trim() || null;
   if (patch.note !== undefined) update.note = patch.note?.trim() || null;
   if (patch.category !== undefined) update.category = patch.category;
-  if (patch.itemCategory !== undefined) update.item_category = patch.itemCategory;
 
   if (Object.keys(update).length === 0) {
     return { ok: true, data: undefined };

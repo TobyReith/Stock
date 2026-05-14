@@ -43,7 +43,6 @@ export function ShoppingItemSheet({
   const [unit, setUnit] = useState("");
   const [note, setNote] = useState("");
   const [category, setCategory] = useState<string | null>(null);
-  const [itemCategory, setItemCategory] = useState<string>("food");
   const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
@@ -53,7 +52,6 @@ export function ShoppingItemSheet({
       setUnit(entry.unit ?? "");
       setNote(entry.note ?? "");
       setCategory(entry.category);
-      setItemCategory(entry.itemCategory ?? "food");
       setPickerOpen(false);
     }
   }, [entry]);
@@ -69,7 +67,6 @@ export function ShoppingItemSheet({
     if ((unit.trim() || null) !== entry.unit) patch.unit = unit.trim() || null;
     if ((note.trim() || null) !== entry.note) patch.note = note.trim() || null;
     if ((category ?? null) !== entry.category) patch.category = category ?? null;
-    if (itemCategory !== (entry.itemCategory ?? "food")) patch.itemCategory = itemCategory;
 
     startTransition(async () => {
       onOptimisticUpdate(entry.id, {
@@ -80,7 +77,6 @@ export function ShoppingItemSheet({
         ...(patch.unit !== undefined ? { unit: patch.unit } : {}),
         ...(patch.note !== undefined ? { note: patch.note } : {}),
         ...(patch.category !== undefined ? { category: patch.category } : {}),
-        ...(patch.itemCategory != null ? { itemCategory: patch.itemCategory } : {}),
       });
       const res = await updateShoppingItemDetails(entry.id, patch);
       if (!res.ok) {
@@ -104,15 +100,10 @@ export function ShoppingItemSheet({
     });
   }
 
-  const relevantCats = categories.filter((c) => c.parentCategory === itemCategory);
+  const relevantCats = categories.filter(
+    (c) => c.parentCategory === (entry?.itemCategory ?? "food"),
+  );
   const currentCat = relevantCats.find((c) => c.slug === category);
-
-  const ITEM_TYPES = [
-    { key: "food", emoji: "🍎", label: "Essen" },
-    { key: "hygiene", emoji: "🧴", label: "Hygiene" },
-    { key: "medicine", emoji: "💊", label: "Medizin" },
-    { key: "other", emoji: "📦", label: "Sonstiges" },
-  ];
 
   const name = entry
     ? (entry.customName ?? entry.productName ?? "Unbenannt")
@@ -203,26 +194,8 @@ export function ShoppingItemSheet({
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-[13px] font-medium">Art & Kategorie</label>
-            <div className="flex gap-1.5">
-              {ITEM_TYPES.map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => { setItemCategory(t.key); setCategory(null); setPickerOpen(false); }}
-                  className={cn(
-                    "flex flex-1 flex-col items-center gap-0.5 rounded-lg border py-1.5 text-[11px] font-medium transition-colors",
-                    itemCategory === t.key
-                      ? "border-primary bg-primary text-primary-fg"
-                      : "border-border text-muted-foreground hover:border-border-strong hover:text-foreground",
-                  )}
-                >
-                  <span>{t.emoji}</span>
-                  <span>{t.label}</span>
-                </button>
-              ))}
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[13px] font-medium">Kategorie</label>
             <button
               type="button"
               onClick={() => setPickerOpen((o) => !o)}

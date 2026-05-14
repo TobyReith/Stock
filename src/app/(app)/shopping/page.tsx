@@ -97,27 +97,53 @@ async function loadShoppingEntries(
     parentCategory: c.parent_category,
   }));
 
-  // For shopping entries that pre-date the item_category column (null), infer
-  // the type from the matching Vorrat item so the correct category set is shown
-  // in the detail sheet without requiring manual correction.
-  const nullTypedProductIds = (itemsResult.data ?? [])
-    .filter((r) => !r.item_category && r.product_id)
-    .map((r) => r.product_id!);
+  // For entries without item_category (pre-migration or free-text), infer the
+  // type from the Vorrat. Product-linked entries match by product_id; free-text
+  // entries fall back to a case-insensitive name match against active items.
+  const nullTyped = (itemsResult.data ?? []).filter((r) => !r.item_category);
+  const inferredItemCategory = new Map<string, string>(); // keyed by shopping row id
 
-  const inferredItemCategory = new Map<string, string>();
-  if (nullTypedProductIds.length > 0) {
-    const { data: stockItems } = await supabase
-      .from("items")
-      .select("product_id, item_category")
-      .in("product_id", nullTypedProductIds)
-      .eq("household_id", householdId)
-      .is("consumed_at", null)
-      .is("discarded_at", null);
+  if (nullTyped.length > 0) {
+    const productIds = nullTyped.filter((r) => r.product_id).map((r) => r.product_id!);
+    const names = nullTyped.filter((r) => !r.product_id && r.custom_name).map((r) => r.custom_name!.toLowerCase());
 
-    for (const si of stockItems ?? []) {
-      if (si.product_id && si.item_category && !inferredItemCategory.has(si.product_id)) {
-        inferredItemCategory.set(si.product_id, si.item_category);
+    const [byProductId, byName] = await Promise.all([
+      productIds.length > 0
+        ? supabase
+            .from("items")
+            .select("product_id, item_category")
+            .in("product_id", productIds)
+            .eq("household_id", householdId)
+            .is("consumed_at", null)
+            .is("discarded_at", null)
+        : Promise.resolve({ data: [] }),
+      names.length > 0
+        ? supabase
+            .from("items")
+            .select("custom_name, item_category")
+            .eq("household_id", householdId)
+            .is("consumed_at", null)
+            .is("discarded_at", null)
+            .not("custom_name", "is", null)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const productIdToType = new Map<string, string>();
+    for (const si of byProductId.data ?? []) {
+      if (si.product_id && si.item_category) productIdToType.set(si.product_id, si.item_category);
+    }
+    const nameToType = new Map<string, string>();
+    for (const si of byName.data ?? []) {
+      if (si.custom_name && si.item_category) {
+        nameToType.set(si.custom_name.toLowerCase(), si.item_category);
       }
+    }
+
+    for (const r of nullTyped) {
+      const inferred =
+        (r.product_id ? productIdToType.get(r.product_id) : undefined) ??
+        (r.custom_name ? nameToType.get(r.custom_name.toLowerCase()) : undefined);
+      if (inferred) inferredItemCategory.set(r.id, inferred);
     }
   }
 
@@ -137,7 +163,7 @@ async function loadShoppingEntries(
       brand: row.product?.brand ?? row.brand ?? null,
       imageUrl: row.product?.image_url ?? row.image_url ?? null,
       category: row.product?.category ?? row.category ?? null,
-      itemCategory: (row.item_category ?? inferredItemCategory.get(row.product_id ?? "") ?? "food") as ShoppingEntry["itemCategory"],
+      itemCategory: (row.item_category ?? inferredItemCategory.get(row.id) ?? "food") as ShoppingEntry["itemCategory"],
     };
     if (row.bought_at) recent.push(entry);
     else open.push(entry);
