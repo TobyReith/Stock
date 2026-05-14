@@ -529,10 +529,12 @@ export type Database = {
           added_by: string | null
           bought_at: string | null
           brand: string | null
+          category: string | null
           custom_name: string | null
           household_id: string
           id: string
           image_url: string | null
+          item_category: string | null
           note: string | null
           product_id: string | null
           quantity: number | null
@@ -543,10 +545,12 @@ export type Database = {
           added_by?: string | null
           bought_at?: string | null
           brand?: string | null
+          category?: string | null
           custom_name?: string | null
           household_id: string
           id?: string
           image_url?: string | null
+          item_category?: string | null
           note?: string | null
           product_id?: string | null
           quantity?: number | null
@@ -557,10 +561,12 @@ export type Database = {
           added_by?: string | null
           bought_at?: string | null
           brand?: string | null
+          category?: string | null
           custom_name?: string | null
           household_id?: string
           id?: string
           image_url?: string | null
+          item_category?: string | null
           note?: string | null
           product_id?: string | null
           quantity?: number | null

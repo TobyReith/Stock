@@ -26,6 +26,7 @@ import {
 } from "@/lib/actions/shopping";
 import { ShoppingItemSheet } from "./shopping-item-sheet";
 import { CATEGORIES } from "@/lib/constants/categories";
+import type { CategoryDisplay } from "@/lib/schemas/categories";
 
 /**
  * Client shell for the shopping list.
@@ -54,11 +55,13 @@ export type ShoppingEntry = {
   brand: string | null;
   imageUrl: string | null;
   category: string | null;
+  itemCategory: string;
 };
 
 type Props = {
   open: ShoppingEntry[];
   recent: ShoppingEntry[];
+  categories: CategoryDisplay[];
 };
 
 /**
@@ -72,7 +75,7 @@ type OptimisticAction =
   | { kind: "updateQty"; id: string; quantity: number | null }
   | { kind: "update"; id: string; patch: Partial<ShoppingEntry> };
 
-export function ShoppingList({ open, recent }: Props) {
+export function ShoppingList({ open, recent, categories }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [sheetEntry, setSheetEntry] = useState<ShoppingEntry | null>(null);
@@ -140,6 +143,7 @@ export function ShoppingList({ open, recent }: Props) {
       />
       <ShoppingItemSheet
         entry={sheetEntry}
+        categories={categories}
         onClose={() => setSheetEntry(null)}
         onOptimisticUpdate={(id, patch) =>
           applyOptimistic({ kind: "update", id, patch })
@@ -307,6 +311,7 @@ function AddForm({
       brand: null,
       imageUrl: null,
       category: null,
+      itemCategory: "food",
     };
 
     startTransition(async () => {

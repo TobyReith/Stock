@@ -238,6 +238,34 @@ export async function updateItem(input: UpdateItemInput): Promise<ActionResult> 
 
     revalidatePath("/");
     revalidatePath(`/item/${v.id}`);
+
+    // Sync category / item_category changes to any open shopping list entry
+    // for the same product. Keeps both views consistent without user having
+    // to update two places.
+    if (v.customCategory !== undefined || v.itemCategory !== undefined) {
+      const { data: stockItem } = await supabase
+        .from("items")
+        .select("product_id")
+        .eq("id", v.id)
+        .eq("household_id", activeHouseholdId)
+        .maybeSingle();
+
+      if (stockItem?.product_id) {
+        const shoppingPatch: { category?: string | null; item_category?: string | null } = {};
+        if (v.customCategory !== undefined) shoppingPatch.category = v.customCategory;
+        if (v.itemCategory !== undefined) shoppingPatch.item_category = v.itemCategory;
+
+        await supabase
+          .from("shopping_list_items")
+          .update(shoppingPatch)
+          .eq("product_id", stockItem.product_id)
+          .eq("household_id", activeHouseholdId)
+          .is("bought_at", null);
+
+        revalidatePath("/shopping");
+      }
+    }
+
     return { ok: true, data: undefined };
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Unbekannter Fehler");

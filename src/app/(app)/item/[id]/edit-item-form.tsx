@@ -231,6 +231,8 @@ export function EditItemForm({
               customName: displayName || undefined,
               brand: item.brand ?? undefined,
               imageUrl: item.imageUrl ?? undefined,
+              category: item.category ?? undefined,
+              itemCategory: item.itemCategory,
               quantity: item.quantity > 0 ? item.quantity : undefined,
               unit: item.unit ?? undefined,
             });
