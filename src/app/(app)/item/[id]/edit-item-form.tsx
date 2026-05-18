@@ -58,16 +58,26 @@ const ITEM_CATEGORIES = [
 const UNIT_OPTIONS = ["Stk", "L", "ml", "g", "kg", "Pkg", "Bd", "Becher"];
 
 function formatAddedAt(dateStr: string): string {
-  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
+  const addedAt = new Date(dateStr);
+  if (Number.isNaN(addedAt.getTime())) return "";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  addedAt.setHours(0, 0, 0, 0);
+  const days = Math.max(0, Math.round((today.getTime() - addedAt.getTime()) / 86_400_000));
   if (days === 0) return "heute";
   if (days === 1) return "gestern";
   return `vor ${days} Tagen`;
 }
 
-function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+function DetailRow({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
+  const labelClass = "text-[13px] text-muted font-medium shrink-0 mr-4 w-28";
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-border last:border-b-0">
-      <span className="text-[13px] text-muted font-medium shrink-0 mr-4 w-28">{label}</span>
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className={labelClass}>{label}</label>
+      ) : (
+        <span className={labelClass}>{label}</span>
+      )}
       <div className="flex-1 flex justify-end">{children}</div>
     </div>
   );
@@ -324,16 +334,20 @@ export function EditItemForm({
   function handleAddToShopping() {
     const displayName = (customName.trim() || item.productName).trim();
     const qty = Number(quantity);
+    // Only fall back to item.category when the Art hasn't changed — an
+    // Art-Wechsel clears customCategory, so item.category would be stale.
+    const nextCategory =
+      customCategory || (item.itemCategory === itemCategory ? item.category : null);
     startShoppingTransition(async () => {
       const res = await addShoppingItem({
         productId: item.productId ?? undefined,
         customName: displayName || undefined,
         brand: (customBrand.trim() || item.brand) ?? undefined,
         imageUrl: item.imageUrl ?? undefined,
-        category: (customCategory || item.category) ?? undefined,
+        category: nextCategory ?? undefined,
         itemCategory: itemCategory,
         quantity: qty > 0 ? qty : undefined,
-        unit: (unit.trim() || item.unit) ?? undefined,
+        unit: unit.trim() || undefined,
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -440,8 +454,9 @@ export function EditItemForm({
       {/* 3. Details-Tabelle */}
       <div className="rounded-xl bg-surface border border-border overflow-hidden mb-4">
 
-        <DetailRow label="Name">
+        <DetailRow label="Name" htmlFor="detail-name">
           <input
+            id="detail-name"
             value={customName}
             onChange={(e) => setCustomName(e.target.value)}
             placeholder={item.productName}
@@ -449,8 +464,9 @@ export function EditItemForm({
           />
         </DetailRow>
 
-        <DetailRow label="Marke">
+        <DetailRow label="Marke" htmlFor="detail-brand">
           <input
+            id="detail-brand"
             value={customBrand}
             onChange={(e) => setCustomBrand(e.target.value)}
             placeholder={item.brand ?? "z.B. Rewe Bio"}
@@ -458,9 +474,10 @@ export function EditItemForm({
           />
         </DetailRow>
 
-        <DetailRow label="Menge">
+        <DetailRow label="Menge" htmlFor="detail-quantity">
           <div className="flex items-center gap-2 justify-end">
             <input
+              id="detail-quantity"
               type="number"
               min="0.1"
               step="0.1"
@@ -468,11 +485,14 @@ export function EditItemForm({
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               required
+              aria-label="Menge"
               className={cn(inlineInputClass, "w-16")}
             />
             <select
+              id="detail-unit"
               value={UNIT_OPTIONS.includes(unit) ? unit : ""}
               onChange={(e) => setUnit(e.target.value)}
+              aria-label="Einheit"
               className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
             >
               <option value="">—</option>
@@ -486,8 +506,9 @@ export function EditItemForm({
           </div>
         </DetailRow>
 
-        <DetailRow label="MHD">
+        <DetailRow label="MHD" htmlFor="detail-best-before">
           <input
+            id="detail-best-before"
             type="date"
             value={bestBefore}
             onChange={(e) => setBestBefore(e.target.value)}
@@ -496,8 +517,9 @@ export function EditItemForm({
           />
         </DetailRow>
 
-        <DetailRow label="Lagerort">
+        <DetailRow label="Lagerort" htmlFor="detail-location">
           <select
+            id="detail-location"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
@@ -508,8 +530,9 @@ export function EditItemForm({
           </select>
         </DetailRow>
 
-        <DetailRow label="Kategorie">
+        <DetailRow label="Kategorie" htmlFor="detail-category">
           <select
+            id="detail-category"
             value={customCategory}
             onChange={(e) => setCustomCategory(e.target.value)}
             className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
@@ -521,8 +544,9 @@ export function EditItemForm({
           </select>
         </DetailRow>
 
-        <DetailRow label="Art">
+        <DetailRow label="Art" htmlFor="detail-item-category">
           <select
+            id="detail-item-category"
             value={itemCategory}
             onChange={(e) => handleCategoryChange(e.target.value as ItemCategoryType)}
             className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
@@ -534,12 +558,12 @@ export function EditItemForm({
         </DetailRow>
 
         {frozenAt && (
-          <DetailRow label="Eingefroren am">
+          <DetailRow label="Eingefroren am" htmlFor="detail-frozen-at">
             <input
+              id="detail-frozen-at"
               type="date"
               value={frozenAt}
               onChange={(e) => void handleFrozenAtChange(e.target.value)}
-              aria-label="Einfrier-Datum"
               className={cn(inlineInputClass, "w-auto")}
             />
           </DetailRow>
