@@ -7,8 +7,6 @@ import { getActiveHouseholdId } from "@/lib/households/active";
 import { buttonVariants } from "@/components/ui/button";
 import { EditItemForm, type DetailItem } from "./edit-item-form";
 import type { ItemCategoryType } from "@/lib/schemas/items";
-import { DeleteItemButton } from "./delete-item-button";
-import { AddToShoppingButton } from "./add-to-shopping-button";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
 
@@ -120,6 +118,7 @@ export default async function ItemDetailPage({
     imageUrl: data.product?.image_url ?? null,
     barcode: data.product?.barcode ?? null,
     frozenAt: data.frozen_at,
+    addedAt: data.added_at,
   };
 
   return (
@@ -133,31 +132,6 @@ export default async function ItemDetailPage({
         </Link>
       </div>
       <EditItemForm item={item} categories={categories} storageLocations={storageLocations} />
-
-      {/*
-        Secondary actions live outside `EditItemForm` because they're
-        escape hatches, not part of the normal edit → save → close
-        cycle. Two buttons side by side, ghost-styled, below a divider
-        so users land here deliberately instead of by a fat-thumb miss
-        on the close actions.
-      */}
-      <div className="mt-6 flex justify-center gap-2 border-t border-border pt-4">
-        <AddToShoppingButton
-          productId={item.productId}
-          productName={item.productName}
-          customName={item.customName}
-          brand={item.brand}
-          imageUrl={item.imageUrl}
-          category={item.category}
-          itemCategory={item.itemCategory}
-          quantity={item.quantity}
-          unit={item.unit}
-        />
-        <DeleteItemButton
-          itemId={item.id}
-          itemName={item.customName ?? item.productName}
-        />
-      </div>
     </div>
   );
 }
