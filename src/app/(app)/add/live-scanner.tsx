@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, CameraOff, Flashlight, FlashlightOff, KeyboardIcon, Loader2, Pencil, ScanLine } from "lucide-react";
+import { Camera, CameraOff, CheckCircle2, Flashlight, FlashlightOff, KeyboardIcon, Loader2, Pencil, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   createDetector,
   type Detector,
-  type DetectorEngine,
 } from "@/lib/barcode/detector";
 import { identifyProductFromPhoto } from "@/lib/actions/vision";
 import type { ProductCandidate } from "@/lib/vision/types";
@@ -18,9 +17,20 @@ interface ExtendedCapabilities extends MediaTrackCapabilities {
 }
 
 interface ExtendedConstraintSet extends MediaTrackConstraintSet {
-  pointOfInterest?: { x: number; y: number };
+  pointsOfInterest?: { x: number; y: number }[];
   focusMode?: string;
 }
+
+interface ImageCaptureOptions {
+  focusMode?: string;
+  pointsOfInterest?: { x: number; y: number }[];
+}
+
+interface ImageCaptureAPI {
+  setOptions(options: ImageCaptureOptions): Promise<void>;
+}
+
+declare const ImageCapture: { new(track: MediaStreamTrack): ImageCaptureAPI } | undefined;
 
 /**
  * Unified live-camera scanner for the Add-Flow.
@@ -76,10 +86,9 @@ export function LiveScanner({
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<Detector | null>(null);
   const [status, setStatus] = useState<CameraStatus>("idle");
-  const [engine, setEngine] = useState<DetectorEngine | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
-  const [showPhotoHint, setShowPhotoHint] = useState(false);
+  const [barcodeDetected, setBarcodeDetected] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [focusMode, setFocusMode] = useState<"single-shot" | "manual" | null>(null);
@@ -149,10 +158,10 @@ export function LiveScanner({
 
       const detector = await createDetector();
       detectorRef.current = detector;
-      setEngine(detector.engine);
 
       await detector.start(video, (code) => {
         navigator.vibrate?.(50);
+        setBarcodeDetected(true);
         onBarcodeRef.current(code);
       });
 
@@ -176,13 +185,6 @@ export function LiveScanner({
     void start();
     return () => stop();
   }, [start, stop]);
-
-  // Show the photo-hint 4 s after the camera goes live without a barcode.
-  useEffect(() => {
-    if (status !== "running") { setShowPhotoHint(false); return; }
-    const t = setTimeout(() => setShowPhotoHint(true), 4000);
-    return () => clearTimeout(t);
-  }, [status]);
 
   const handleShutter = useCallback(async () => {
     const video = videoRef.current;
@@ -233,7 +235,6 @@ export function LiveScanner({
   }, [torchOn]);
 
   const handleTapToFocus = useCallback(async (e: React.MouseEvent<HTMLVideoElement>) => {
-    if (!focusMode) return;
     const track = streamRef.current?.getVideoTracks()[0];
     if (!track) return;
 
@@ -243,26 +244,36 @@ export function LiveScanner({
     const normX = pixelX / rect.width;
     const normY = pixelY / rect.height;
 
-    // Show focus ring, then fade it out after 500 ms (300 ms fade duration).
+    // Show focus ring: appear animation (~300ms), then fade out.
     if (focusRingTimerRef.current) clearTimeout(focusRingTimerRef.current);
     setFocusRing({ x: pixelX, y: pixelY, fading: false });
     focusRingTimerRef.current = setTimeout(() => {
       setFocusRing((prev) => (prev ? { ...prev, fading: true } : null));
       focusRingTimerRef.current = setTimeout(() => setFocusRing(null), 300);
-    }, 500);
+    }, 300);
 
     try {
-      await track.applyConstraints({ advanced: [{ pointOfInterest: { x: normX, y: normY }, focusMode } as ExtendedConstraintSet] });
-      // 'single-shot' returns to continuous automatically; 'manual' needs an explicit reset.
-      if (focusMode === "manual") {
-        setTimeout(() => {
-          void track.applyConstraints({ advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet] }).catch(() => {});
-        }, 2000);
+      if (typeof ImageCapture !== "undefined") {
+        const capture = new ImageCapture(track);
+        await capture.setOptions({
+          focusMode: "single-shot",
+          pointsOfInterest: [{ x: normX, y: normY }],
+        });
+      } else {
+        await track.applyConstraints({
+          advanced: [{ focusMode: "manual", pointsOfInterest: [{ x: normX, y: normY }] } as ExtendedConstraintSet],
+        });
       }
+      // Restore continuous autofocus after 500ms so the camera doesn't lock on the tapped point.
+      setTimeout(() => {
+        void track.applyConstraints({
+          advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet],
+        }).catch(() => {});
+      }, 500);
     } catch {
-      // Device does not support pointOfInterest — silently ignore.
+      // Device does not support focus control — silently ignore.
     }
-  }, [focusMode]);
+  }, []);
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
@@ -279,63 +290,43 @@ export function LiveScanner({
           onClick={(e) => void handleTapToFocus(e)}
         />
 
-        {/* Tap-to-focus ring — appears at tap position, fades out */}
+        {/* Tap-to-focus ring — appears at tap position, shrinks in, then fades out */}
         {focusRing && (
           <div
             className={cn(
-              "pointer-events-none absolute size-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-neutral-0 transition-opacity duration-300",
+              "pointer-events-none absolute w-16 h-16 rounded-full border-2 border-primary transition-opacity duration-300",
               focusRing.fading ? "opacity-0" : "opacity-100",
             )}
-            style={{ left: focusRing.x, top: focusRing.y }}
+            style={{
+              left: focusRing.x,
+              top: focusRing.y,
+              transform: "translate(-50%, -50%)",
+              animation: focusRing.fading ? undefined : "focus-ring-appear 0.3s ease-out forwards",
+            }}
             aria-hidden
           />
         )}
 
-        {/* Viewfinder + shutter button (only when camera is live) */}
-        {status === "running" && (
-          <>
-            <ViewfinderOverlay />
-            {/* Torch button — top-right corner, only on devices that support it */}
-            {torchSupported && (
-              <button
-                type="button"
-                onClick={() => void toggleTorch()}
-                aria-label={torchOn ? "Taschenlampe ausschalten" : "Taschenlampe einschalten"}
-                aria-pressed={torchOn}
-                className={cn(
-                  "absolute right-3 top-3 flex size-10 items-center justify-center rounded-full transition-colors",
-                  torchOn
-                    ? "bg-warning text-warning-subtle"
-                    : "bg-foreground/40 text-neutral-0 backdrop-blur-sm",
-                )}
-              >
-                {torchOn ? (
-                  <FlashlightOff className="size-5" aria-hidden />
-                ) : (
-                  <Flashlight className="size-5" aria-hidden />
-                )}
-              </button>
+        {/* Torch button — top-right corner, only on devices that support it */}
+        {status === "running" && torchSupported && (
+          <button
+            type="button"
+            onClick={() => void toggleTorch()}
+            aria-label={torchOn ? "Taschenlampe ausschalten" : "Taschenlampe einschalten"}
+            aria-pressed={torchOn}
+            className={cn(
+              "absolute right-3 top-3 flex size-10 items-center justify-center rounded-full transition-colors",
+              torchOn
+                ? "bg-warning text-warning-subtle"
+                : "bg-foreground/40 text-neutral-0 backdrop-blur-sm",
             )}
-            {/* Shutter button — centered at the bottom */}
-            <div className="absolute inset-x-0 bottom-4 flex justify-center">
-              <button
-                type="button"
-                onClick={() => void handleShutter()}
-                disabled={capturing}
-                aria-label="Produktfoto aufnehmen"
-                className={cn(
-                  "flex size-14 items-center justify-center rounded-full border-4 border-neutral-0/80 bg-neutral-0/20 backdrop-blur-sm transition-transform active:scale-95",
-                  capturing && "opacity-50",
-                )}
-              >
-                {capturing ? (
-                  <Loader2 className="size-6 animate-spin text-neutral-0" aria-hidden />
-                ) : (
-                  <Camera className="size-6 text-neutral-0" aria-hidden />
-                )}
-              </button>
-            </div>
-          </>
+          >
+            {torchOn ? (
+              <FlashlightOff className="size-5" aria-hidden />
+            ) : (
+              <Flashlight className="size-5" aria-hidden />
+            )}
+          </button>
         )}
 
         {/* States: idle / starting / denied / unsupported / error */}
@@ -369,12 +360,19 @@ export function LiveScanner({
         )}
       </div>
 
-      {/* Photo hint — appears after 4 s without a barcode */}
-      {showPhotoHint && status === "running" && (
-        <p className="text-center text-xs text-muted">
-          <ScanLine className="mr-1 inline size-3" aria-hidden />
-          Kein Barcode gefunden — Auslöser tippen für Produkterkennung
-        </p>
+      {/* Scanner status line */}
+      {status === "running" && (
+        barcodeDetected ? (
+          <div className="flex items-center justify-center gap-2 py-2">
+            <CheckCircle2 size={15} className="text-primary-text" aria-hidden />
+            <span className="text-[13px] font-medium text-primary-text">Barcode erkannt</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-2 py-2">
+            <ScanLine size={15} className="text-muted" aria-hidden />
+            <span className="text-[13px] font-medium text-muted">Kein Barcode gefunden</span>
+          </div>
+        )
       )}
 
       {/* Action buttons below the viewport */}
@@ -410,20 +408,6 @@ export function LiveScanner({
         <Pencil aria-hidden /> Ohne Barcode hinzufügen
       </Button>
 
-      {engine && status === "running" && (
-        <p className="text-center text-xs text-muted">
-          Erkennung: {engine === "native" ? "nativ" : "ZXing"}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function ViewfinderOverlay() {
-  return (
-    <div className="pointer-events-none absolute inset-0">
-      <div className="absolute inset-x-6 inset-y-1/4 rounded-lg border-2 border-neutral-0/60 [box-shadow:0_0_0_9999px_rgb(0_0_0_/_0.35)]" />
-      <div className="absolute inset-x-6 top-1/2 h-px -translate-y-1/2 bg-primary/70" />
     </div>
   );
 }
