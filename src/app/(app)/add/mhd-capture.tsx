@@ -53,11 +53,13 @@ export function MhdCapture({ onDate, className }: Props) {
 
     if (!/^image\//.test(file.type)) {
       setHint("Nur Bilddateien werden unterstützt.");
+      if (inputRef.current) inputRef.current.value = "";
       return;
     }
     if (file.size > MAX_INPUT_BYTES) {
       const mb = (file.size / 1024 / 1024).toFixed(1);
       setHint(`Bild zu groß (${mb} MB). Maximum: 20 MB.`);
+      if (inputRef.current) inputRef.current.value = "";
       return;
     }
 

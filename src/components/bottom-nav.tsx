@@ -25,8 +25,8 @@ export function BottomNav() {
 
   return (
     <>
-      {/* Floating action button — hidden on settings pages */}
-      {!pathname.startsWith("/settings") && (
+      {/* Floating action button — only on main inventory page */}
+      {pathname === "/" && (
         <Link
           href="/add"
           aria-label="Hinzufügen"
@@ -34,7 +34,6 @@ export function BottomNav() {
             "fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] right-4 z-50",
             "flex size-14 items-center justify-center rounded-full",
             "bg-primary text-primary-fg transition-opacity hover:bg-sage-400",
-            pathname.startsWith("/add") && "opacity-70",
           )}
         >
           <Plus className="size-6" aria-hidden />
