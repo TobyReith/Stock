@@ -442,6 +442,7 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
               setBestBefore(e.target.value);
               setMhdSource("manual");
               setMhdRaw(null);
+              setMhdHint(null);
             }}
             className="pr-9"
             required
