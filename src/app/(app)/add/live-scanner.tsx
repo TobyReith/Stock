@@ -60,6 +60,8 @@ type Props = {
   onPhotoError: (message: string) => void;
   onManualBarcode: () => void;
   onManualEntry: () => void;
+  /** Parent is processing a detected barcode (lookup in flight). Drives the "Barcode erkannt" status. */
+  isLookingUp?: boolean;
   className?: string;
 };
 
@@ -70,6 +72,7 @@ export function LiveScanner({
   onPhotoError,
   onManualBarcode,
   onManualEntry,
+  isLookingUp = false,
   className,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -78,7 +81,6 @@ export function LiveScanner({
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
-  const [barcodeDetected, setBarcodeDetected] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [focusMode, setFocusMode] = useState<"single-shot" | null>(null);
@@ -102,7 +104,6 @@ export function LiveScanner({
     if (videoRef.current) videoRef.current.srcObject = null;
     setTorchOn(false);
     setTorchSupported(false);
-    setBarcodeDetected(false);
     setFocusMode(null);
     setFocusRing(null);
     if (focusRingTimerRef.current) clearTimeout(focusRingTimerRef.current);
@@ -111,7 +112,6 @@ export function LiveScanner({
 
   const start = useCallback(async () => {
     setErrorMsg(null);
-    setBarcodeDetected(false);
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setStatus("unsupported");
       return;
@@ -123,9 +123,6 @@ export function LiveScanner({
           facingMode: { ideal: "environment" },
           width: { ideal: 1280 },
           height: { ideal: 720 },
-          // Helps Android Chrome keep the barcode in focus continuously.
-          // Unknown constraints are silently ignored by browsers that don't support them.
-          focusMode: { ideal: "continuous" },
         },
         audio: false,
       });
@@ -138,6 +135,16 @@ export function LiveScanner({
         setTorchSupported(!!caps.torch);
         const modes = caps.focusMode ?? [];
         setFocusMode(modes.includes("single-shot") ? "single-shot" : null);
+        // Explicitly engage continuous autofocus. The `focusMode` constraint
+        // passed to getUserMedia is non-standard at the top level and gets
+        // ignored on most browsers — applyConstraints with `advanced` is the
+        // only reliable path to actually turn AF on. Without this, many
+        // Android devices stay locked at infinity and the barcode is blurry.
+        if (modes.includes("continuous")) {
+          void videoTrack.applyConstraints({
+            advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet],
+          }).catch(() => {});
+        }
       }
 
       const video = videoRef.current;
@@ -152,7 +159,6 @@ export function LiveScanner({
 
       await detector.start(video, (code) => {
         navigator.vibrate?.(50);
-        setBarcodeDetected(true);
         onBarcodeRef.current(code);
       });
 
@@ -367,7 +373,7 @@ export function LiveScanner({
 
       {/* Scanner status line */}
       {status === "running" && (
-        barcodeDetected ? (
+        isLookingUp ? (
           <div className="flex items-center justify-center gap-2 py-2">
             <CheckCircle2 size={15} className="text-primary-text" aria-hidden />
             <span className="text-[13px] font-medium text-primary-text">Barcode erkannt</span>

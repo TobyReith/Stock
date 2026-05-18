@@ -173,6 +173,7 @@ export function AddFlow({
             onPhotoError={(msg) => toast.error(msg)}
             onManualBarcode={() => setStage({ kind: "manual-barcode" })}
             onManualEntry={() => setStage({ kind: "form", seed: { kind: "manual" } })}
+            isLookingUp={stage.kind === "validating-barcode"}
           />
           {stage.kind === "validating-barcode" && (
             <div className="absolute left-1/2 top-3 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-foreground/40 px-3 py-1 backdrop-blur-sm">
