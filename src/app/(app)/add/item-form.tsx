@@ -462,24 +462,22 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
         )}
       </FieldRow>
 
-      {/* Kategorie (unknown / manual path) */}
-      {needsProductFields && (
-        <FieldRow>
-          <Label htmlFor="category">Kategorie</Label>
-          <select
-            id="category"
-            value={category}
-            onChange={(e) => handleCategoryChange(e.target.value)}
-            className="h-9 rounded-lg border border-border bg-surface px-2.5 text-sm text-foreground outline-none focus:border-border-strong"
-          >
-            {visibleCategories.map((c) => (
-              <option key={c.slug} value={c.slug}>
-                {c.icon} {c.name}
-              </option>
-            ))}
-          </select>
-        </FieldRow>
-      )}
+      {/* Kategorie */}
+      <FieldRow>
+        <Label htmlFor="category">Kategorie</Label>
+        <select
+          id="category"
+          value={category}
+          onChange={(e) => handleCategoryChange(e.target.value)}
+          className="h-9 rounded-lg border border-border bg-surface px-2.5 text-sm text-foreground outline-none focus:border-border-strong"
+        >
+          {visibleCategories.map((c) => (
+            <option key={c.slug} value={c.slug}>
+              {c.icon} {c.name}
+            </option>
+          ))}
+        </select>
+      </FieldRow>
 
       {/* Art selector */}
       <FieldRow>
