@@ -81,7 +81,7 @@ export function LiveScanner({
   const [barcodeDetected, setBarcodeDetected] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
-  const [focusMode, setFocusMode] = useState<"single-shot" | "manual" | null>(null);
+  const [focusMode, setFocusMode] = useState<"single-shot" | null>(null);
   const [focusRing, setFocusRing] = useState<{ x: number; y: number; fading: boolean } | null>(null);
   const focusRingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusRestoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -135,10 +135,7 @@ export function LiveScanner({
         const caps = videoTrack.getCapabilities() as ExtendedCapabilities;
         setTorchSupported(!!caps.torch);
         const modes = caps.focusMode ?? [];
-        setFocusMode(
-          modes.includes("single-shot") ? "single-shot" :
-          modes.includes("manual")      ? "manual"       : null
-        );
+        setFocusMode(modes.includes("single-shot") ? "single-shot" : null);
       }
 
       const video = videoRef.current;
@@ -228,13 +225,33 @@ export function LiveScanner({
 
   const handleTapToFocus = useCallback(async (e: React.MouseEvent<HTMLVideoElement>) => {
     const track = streamRef.current?.getVideoTracks()[0];
-    if (!track) return;
+    if (!track || !focusMode) return;
 
-    const rect = e.currentTarget.getBoundingClientRect();
+    const video = e.currentTarget;
+    const rect = video.getBoundingClientRect();
     const pixelX = e.clientX - rect.left;
     const pixelY = e.clientY - rect.top;
-    const normX = pixelX / rect.width;
-    const normY = pixelY / rect.height;
+
+    // Account for object-cover cropping: the video stream (e.g. 16:9) is scaled
+    // to fill the container (4:3) so one axis is clipped. Map tap coordinates
+    // into the video's intrinsic coordinate space, not just the element box.
+    let normX = pixelX / rect.width;
+    let normY = pixelY / rect.height;
+    if (video.videoWidth > 0 && video.videoHeight > 0) {
+      const videoAspect = video.videoWidth / video.videoHeight;
+      const boxAspect = rect.width / rect.height;
+      if (videoAspect > boxAspect) {
+        const renderedWidth = rect.height * videoAspect;
+        const cropX = (renderedWidth - rect.width) / 2;
+        normX = (pixelX + cropX) / renderedWidth;
+      } else {
+        const renderedHeight = rect.width / videoAspect;
+        const cropY = (renderedHeight - rect.height) / 2;
+        normY = (pixelY + cropY) / renderedHeight;
+      }
+      normX = Math.min(1, Math.max(0, normX));
+      normY = Math.min(1, Math.max(0, normY));
+    }
 
     // Show focus ring: appear animation (~300ms), then fade out.
     if (focusRingTimerRef.current) clearTimeout(focusRingTimerRef.current);
@@ -259,7 +276,7 @@ export function LiveScanner({
     } catch {
       // Device does not support focus control — silently ignore.
     }
-  }, []);
+  }, [focusMode]);
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
