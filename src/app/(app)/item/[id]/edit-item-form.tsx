@@ -322,17 +322,18 @@ export function EditItemForm({
   }
 
   function handleAddToShopping() {
-    const displayName = (item.customName ?? item.productName).trim();
+    const displayName = (customName.trim() || item.productName).trim();
+    const qty = Number(quantity);
     startShoppingTransition(async () => {
       const res = await addShoppingItem({
         productId: item.productId ?? undefined,
         customName: displayName || undefined,
-        brand: item.brand ?? undefined,
+        brand: (customBrand.trim() || item.brand) ?? undefined,
         imageUrl: item.imageUrl ?? undefined,
-        category: item.category ?? undefined,
-        itemCategory: item.itemCategory,
-        quantity: item.quantity > 0 ? item.quantity : undefined,
-        unit: item.unit ?? undefined,
+        category: (customCategory || item.category) ?? undefined,
+        itemCategory: itemCategory,
+        quantity: qty > 0 ? qty : undefined,
+        unit: (unit.trim() || item.unit) ?? undefined,
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -342,7 +343,7 @@ export function EditItemForm({
         duration: 5000,
         action: {
           label: "Ansehen",
-          onClick: () => { window.location.href = "/shopping"; },
+          onClick: () => { router.push("/shopping"); },
         },
       });
     });
