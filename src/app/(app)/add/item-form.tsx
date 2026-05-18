@@ -145,7 +145,6 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
   );
   const [note, setNote] = useState("");
   const [locationResetHint, setLocationResetHint] = useState(false);
-  const [mhdHint, setMhdHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -264,6 +263,8 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
     });
   }
 
+  const UNIT_OPTIONS = ["Stk", "L", "ml", "g", "kg", "Pkg", "Bd", "Becher"];
+
   const ITEM_CATEGORIES = [
     { key: "food", label: "Essen", emoji: "🥦" },
     { key: "hygiene", label: "Hygiene", emoji: "🧴" },
@@ -273,32 +274,7 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      {/* Item category selector — shown for all paths */}
-      <FieldRow>
-        <Label>Art</Label>
-        <div className="grid grid-cols-4 gap-1 rounded-lg border border-border p-1">
-          {ITEM_CATEGORIES.map(({ key, label, emoji }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => handleItemCategoryChange(key)}
-              aria-pressed={itemCategory === key}
-              className={cn(
-                "flex flex-col items-center gap-0.5 rounded-lg py-2 text-xs transition-colors",
-                itemCategory === key
-                  ? "bg-primary text-primary-fg"
-                  : "text-muted hover:bg-surface-raised hover:text-foreground",
-              )}
-            >
-              <span className="text-base leading-none" aria-hidden>{emoji}</span>
-              <span className="leading-tight">{label}</span>
-            </button>
-          ))}
-        </div>
-      </FieldRow>
-
-      {/* Product preview (known path) — read-only summary so user knows
-          what they're adding and where to tweak it (customName). */}
+      {/* Product preview (known path) */}
       {seedProduct && (
         <div className="flex items-start gap-3 rounded-lg border border-border p-3">
           {seedProduct.imageUrl && (
@@ -324,69 +300,51 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
         </div>
       )}
 
-      {/* Product fields (unknown / manual path) */}
+      {/* Product name (unknown / manual path) */}
       {needsProductFields && (
-        <>
-          <FieldRow>
-            <Label htmlFor="product-name">Produktname</Label>
-            <ProductAutocomplete
-              id="product-name"
-              value={productName}
-              onChange={(v) => {
-                setProductName(v);
-                // Clear cached OFF data when the user edits freely.
-                if (offBarcode) {
-                  setOffBrand(null);
-                  setOffImageUrl(null);
-                  setOffBarcode(null);
-                  setOffCategory(null);
-                }
-              }}
-              onSelect={handleAutocompleteSelect}
-              placeholder="z.B. Haferflocken"
-              autoFocus
-              required
-            />
-            {(offBrand || offImageUrl) && (
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-2.5 py-1.5">
-                {offImageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={offImageUrl}
-                    alt=""
-                    className="size-8 shrink-0 rounded-lg border border-border bg-surface object-contain"
-                  />
+        <FieldRow>
+          <Label htmlFor="product-name">Produktname</Label>
+          <ProductAutocomplete
+            id="product-name"
+            value={productName}
+            onChange={(v) => {
+              setProductName(v);
+              if (offBarcode) {
+                setOffBrand(null);
+                setOffImageUrl(null);
+                setOffBarcode(null);
+                setOffCategory(null);
+              }
+            }}
+            onSelect={handleAutocompleteSelect}
+            placeholder="z.B. Haferflocken"
+            autoFocus
+            required
+          />
+          {(offBrand || offImageUrl) && (
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-2.5 py-1.5">
+              {offImageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={offImageUrl}
+                  alt=""
+                  className="size-8 shrink-0 rounded-lg border border-border bg-surface object-contain"
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                {offBrand && (
+                  <p className="truncate text-sm text-muted">{offBrand}</p>
                 )}
-                <div className="min-w-0 flex-1">
-                  {offBrand && (
-                    <p className="truncate text-sm text-muted">{offBrand}</p>
-                  )}
-                  {offCategory && (
-                    <p className="truncate text-xs text-muted">
-                      {categories.find((c) => c.slug === offCategory)?.name ??
-                        getCategory(offCategory).label}
-                    </p>
-                  )}
-                </div>
+                {offCategory && (
+                  <p className="truncate text-xs text-muted">
+                    {categories.find((c) => c.slug === offCategory)?.name ??
+                      getCategory(offCategory).label}
+                  </p>
+                )}
               </div>
-            )}
-          </FieldRow>
-          <FieldRow>
-            <Label htmlFor="category">Kategorie</Label>
-            <select
-              id="category"
-              value={category}
-              onChange={(e) => handleCategoryChange(e.target.value)}
-              className="h-9 rounded-lg border border-border bg-surface px-2.5 text-sm text-foreground outline-none focus:border-border-strong"
-            >
-              {visibleCategories.map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.icon} {c.name}
-                </option>
-              ))}
-            </select>
-          </FieldRow>
-        </>
+            </div>
+          )}
+        </FieldRow>
       )}
 
       {/* Alias — optional short name for the shelf ("Opas Honig"). */}
@@ -421,57 +379,58 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
           <Label htmlFor="unit">
             Einheit <span className="text-muted">(optional)</span>
           </Label>
-          <Input
+          <select
             id="unit"
-            value={unit}
+            value={UNIT_OPTIONS.includes(unit) ? unit : ""}
             onChange={(e) => setUnit(e.target.value)}
-            placeholder="z.B. Stück, g, L"
-          />
+            className="h-8 w-full rounded-lg border border-border bg-surface px-2.5 text-[15px] text-foreground outline-none focus:border-border-strong"
+          >
+            <option value="">—</option>
+            {!UNIT_OPTIONS.includes(unit) && unit && (
+              <option value={unit}>{unit}</option>
+            )}
+            {UNIT_OPTIONS.map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
         </FieldRow>
       </div>
 
-      {/* MHD: date input with inline camera icon for OCR. Default comes from category. */}
+      {/* MHD: date input + OCR trigger. Default comes from category. */}
       <FieldRow>
-        <Label htmlFor="best-before">Mindesthaltbarkeitsdatum</Label>
-        <div className="relative">
-          <Input
-            id="best-before"
-            type="date"
-            value={bestBefore}
-            onChange={(e) => {
-              setBestBefore(e.target.value);
-              setMhdSource("manual");
-              setMhdRaw(null);
-              setMhdHint(null);
-            }}
-            className="pr-9"
-            required
-          />
+        <div className="flex items-center justify-between">
+          <Label htmlFor="best-before">Mindesthaltbarkeitsdatum</Label>
           <MhdCapture
-            asIcon
-            className="absolute right-2 top-1/2 -translate-y-1/2"
             onDate={(iso, raw) => {
               setBestBefore(iso);
               setMhdSource("ocr");
               setMhdRaw(raw);
-              setMhdHint(null);
             }}
-            onError={setMhdHint}
           />
         </div>
+        <Input
+          id="best-before"
+          type="date"
+          value={bestBefore}
+          onChange={(e) => {
+            setBestBefore(e.target.value);
+            setMhdSource("manual");
+            setMhdRaw(null);
+          }}
+          required
+        />
         <p className="text-xs text-muted">
           {mhdSource === "default" &&
-            `Standard für ${categories.find((c) => c.slug === category)?.name ?? getCategory(category).label}.`}
+            `Standard für ${categories.find((c) => c.slug === category)?.name ?? getCategory(category).label}. "MHD scannen" für Foto-Erkennung.`}
           {mhdSource === "ocr" && mhdRaw && `Aus Foto erkannt: "${mhdRaw}"`}
           {mhdSource === "manual" && "Manuell eingegeben."}
         </p>
-        {mhdHint && <p className="text-xs text-danger">{mhdHint}</p>}
       </FieldRow>
 
-      {/* Location pill grid */}
+      {/* Location segmented control */}
       <FieldRow>
         <Label>Lagerort</Label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-1">
           {filteredStorageLocations.map(({ slug, name, icon }) => {
             const active = location === slug;
             return (
@@ -484,13 +443,13 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
                 }}
                 aria-pressed={active}
                 className={cn(
-                  "flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                  "flex flex-col items-center gap-1 rounded-lg py-2 text-xs transition-colors",
                   active
-                    ? "border-primary-text bg-primary-subtle text-primary-text"
-                    : "border-border bg-surface text-foreground hover:bg-surface-raised",
+                    ? "bg-primary text-primary-fg"
+                    : "text-muted hover:bg-surface-raised hover:text-foreground",
                 )}
               >
-                <span aria-hidden>{icon}</span>
+                <span className="text-base leading-none" aria-hidden>{icon}</span>
                 {name}
               </button>
             );
@@ -501,6 +460,49 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
             Lagerort wurde für die neue Kategorie angepasst.
           </p>
         )}
+      </FieldRow>
+
+      {/* Kategorie (unknown / manual path) */}
+      {needsProductFields && (
+        <FieldRow>
+          <Label htmlFor="category">Kategorie</Label>
+          <select
+            id="category"
+            value={category}
+            onChange={(e) => handleCategoryChange(e.target.value)}
+            className="h-9 rounded-lg border border-border bg-surface px-2.5 text-sm text-foreground outline-none focus:border-border-strong"
+          >
+            {visibleCategories.map((c) => (
+              <option key={c.slug} value={c.slug}>
+                {c.icon} {c.name}
+              </option>
+            ))}
+          </select>
+        </FieldRow>
+      )}
+
+      {/* Art selector */}
+      <FieldRow>
+        <Label>Art</Label>
+        <div className="grid grid-cols-4 gap-1 rounded-lg border border-border p-1">
+          {ITEM_CATEGORIES.map(({ key, label, emoji }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => handleItemCategoryChange(key)}
+              aria-pressed={itemCategory === key}
+              className={cn(
+                "flex flex-col items-center gap-0.5 rounded-lg py-2 text-xs transition-colors",
+                itemCategory === key
+                  ? "bg-primary text-primary-fg"
+                  : "text-muted hover:bg-surface-raised hover:text-foreground",
+              )}
+            >
+              <span className="text-base leading-none" aria-hidden>{emoji}</span>
+              <span className="leading-tight">{label}</span>
+            </button>
+          ))}
+        </div>
       </FieldRow>
 
       <FieldRow>

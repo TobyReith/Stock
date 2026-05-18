@@ -41,34 +41,24 @@ const MAX_INPUT_BYTES = 20 * 1024 * 1024;
 type Props = {
   onDate: (iso: string, raw: string) => void;
   className?: string;
-  asIcon?: boolean;
-  onError?: (msg: string | null) => void;
 };
 
-export function MhdCapture({ onDate, className, asIcon, onError }: Props) {
+export function MhdCapture({ onDate, className }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
 
-  function reportHint(msg: string | null) {
-    if (asIcon) {
-      onError?.(msg);
-    } else {
-      setHint(msg);
-    }
-  }
-
   async function handleFile(file: File) {
-    reportHint(null);
+    setHint(null);
 
     if (!/^image\//.test(file.type)) {
-      reportHint("Nur Bilddateien werden unterstützt.");
+      setHint("Nur Bilddateien werden unterstützt.");
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
     if (file.size > MAX_INPUT_BYTES) {
       const mb = (file.size / 1024 / 1024).toFixed(1);
-      reportHint(`Bild zu groß (${mb} MB). Maximum: 20 MB.`);
+      setHint(`Bild zu groß (${mb} MB). Maximum: 20 MB.`);
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
@@ -83,7 +73,7 @@ export function MhdCapture({ onDate, className, asIcon, onError }: Props) {
         // HEIC that iOS hasn't transcoded, or corrupt files, land here.
         // The native file-input usually hands back JPEG even on iPhone,
         // but it's worth a specific hint so the user knows *why*.
-        reportHint(
+        setHint(
           decodeErr instanceof Error && /decode|bitmap|encode/i.test(decodeErr.message)
             ? "Bild konnte nicht gelesen werden. Bitte JPEG/PNG verwenden."
             : "Foto konnte nicht verarbeitet werden.",
@@ -94,17 +84,17 @@ export function MhdCapture({ onDate, className, asIcon, onError }: Props) {
       const res = await extractBestBefore({ base64, mimeType: "image/jpeg" });
 
       if (!res.ok) {
-        reportHint(`Vision-API: ${res.error}`);
+        setHint(`Vision-API: ${res.error}`);
         return;
       }
       const payload = res.data;
       if (!payload.ok) {
-        reportHint(reasonMessage(payload.reason));
+        setHint(reasonMessage(payload.reason));
         return;
       }
       onDate(payload.date.date, payload.date.raw);
     } catch (err) {
-      reportHint(err instanceof Error ? err.message : "Foto konnte nicht verarbeitet werden.");
+      setHint(err instanceof Error ? err.message : "Foto konnte nicht verarbeitet werden.");
     } finally {
       setBusy(false);
       // Allow re-picking the same file after a failed attempt.
@@ -112,44 +102,19 @@ export function MhdCapture({ onDate, className, asIcon, onError }: Props) {
     }
   }
 
-  const fileInput = (
-    <input
-      ref={inputRef}
-      type="file"
-      accept="image/*"
-      capture="environment"
-      className="hidden"
-      onChange={(e) => {
-        const f = e.target.files?.[0];
-        if (f) void handleFile(f);
-      }}
-    />
-  );
-
-  if (asIcon) {
-    return (
-      <div className={className}>
-        {fileInput}
-        <button
-          type="button"
-          aria-label="MHD per Foto erkennen"
-          disabled={busy}
-          onClick={() => inputRef.current?.click()}
-          className="flex items-center justify-center text-muted transition-colors hover:text-foreground disabled:opacity-50"
-        >
-          {busy ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-          ) : (
-            <Camera className="size-4" aria-hidden />
-          )}
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className={className}>
-      {fileInput}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void handleFile(f);
+        }}
+      />
       <Button
         type="button"
         variant="outline"
