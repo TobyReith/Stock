@@ -10,6 +10,7 @@ import {
   Snowflake,
   Trash2,
   ShoppingCart,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -70,15 +71,38 @@ function formatAddedAt(dateStr: string): string {
 }
 
 function DetailRow({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
-  const labelClass = "text-[13px] text-muted font-medium shrink-0 mr-4 w-28";
+  const labelClass = "text-[13px] text-muted font-medium shrink-0 w-28";
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-border last:border-b-0">
+    <div className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-b-0">
       {htmlFor ? (
         <label htmlFor={htmlFor} className={labelClass}>{label}</label>
       ) : (
         <span className={labelClass}>{label}</span>
       )}
-      <div className="flex-1 flex justify-end">{children}</div>
+      <div className="flex-1 flex justify-end min-w-0">{children}</div>
+    </div>
+  );
+}
+
+function InlineSelect({ id, value, onChange, children, "aria-label": ariaLabel }: {
+  id?: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  children: React.ReactNode;
+  "aria-label"?: string;
+}) {
+  return (
+    <div className="flex items-center gap-0.5 min-w-0">
+      <select
+        id={id}
+        value={value}
+        onChange={onChange}
+        aria-label={ariaLabel}
+        className="min-w-0 bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
+      >
+        {children}
+      </select>
+      <ChevronDown className="size-3.5 shrink-0 text-muted" aria-hidden />
     </div>
   );
 }
@@ -488,12 +512,11 @@ export function EditItemForm({
               aria-label="Menge"
               className={cn(inlineInputClass, "w-16")}
             />
-            <select
+            <InlineSelect
               id="detail-unit"
               value={UNIT_OPTIONS.includes(unit) ? unit : ""}
               onChange={(e) => setUnit(e.target.value)}
               aria-label="Einheit"
-              className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
             >
               <option value="">—</option>
               {!UNIT_OPTIONS.includes(unit) && unit && (
@@ -502,7 +525,7 @@ export function EditItemForm({
               {UNIT_OPTIONS.map((u) => (
                 <option key={u} value={u}>{u}</option>
               ))}
-            </select>
+            </InlineSelect>
           </div>
         </DetailRow>
 
@@ -518,43 +541,40 @@ export function EditItemForm({
         </DetailRow>
 
         <DetailRow label="Lagerort" htmlFor="detail-location">
-          <select
+          <InlineSelect
             id="detail-location"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
           >
             {filteredStorageLocations.map(({ slug, name, icon }) => (
               <option key={slug} value={slug}>{icon} {name}</option>
             ))}
-          </select>
+          </InlineSelect>
         </DetailRow>
 
         <DetailRow label="Kategorie" htmlFor="detail-category">
-          <select
+          <InlineSelect
             id="detail-category"
             value={customCategory}
             onChange={(e) => setCustomCategory(e.target.value)}
-            className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
           >
             <option value="">— keine —</option>
             {categories.filter((c) => c.parentCategory === itemCategory).map((c) => (
               <option key={c.slug} value={c.slug}>{c.icon} {c.name}</option>
             ))}
-          </select>
+          </InlineSelect>
         </DetailRow>
 
         <DetailRow label="Art" htmlFor="detail-item-category">
-          <select
+          <InlineSelect
             id="detail-item-category"
             value={itemCategory}
             onChange={(e) => handleCategoryChange(e.target.value as ItemCategoryType)}
-            className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
           >
             {ITEM_CATEGORIES.map(({ key, emoji, label }) => (
               <option key={key} value={key}>{emoji} {label}</option>
             ))}
-          </select>
+          </InlineSelect>
         </DetailRow>
 
         {frozenAt && (
