@@ -145,6 +145,7 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
   );
   const [note, setNote] = useState("");
   const [locationResetHint, setLocationResetHint] = useState(false);
+  const [mhdHint, setMhdHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -429,41 +430,47 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
         </FieldRow>
       </div>
 
-      {/* MHD: date input + OCR trigger. Default comes from category. */}
+      {/* MHD: date input with inline camera icon for OCR. Default comes from category. */}
       <FieldRow>
-        <div className="flex items-center justify-between">
-          <Label htmlFor="best-before">Mindesthaltbarkeitsdatum</Label>
+        <Label htmlFor="best-before">Mindesthaltbarkeitsdatum</Label>
+        <div className="relative">
+          <Input
+            id="best-before"
+            type="date"
+            value={bestBefore}
+            onChange={(e) => {
+              setBestBefore(e.target.value);
+              setMhdSource("manual");
+              setMhdRaw(null);
+            }}
+            className="pr-9"
+            required
+          />
           <MhdCapture
+            asIcon
+            className="absolute right-2 top-1/2 -translate-y-1/2"
             onDate={(iso, raw) => {
               setBestBefore(iso);
               setMhdSource("ocr");
               setMhdRaw(raw);
+              setMhdHint(null);
             }}
+            onError={setMhdHint}
           />
         </div>
-        <Input
-          id="best-before"
-          type="date"
-          value={bestBefore}
-          onChange={(e) => {
-            setBestBefore(e.target.value);
-            setMhdSource("manual");
-            setMhdRaw(null);
-          }}
-          required
-        />
         <p className="text-xs text-muted">
           {mhdSource === "default" &&
-            `Standard für ${categories.find((c) => c.slug === category)?.name ?? getCategory(category).label}. "MHD scannen" für Foto-Erkennung.`}
-          {mhdSource === "ocr" && mhdRaw && `Erkannt: "${mhdRaw}"`}
+            `Standard für ${categories.find((c) => c.slug === category)?.name ?? getCategory(category).label}.`}
+          {mhdSource === "ocr" && mhdRaw && `Aus Foto erkannt: "${mhdRaw}"`}
           {mhdSource === "manual" && "Manuell eingegeben."}
         </p>
+        {mhdHint && <p className="text-xs text-danger">{mhdHint}</p>}
       </FieldRow>
 
-      {/* Location segmented control */}
+      {/* Location pill grid */}
       <FieldRow>
         <Label>Lagerort</Label>
-        <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-1">
+        <div className="grid grid-cols-2 gap-2">
           {filteredStorageLocations.map(({ slug, name, icon }) => {
             const active = location === slug;
             return (
@@ -476,13 +483,13 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
                 }}
                 aria-pressed={active}
                 className={cn(
-                  "flex flex-col items-center gap-1 rounded-lg py-2 text-xs transition-colors",
+                  "flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
                   active
-                    ? "bg-primary text-primary-fg"
-                    : "text-muted hover:bg-surface-raised hover:text-foreground",
+                    ? "border-primary-text bg-primary-subtle text-primary-text"
+                    : "border-border bg-surface text-foreground hover:bg-surface-raised",
                 )}
               >
-                <span className="text-base leading-none" aria-hidden>{icon}</span>
+                <span aria-hidden>{icon}</span>
                 {name}
               </button>
             );
