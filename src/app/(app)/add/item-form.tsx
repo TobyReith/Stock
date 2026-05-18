@@ -381,7 +381,7 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
           </Label>
           <select
             id="unit"
-            value={UNIT_OPTIONS.includes(unit) ? unit : ""}
+            value={unit}
             onChange={(e) => setUnit(e.target.value)}
             className="h-8 w-full rounded-lg border border-border bg-surface px-2.5 text-[15px] text-foreground outline-none focus:border-border-strong"
           >
