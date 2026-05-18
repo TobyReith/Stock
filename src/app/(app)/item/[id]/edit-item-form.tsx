@@ -9,10 +9,9 @@ import {
   CheckCircle2,
   Snowflake,
   Trash2,
+  ShoppingCart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   consumeItem,
@@ -26,17 +25,7 @@ import { addShoppingItem } from "@/lib/actions/shopping";
 import type { UpdateItemInput, ItemCategoryType } from "@/lib/schemas/items";
 import type { CategoryDisplay } from "@/lib/schemas/categories";
 import type { StorageLocationDisplay } from "@/lib/schemas/storage-locations";
-import { FieldRow } from "@/components/ui/form-field";
-
-/**
- * Edit form + Consume/Discard actions for a single item.
- *
- * The product cache is global and admin-only (ADR-0002), so we expose
- * per-item *overrides* rather than editing `products` directly:
- * `customName`, `customBrand`, `customCategory`. Null means "fall
- * through to the product value". This PR (Phase 2.4) added the brand &
- * category overrides — the name override already existed.
- */
+import { DeleteItemButton } from "./delete-item-button";
 
 export type DetailItem = {
   id: string;
@@ -56,7 +45,34 @@ export type DetailItem = {
   imageUrl: string | null;
   barcode: string | null;
   frozenAt: string | null;
+  addedAt: string;
 };
+
+const ITEM_CATEGORIES = [
+  { key: "food" as const, emoji: "🥦", label: "Essen" },
+  { key: "hygiene" as const, emoji: "🧴", label: "Hygiene" },
+  { key: "medicine" as const, emoji: "💊", label: "Medizin" },
+  { key: "other" as const, emoji: "📦", label: "Sonstiges" },
+];
+
+function formatAddedAt(dateStr: string): string {
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
+  if (days === 0) return "heute";
+  if (days === 1) return "gestern";
+  return `vor ${days} Tagen`;
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-b border-border last:border-b-0">
+      <span className="text-[13px] text-muted font-medium shrink-0 mr-4 w-28">{label}</span>
+      <div className="flex-1 flex justify-end">{children}</div>
+    </div>
+  );
+}
+
+const inlineInputClass =
+  "bg-transparent text-right text-sm text-foreground placeholder:text-muted outline-none border-none w-full focus-visible:underline focus-visible:decoration-border-strong focus-visible:underline-offset-2";
 
 export function EditItemForm({
   item,
@@ -70,9 +86,6 @@ export function EditItemForm({
   const router = useRouter();
   const [customName, setCustomName] = useState(item.customName ?? "");
   const [customBrand, setCustomBrand] = useState(item.customBrand ?? "");
-  // `customCategory` defaults to the product's category when no override
-  // is set — that way a user who opens the dropdown to correct it sees
-  // the current effective value, not a confusing empty state.
   const [customCategory, setCustomCategory] = useState<string>(
     item.customCategory ?? item.category ?? "",
   );
@@ -85,6 +98,7 @@ export function EditItemForm({
   const [itemCategory, setItemCategory] = useState<ItemCategoryType>(item.itemCategory);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isAddingShopping, startShoppingTransition] = useTransition();
 
   const filteredStorageLocations = useMemo(
     () =>
@@ -97,17 +111,22 @@ export function EditItemForm({
     [storageLocations, itemCategory],
   );
 
-  /**
-   * Effective category the user currently sees. Used to decide whether
-   * the select value represents an override vs. the cache value — the
-   * dirty-check compares against `item.customCategory`, not the
-   * effective one, so changing FROM "empty override, cache='produce'"
-   * TO "override='produce'" is *not* a write.
-   */
-  const effectiveCategory = item.customCategory ?? item.category;
+  const selectedCategoryIcon = categories.find((c) => c.slug === customCategory)?.icon;
 
-  // "Dirty" check — we only POST if something changed. Keeps update
-  // calls cheap and avoids unnecessary revalidations.
+  function handleCategoryChange(key: ItemCategoryType) {
+    setItemCategory(key);
+    if (customCategory && !categories.some((c) => c.slug === customCategory && c.parentCategory === key)) {
+      setCustomCategory("");
+    }
+    const validLocs = storageLocations.filter(
+      (l) => l.categories.length === 0 || l.slug === "other" || l.categories.includes(key),
+    );
+    if (!validLocs.find((l) => l.slug === location)) {
+      setLocation(validLocs[0]?.slug ?? "other");
+    }
+  }
+
+  // Only POST if something changed — keeps update calls cheap.
   function buildPatch(): UpdateItemInput | null {
     const patch: UpdateItemInput = { id: item.id };
     let changed = false;
@@ -116,7 +135,6 @@ export function EditItemForm({
       patch.itemCategory = itemCategory;
       changed = true;
     }
-
     const nextCustom = customName.trim() || null;
     if (nextCustom !== (item.customName ?? null)) {
       patch.customName = nextCustom;
@@ -127,14 +145,8 @@ export function EditItemForm({
       patch.customBrand = nextBrand;
       changed = true;
     }
-    // `""` from the select means "no override"; the zod schema accepts
-    // null to unset the column. Only write when the user explicitly
-    // picked something different from the stored override.
     const nextCategory = customCategory || null;
     const storedCategory = item.customCategory ?? null;
-    // Treat "override matches cache" the same as "no override" — the
-    // user hasn't actually personalized the row. This collapses one
-    // weird state and keeps `custom_category` sparse in the DB.
     const collapsedNext =
       nextCategory && nextCategory === item.category ? null : nextCategory;
     if (collapsedNext !== storedCategory) {
@@ -187,20 +199,6 @@ export function EditItemForm({
     });
   }
 
-  /**
-   * Shared post-close handler: push the user to the list, then show a
-   * toast with two actions — "Rückgängig" (primary, wired to
-   * `unmarkItem`) and "Nachkaufen" (secondary, adds the same product to
-   * the shopping list). The toast lives in the root `<Toaster />` so it
-   * survives the navigation.
-   *
-   * We pop the toast *after* `router.push` intentionally — the toast
-   * is for the new page context, not the one we're leaving.
-   *
-   * Sonner renders `action` and `cancel` as a two-button row. The label
-   * "Nachkaufen" reads as a positive action even though it lives in the
-   * `cancel` slot; the slot name is internal styling, not user-visible.
-   */
   function showUndoToast(message: string) {
     toast.success(message, {
       duration: 5000,
@@ -213,9 +211,6 @@ export function EditItemForm({
               toast.error(res.error);
               return;
             }
-            // Re-render the list so the item pops back into view. The
-            // server action already revalidated "/" and "/stats", so
-            // the refresh picks up the restored row.
             router.refresh();
             toast.success("Wieder im Vorrat");
           })();
@@ -303,7 +298,6 @@ export function EditItemForm({
           },
         },
       });
-      // Reload so the MHD field shows the new value.
       router.refresh();
     });
   }
@@ -327,11 +321,39 @@ export function EditItemForm({
     if (!res.ok) toast.error(res.error);
   }
 
+  function handleAddToShopping() {
+    const displayName = (item.customName ?? item.productName).trim();
+    startShoppingTransition(async () => {
+      const res = await addShoppingItem({
+        productId: item.productId ?? undefined,
+        customName: displayName || undefined,
+        brand: item.brand ?? undefined,
+        imageUrl: item.imageUrl ?? undefined,
+        category: item.category ?? undefined,
+        itemCategory: item.itemCategory,
+        quantity: item.quantity > 0 ? item.quantity : undefined,
+        unit: item.unit ?? undefined,
+      });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Zur Einkaufsliste hinzugefügt", {
+        duration: 5000,
+        action: {
+          label: "Ansehen",
+          onClick: () => { window.location.href = "/shopping"; },
+        },
+      });
+    });
+  }
+
   return (
-    <form onSubmit={handleSave} className="flex flex-col gap-5">
-      {/* Product summary — read-only, like in the Add-Flow. */}
-      <div className="flex items-start gap-3 rounded-lg border border-border p-3">
-        <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-raised">
+    <form onSubmit={handleSave} className="flex flex-col">
+
+      {/* 1. Produktkachel */}
+      <div className="flex items-center gap-4 rounded-xl bg-surface border border-border p-4 mb-4">
+        <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-raised">
           {item.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -340,13 +362,15 @@ export function EditItemForm({
               className="max-h-full max-w-full object-contain p-0.5"
             />
           ) : (
-            <Package className="size-6 text-muted" aria-hidden />
+            <Package className="size-7 text-muted" aria-hidden />
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{item.productName}</p>
-          {item.brand && (
-            <p className="truncate text-sm text-muted">{item.brand}</p>
+          <p className="truncate font-medium text-foreground">
+            {item.customName ?? item.productName}
+          </p>
+          {(item.customBrand ?? item.brand) && (
+            <p className="truncate text-sm text-muted">{item.customBrand ?? item.brand}</p>
           )}
           {item.barcode && (
             <p className="mt-0.5 font-mono text-xs text-muted">
@@ -356,259 +380,222 @@ export function EditItemForm({
         </div>
       </div>
 
-      <FieldRow>
-        <Label>Art</Label>
-        <div className="grid grid-cols-4 gap-1">
-          {(
-            [
-              { key: "food", emoji: "🥦", label: "Essen" },
-              { key: "hygiene", emoji: "🧴", label: "Hygiene" },
-              { key: "medicine", emoji: "💊", label: "Medizin" },
-              { key: "other", emoji: "📦", label: "Sonstiges" },
-            ] as const
-          ).map(({ key, emoji, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => {
-                setItemCategory(key);
-                if (customCategory && !categories.some((c) => c.slug === customCategory && c.parentCategory === key)) {
-                  setCustomCategory("");
-                }
-                const validLocs = storageLocations.filter(
-                  (l) => l.categories.length === 0 || l.slug === "other" || l.categories.includes(key),
-                );
-                if (!validLocs.find((l) => l.slug === location)) {
-                  setLocation(validLocs[0]?.slug ?? "other");
-                }
-              }}
-              className={cn(
-                "flex flex-col items-center gap-0.5 rounded-lg border px-1 py-2 text-[10px] font-medium transition-colors",
-                itemCategory === key
-                  ? "border-primary bg-primary-subtle text-primary-text"
-                  : "border-border bg-surface text-muted hover:text-foreground",
-              )}
-            >
-              <span aria-hidden className="text-base">{emoji}</span>
-              {label}
-            </button>
-          ))}
-        </div>
-      </FieldRow>
-
-      <FieldRow>
-        <Label htmlFor="custom-name">
-          Eigener Name <span className="text-muted">(optional)</span>
-        </Label>
-        <Input
-          id="custom-name"
-          value={customName}
-          onChange={(e) => setCustomName(e.target.value)}
-          placeholder={item.productName}
-        />
-      </FieldRow>
-
-      <FieldRow>
-        <Label htmlFor="custom-brand">
-          Eigene Marke{" "}
-          <span className="text-muted">(überschreibt Datenbank)</span>
-        </Label>
-        <Input
-          id="custom-brand"
-          value={customBrand}
-          onChange={(e) => setCustomBrand(e.target.value)}
-          placeholder={item.brand ?? "z.B. Rewe Bio"}
-        />
-      </FieldRow>
-
-      <FieldRow>
-        <Label htmlFor="custom-category">Kategorie</Label>
-        <select
-          id="custom-category"
-          value={customCategory}
-          onChange={(e) => setCustomCategory(e.target.value)}
-          className="h-9 w-full rounded-lg border border-border bg-surface px-2.5 text-sm text-foreground outline-none focus:border-border-strong"
+      {/* 2. CTA-Block */}
+      <div className="grid grid-cols-2 gap-2 mb-6">
+        <Button
+          type="button"
+          size="lg"
+          onClick={handleConsume}
+          disabled={isPending}
+          className="rounded-lg"
         >
-          <option value="">— keine Auswahl —</option>
-          {categories.filter((c) => c.parentCategory === itemCategory).map((c) => (
-            <option key={c.slug} value={c.slug}>
-              {c.icon} {c.name}
-            </option>
-          ))}
-        </select>
-        {effectiveCategory && effectiveCategory !== customCategory && (
-          <p className="text-xs text-muted">
-            Aktuell:{" "}
-            {categories.find((c) => c.slug === effectiveCategory)?.name ??
-              effectiveCategory}
-          </p>
+          <CheckCircle2 aria-hidden /> Verbraucht
+        </Button>
+        <Button
+          type="button"
+          size="lg"
+          onClick={handleDiscard}
+          disabled={isPending}
+          className="rounded-lg bg-danger-subtle text-danger hover:bg-danger-subtle/80 border-transparent"
+          variant="outline"
+        >
+          <Trash2 aria-hidden /> Entsorgt
+        </Button>
+        {frozenAt ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            onClick={handleUnfreeze}
+            disabled={isPending}
+            className="rounded-lg"
+          >
+            <Snowflake aria-hidden /> Auftauen
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            onClick={handleFreeze}
+            disabled={isPending}
+            className="rounded-lg"
+          >
+            <Snowflake aria-hidden /> Einfrieren
+          </Button>
         )}
-      </FieldRow>
-
-      <div className="grid grid-cols-[1fr_1fr] gap-3">
-        <FieldRow>
-          <Label htmlFor="quantity">Menge</Label>
-          <Input
-            id="quantity"
-            type="number"
-            min="0.1"
-            step="0.1"
-            inputMode="decimal"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            required
-          />
-        </FieldRow>
-        <FieldRow>
-          <Label htmlFor="unit">
-            Einheit <span className="text-muted">(optional)</span>
-          </Label>
-          <Input
-            id="unit"
-            value={unit}
-            onChange={(e) => setUnit(e.target.value)}
-            placeholder="z.B. Stück, g"
-          />
-        </FieldRow>
+        <Button
+          type="button"
+          variant="secondary"
+          size="lg"
+          onClick={handleAddToShopping}
+          disabled={isAddingShopping}
+          className="rounded-lg"
+        >
+          <ShoppingCart aria-hidden /> Nachkaufen
+        </Button>
       </div>
 
-      <FieldRow>
-        <Label htmlFor="best-before">Mindesthaltbarkeitsdatum</Label>
-        <Input
-          id="best-before"
-          type="date"
-          value={bestBefore}
-          onChange={(e) => setBestBefore(e.target.value)}
-          required
-        />
-      </FieldRow>
+      {/* 3. Details-Tabelle */}
+      <div className="rounded-xl bg-surface border border-border overflow-hidden mb-4">
+        <p className="px-4 pt-3 pb-1 text-[11px] tracking-widest text-muted uppercase font-medium">
+          Details
+        </p>
 
-      <FieldRow>
-        <Label>Lagerort</Label>
-        <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-1">
-          {filteredStorageLocations.map(({ slug, name, icon }) => {
-            const active = location === slug;
-            return (
+        <DetailRow label="Eigener Name">
+          <input
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+            placeholder={item.productName}
+            className={inlineInputClass}
+          />
+        </DetailRow>
+
+        <DetailRow label="Eigene Marke">
+          <input
+            value={customBrand}
+            onChange={(e) => setCustomBrand(e.target.value)}
+            placeholder={item.brand ?? "z.B. Rewe Bio"}
+            className={inlineInputClass}
+          />
+        </DetailRow>
+
+        <DetailRow label="Menge">
+          <div className="flex items-center gap-1.5 justify-end">
+            <input
+              type="number"
+              min="0.1"
+              step="0.1"
+              inputMode="decimal"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              required
+              className={cn(inlineInputClass, "w-16")}
+            />
+            <input
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              placeholder="Stück"
+              className={cn(inlineInputClass, "w-20")}
+            />
+          </div>
+        </DetailRow>
+
+        <DetailRow label="MHD">
+          <input
+            type="date"
+            value={bestBefore}
+            onChange={(e) => setBestBefore(e.target.value)}
+            required
+            className={cn(inlineInputClass, "w-auto")}
+          />
+        </DetailRow>
+
+        <DetailRow label="Lagerort">
+          <select
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
+          >
+            {filteredStorageLocations.map(({ slug, name, icon }) => (
+              <option key={slug} value={slug}>{icon} {name}</option>
+            ))}
+          </select>
+        </DetailRow>
+
+        <DetailRow label="Kategorie">
+          <div className="flex items-center gap-1.5 justify-end">
+            {selectedCategoryIcon && (
+              <span aria-hidden className="text-sm">{selectedCategoryIcon}</span>
+            )}
+            <select
+              value={customCategory}
+              onChange={(e) => setCustomCategory(e.target.value)}
+              className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
+            >
+              <option value="">— keine —</option>
+              {categories.filter((c) => c.parentCategory === itemCategory).map((c) => (
+                <option key={c.slug} value={c.slug}>{c.icon} {c.name}</option>
+              ))}
+            </select>
+          </div>
+        </DetailRow>
+
+        <DetailRow label="Art">
+          <div className="flex flex-wrap gap-1 justify-end">
+            {ITEM_CATEGORIES.map(({ key, emoji, label }) => (
               <button
-                key={slug}
+                key={key}
                 type="button"
-                onClick={() => setLocation(slug)}
-                aria-pressed={active}
+                onClick={() => handleCategoryChange(key)}
                 className={cn(
-                  "flex flex-col items-center gap-1 rounded-lg py-2 text-xs transition-colors",
-                  active
-                    ? "bg-primary text-primary-fg"
-                    : "text-muted hover:bg-surface-raised hover:text-foreground",
+                  "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
+                  itemCategory === key
+                    ? "bg-primary-subtle text-primary-text"
+                    : "text-muted hover:text-foreground",
                 )}
               >
-                <span className="text-base leading-none" aria-hidden>{icon}</span>
-                {name}
+                {emoji} {label}
               </button>
-            );
-          })}
-        </div>
-      </FieldRow>
+            ))}
+          </div>
+        </DetailRow>
 
-      <FieldRow>
-        <Label htmlFor="note">
-          Notiz <span className="text-muted">(optional)</span>
-        </Label>
-        <textarea
-          id="note"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          rows={2}
-          className="w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted outline-none focus:border-border-strong"
-          placeholder="z.B. angebrochen, für Pizza"
-        />
-      </FieldRow>
+        {frozenAt && (
+          <DetailRow label="Eingefroren am">
+            <input
+              type="date"
+              value={frozenAt}
+              onChange={(e) => void handleFrozenAtChange(e.target.value)}
+              aria-label="Einfrier-Datum"
+              className={cn(inlineInputClass, "w-auto")}
+            />
+          </DetailRow>
+        )}
+
+        <DetailRow label="Hinzugefügt">
+          <span className="text-sm text-muted">{formatAddedAt(item.addedAt)}</span>
+        </DetailRow>
+      </div>
+
+      {/* 4. Notiz */}
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        rows={2}
+        className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground placeholder:text-muted outline-none focus:border-border-strong mb-4"
+        placeholder="Notiz (optional) — z.B. angebrochen, für Pizza"
+      />
 
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-danger/30 bg-danger-subtle px-3 py-2 text-sm text-danger"
+          className="rounded-lg border border-danger/30 bg-danger-subtle px-3 py-2 text-sm text-danger mb-4"
         >
           {error}
         </div>
       )}
 
-      <div className="flex gap-2 pt-2">
-        <Button type="submit" className="flex-1" size="lg" disabled={isPending}>
-          {isPending ? (
-            <>
-              <Loader2 className="animate-spin" aria-hidden /> …
-            </>
-          ) : (
-            "Speichern"
-          )}
-        </Button>
-      </div>
-
-      {/* Freeze action — separate from the terminal actions. */}
-      <div className="mt-2 flex flex-col gap-2 border-t border-border pt-4">
-        <p className="text-xs text-muted">Lagerung:</p>
-        {frozenAt ? (
-          <div className="flex items-center gap-2">
-            <Snowflake className="size-4 shrink-0 text-primary-text" aria-hidden />
-            <span className="text-sm text-muted">Eingefroren am</span>
-            <Input
-              type="date"
-              value={frozenAt}
-              onChange={(e) => void handleFrozenAtChange(e.target.value)}
-              className="h-8 w-auto flex-1 text-sm"
-              aria-label="Einfrier-Datum"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleUnfreeze}
-              disabled={isPending}
-            >
-              Auftauen
-            </Button>
-          </div>
+      {/* 5. Speichern */}
+      <Button type="submit" size="lg" className="w-full rounded-lg" disabled={isPending}>
+        {isPending ? (
+          <>
+            <Loader2 className="animate-spin" aria-hidden /> …
+          </>
         ) : (
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            onClick={handleFreeze}
-            disabled={isPending}
-            className="w-full"
-          >
-            <Snowflake aria-hidden /> Einfrieren
-          </Button>
+          "Speichern"
         )}
+      </Button>
+
+      {/* 6. Artikel löschen */}
+      <div className="flex justify-center mt-4 mb-2">
+        <DeleteItemButton
+          itemId={item.id}
+          itemName={item.customName ?? item.productName}
+          disabled={isPending}
+        />
       </div>
 
-      {/* Destructive / terminal actions at the bottom, separated from save. */}
-      <div className="mt-2 flex flex-col gap-2 border-t border-border pt-4">
-        <p className="text-xs text-muted">
-          Artikel abschließen:
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            onClick={handleConsume}
-            disabled={isPending}
-          >
-            <CheckCircle2 aria-hidden /> Verbraucht
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            onClick={handleDiscard}
-            disabled={isPending}
-            className="text-danger hover:text-danger"
-          >
-            <Trash2 aria-hidden /> Entsorgt
-          </Button>
-        </div>
-      </div>
     </form>
   );
 }
