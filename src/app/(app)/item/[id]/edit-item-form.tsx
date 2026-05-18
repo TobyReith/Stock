@@ -55,6 +55,8 @@ const ITEM_CATEGORIES = [
   { key: "other" as const, emoji: "📦", label: "Sonstiges" },
 ];
 
+const UNIT_OPTIONS = ["Stk", "L", "ml", "g", "kg", "Pkg", "Bd", "Becher"];
+
 function formatAddedAt(dateStr: string): string {
   const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
   if (days === 0) return "heute";
@@ -110,8 +112,6 @@ export function EditItemForm({
       ),
     [storageLocations, itemCategory],
   );
-
-  const selectedCategoryIcon = categories.find((c) => c.slug === customCategory)?.icon;
 
   function handleCategoryChange(key: ItemCategoryType) {
     setItemCategory(key);
@@ -439,11 +439,8 @@ export function EditItemForm({
 
       {/* 3. Details-Tabelle */}
       <div className="rounded-xl bg-surface border border-border overflow-hidden mb-4">
-        <p className="px-4 pt-3 pb-1 text-[11px] tracking-widest text-muted uppercase font-medium">
-          Details
-        </p>
 
-        <DetailRow label="Eigener Name">
+        <DetailRow label="Name">
           <input
             value={customName}
             onChange={(e) => setCustomName(e.target.value)}
@@ -452,7 +449,7 @@ export function EditItemForm({
           />
         </DetailRow>
 
-        <DetailRow label="Eigene Marke">
+        <DetailRow label="Marke">
           <input
             value={customBrand}
             onChange={(e) => setCustomBrand(e.target.value)}
@@ -462,7 +459,7 @@ export function EditItemForm({
         </DetailRow>
 
         <DetailRow label="Menge">
-          <div className="flex items-center gap-1.5 justify-end">
+          <div className="flex items-center gap-2 justify-end">
             <input
               type="number"
               min="0.1"
@@ -473,12 +470,19 @@ export function EditItemForm({
               required
               className={cn(inlineInputClass, "w-16")}
             />
-            <input
-              value={unit}
+            <select
+              value={UNIT_OPTIONS.includes(unit) ? unit : ""}
               onChange={(e) => setUnit(e.target.value)}
-              placeholder="Stück"
-              className={cn(inlineInputClass, "w-20")}
-            />
+              className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
+            >
+              <option value="">—</option>
+              {!UNIT_OPTIONS.includes(unit) && unit && (
+                <option value={unit}>{unit}</option>
+              )}
+              {UNIT_OPTIONS.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
           </div>
         </DetailRow>
 
@@ -505,41 +509,28 @@ export function EditItemForm({
         </DetailRow>
 
         <DetailRow label="Kategorie">
-          <div className="flex items-center gap-1.5 justify-end">
-            {selectedCategoryIcon && (
-              <span aria-hidden className="text-sm">{selectedCategoryIcon}</span>
-            )}
-            <select
-              value={customCategory}
-              onChange={(e) => setCustomCategory(e.target.value)}
-              className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
-            >
-              <option value="">— keine —</option>
-              {categories.filter((c) => c.parentCategory === itemCategory).map((c) => (
-                <option key={c.slug} value={c.slug}>{c.icon} {c.name}</option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={customCategory}
+            onChange={(e) => setCustomCategory(e.target.value)}
+            className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
+          >
+            <option value="">— keine —</option>
+            {categories.filter((c) => c.parentCategory === itemCategory).map((c) => (
+              <option key={c.slug} value={c.slug}>{c.icon} {c.name}</option>
+            ))}
+          </select>
         </DetailRow>
 
         <DetailRow label="Art">
-          <div className="flex flex-wrap gap-1 justify-end">
+          <select
+            value={itemCategory}
+            onChange={(e) => handleCategoryChange(e.target.value as ItemCategoryType)}
+            className="bg-transparent text-right text-sm text-foreground outline-none border-none appearance-none cursor-pointer"
+          >
             {ITEM_CATEGORIES.map(({ key, emoji, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => handleCategoryChange(key)}
-                className={cn(
-                  "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
-                  itemCategory === key
-                    ? "bg-primary-subtle text-primary-text"
-                    : "text-muted hover:text-foreground",
-                )}
-              >
-                {emoji} {label}
-              </button>
+              <option key={key} value={key}>{emoji} {label}</option>
             ))}
-          </div>
+          </select>
         </DetailRow>
 
         {frozenAt && (
