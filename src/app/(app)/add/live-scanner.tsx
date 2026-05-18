@@ -41,8 +41,8 @@ interface ExtendedConstraintSet extends MediaTrackConstraintSet {
  * before the component unmounts, so the async vision call always has valid
  * pixel data.
  *
- * After 4 s without a barcode hit, a subtle hint nudges the user toward the
- * shutter.
+ * Status line below the viewport reflects scanning state in real time, driven
+ * by the `isLookingUp` prop the parent passes while a lookup is in flight.
  */
 
 type CameraStatus =
