@@ -102,6 +102,7 @@ export function LiveScanner({
     if (videoRef.current) videoRef.current.srcObject = null;
     setTorchOn(false);
     setTorchSupported(false);
+    setBarcodeDetected(false);
     setFocusMode(null);
     setFocusRing(null);
     if (focusRingTimerRef.current) clearTimeout(focusRingTimerRef.current);
@@ -110,6 +111,7 @@ export function LiveScanner({
 
   const start = useCallback(async () => {
     setErrorMsg(null);
+    setBarcodeDetected(false);
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setStatus("unsupported");
       return;
