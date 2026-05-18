@@ -21,16 +21,6 @@ interface ExtendedConstraintSet extends MediaTrackConstraintSet {
   focusMode?: string;
 }
 
-interface ImageCaptureOptions {
-  focusMode?: string;
-  pointsOfInterest?: { x: number; y: number }[];
-}
-
-interface ImageCaptureAPI {
-  setOptions(options: ImageCaptureOptions): Promise<void>;
-}
-
-declare const ImageCapture: { new(track: MediaStreamTrack): ImageCaptureAPI } | undefined;
 
 /**
  * Unified live-camera scanner for the Add-Flow.
@@ -94,6 +84,7 @@ export function LiveScanner({
   const [focusMode, setFocusMode] = useState<"single-shot" | "manual" | null>(null);
   const [focusRing, setFocusRing] = useState<{ x: number; y: number; fading: boolean } | null>(null);
   const focusRingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusRestoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onBarcodeRef = useRef(onBarcodeDetected);
   useEffect(() => {
@@ -114,6 +105,7 @@ export function LiveScanner({
     setFocusMode(null);
     setFocusRing(null);
     if (focusRingTimerRef.current) clearTimeout(focusRingTimerRef.current);
+    if (focusRestoreTimerRef.current) clearTimeout(focusRestoreTimerRef.current);
   }, []);
 
   const start = useCallback(async () => {
@@ -253,19 +245,13 @@ export function LiveScanner({
     }, 300);
 
     try {
-      if (typeof ImageCapture !== "undefined") {
-        const capture = new ImageCapture(track);
-        await capture.setOptions({
-          focusMode: "single-shot",
-          pointsOfInterest: [{ x: normX, y: normY }],
-        });
-      } else {
-        await track.applyConstraints({
-          advanced: [{ focusMode: "manual", pointsOfInterest: [{ x: normX, y: normY }] } as ExtendedConstraintSet],
-        });
-      }
+      await track.applyConstraints({
+        advanced: [{ focusMode: "single-shot", pointsOfInterest: [{ x: normX, y: normY }] } as ExtendedConstraintSet],
+      });
       // Restore continuous autofocus after 500ms so the camera doesn't lock on the tapped point.
-      setTimeout(() => {
+      if (focusRestoreTimerRef.current) clearTimeout(focusRestoreTimerRef.current);
+      focusRestoreTimerRef.current = setTimeout(() => {
+        focusRestoreTimerRef.current = null;
         void track.applyConstraints({
           advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet],
         }).catch(() => {});
