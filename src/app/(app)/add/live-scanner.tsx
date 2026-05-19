@@ -131,8 +131,23 @@ export function LiveScanner({
     }
     setStatus("starting");
 
+    const QUICKTEST_CURRENT_DEVICE_ID = "91864d9fd331801ca5cfba17824cc61708cffaee4bf15b155fbfb2641ef31146";
+
+    let quicktestDeviceId: string | undefined;
+    try {
+      const allDevices = await navigator.mediaDevices.enumerateDevices();
+      const backCameras = allDevices.filter(
+        (d) => d.kind === "videoinput" && d.label.toLowerCase().includes("back"),
+      );
+      quicktestDeviceId = backCameras.find(
+        (d) => d.deviceId !== QUICKTEST_CURRENT_DEVICE_ID,
+      )?.deviceId;
+    } catch {
+      // enumerateDevices before getUserMedia may yield no labels — handled below
+    }
+
     const videoConstraints: MediaTrackConstraints = {
-      facingMode: { ideal: "environment" },
+      deviceId: { exact: quicktestDeviceId ?? QUICKTEST_CURRENT_DEVICE_ID },
       width: { ideal: 1280 },
       height: { ideal: 720 },
     };
