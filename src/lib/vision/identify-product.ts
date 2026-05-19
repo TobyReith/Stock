@@ -183,8 +183,8 @@ export async function identifyProduct(input: VisionInput): Promise<ProductIdenti
     }),
   );
 
-  // When vision confidence is low, also surface pure OFF results so the user
-  // has more candidates to choose from.
+  // When confidence is below variant-level (< 0.85: name readable but brand/variant
+  // unclear), also surface pure OFF results so the user has more candidates to choose from.
   const topConfidence = visionCandidates[0]?.confidence ?? 0;
   let extraOff: ProductCandidate[] = [];
   if (visionCandidates.length === 0 || topConfidence < 0.85) {
