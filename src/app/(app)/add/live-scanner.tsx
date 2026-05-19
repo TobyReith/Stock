@@ -10,6 +10,7 @@ import {
 } from "@/lib/barcode/detector";
 import { identifyProductFromPhoto } from "@/lib/actions/vision";
 import type { ProductCandidate } from "@/lib/vision/types";
+import { ScannerDebugPanel, type DebugInfo } from "@/components/scanner/scanner-debug-panel";
 
 interface ExtendedCapabilities extends MediaTrackCapabilities {
   focusMode?: string[];
@@ -87,6 +88,18 @@ export function LiveScanner({
   const [focusRing, setFocusRing] = useState<{ x: number; y: number; fading: boolean } | null>(null);
   const focusRingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusRestoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [debugInfo, setDebugInfo] = useState<DebugInfo>({
+    devices: [],
+    activeDeviceId: null,
+    activeLabel: null,
+    capabilities: null,
+    settings: null,
+    constraints: null,
+    errors: [],
+  });
+  const addDebugError = useCallback((msg: string) => {
+    setDebugInfo((prev) => ({ ...prev, errors: [...prev.errors, msg] }));
+  }, []);
 
   const onBarcodeRef = useRef(onBarcodeDetected);
   useEffect(() => {
@@ -117,21 +130,61 @@ export function LiveScanner({
       return;
     }
     setStatus("starting");
+
+    const videoConstraints: MediaTrackConstraints = {
+      facingMode: { ideal: "environment" },
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+    };
+    setDebugInfo((prev) => ({
+      ...prev,
+      errors: [],
+      constraints: videoConstraints as Record<string, unknown>,
+    }));
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
+        video: videoConstraints,
         audio: false,
       });
       streamRef.current = stream;
 
+      // Enumerate all video inputs now that permission has been granted —
+      // labels are only available after a getUserMedia call.
+      try {
+        const allDevices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = allDevices
+          .filter((d) => d.kind === "videoinput")
+          .map((d) => ({ deviceId: d.deviceId, label: d.label, kind: d.kind }));
+        setDebugInfo((prev) => ({ ...prev, devices: videoInputs }));
+      } catch (e) {
+        addDebugError(`enumerateDevices: ${e instanceof Error ? e.message : String(e)}`);
+      }
+
       // Check torch and focus support after acquiring the stream.
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
-        const caps = videoTrack.getCapabilities() as ExtendedCapabilities;
+        let caps: ExtendedCapabilities = {};
+        let settings: MediaTrackSettings = {};
+        try {
+          caps = videoTrack.getCapabilities() as ExtendedCapabilities;
+        } catch (e) {
+          addDebugError(`getCapabilities: ${e instanceof Error ? e.message : String(e)}`);
+        }
+        try {
+          settings = videoTrack.getSettings();
+        } catch (e) {
+          addDebugError(`getSettings: ${e instanceof Error ? e.message : String(e)}`);
+        }
+
+        setDebugInfo((prev) => ({
+          ...prev,
+          activeLabel: videoTrack.label,
+          activeDeviceId: settings.deviceId ?? null,
+          capabilities: caps as Record<string, unknown>,
+          settings: settings as Record<string, unknown>,
+        }));
+
         setTorchSupported(!!caps.torch);
         const modes = caps.focusMode ?? [];
         setFocusMode(modes.includes("single-shot") ? "single-shot" : null);
@@ -143,7 +196,9 @@ export function LiveScanner({
         if (modes.includes("continuous")) {
           void videoTrack.applyConstraints({
             advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet],
-          }).catch(() => {});
+          }).catch((e: unknown) => {
+            addDebugError(`applyConstraints(continuous): ${e instanceof Error ? e.message : String(e)}`);
+          });
         }
       }
 
@@ -164,13 +219,15 @@ export function LiveScanner({
 
       setStatus("running");
     } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unbekannter Fehler";
+      addDebugError(`getUserMedia: ${msg}`);
       const name = err instanceof Error ? err.name : "";
       if (name === "NotAllowedError" || name === "SecurityError") setStatus("denied");
       else if (name === "NotFoundError" || name === "OverconstrainedError") setStatus("unsupported");
-      else { setStatus("error"); setErrorMsg(err instanceof Error ? err.message : "Unbekannter Fehler"); }
+      else { setStatus("error"); setErrorMsg(msg); }
       stop();
     }
-  }, [stop]);
+  }, [stop, addDebugError]);
 
   // Auto-start on mount. On Chrome/Android this succeeds immediately.
   // On iOS Safari getUserMedia requires a user gesture so it falls back to
@@ -279,12 +336,14 @@ export function LiveScanner({
         focusRestoreTimerRef.current = null;
         void track.applyConstraints({
           advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet],
-        }).catch(() => {});
+        }).catch((e: unknown) => {
+          addDebugError(`applyConstraints(restore continuous): ${e instanceof Error ? e.message : String(e)}`);
+        });
       }, 500);
-    } catch {
-      // Device does not support focus control — silently ignore.
+    } catch (e) {
+      addDebugError(`applyConstraints(single-shot): ${e instanceof Error ? e.message : String(e)}`);
     }
-  }, [focusMode]);
+  }, [focusMode, addDebugError]);
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
@@ -370,6 +429,8 @@ export function LiveScanner({
           </div>
         )}
       </div>
+
+      <ScannerDebugPanel info={debugInfo} />
 
       {/* Scanner status line */}
       {status === "running" && (
