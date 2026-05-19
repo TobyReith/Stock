@@ -89,6 +89,9 @@ export async function fetchProductByBarcode(barcode: string): Promise<OFFProduct
   }
 
   if (!res.ok) {
+    if (res.status === 404) {
+      throw new OFFNotFoundError(validated);
+    }
     throw new OFFFetchError(`Open Food Facts: HTTP ${res.status}`);
   }
 

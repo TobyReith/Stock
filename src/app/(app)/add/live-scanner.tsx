@@ -61,6 +61,8 @@ type Props = {
   onManualEntry: () => void;
   /** Parent is processing a detected barcode (lookup in flight). Drives the "Barcode erkannt" status. */
   isLookingUp?: boolean;
+  /** Highlight the shutter button so the user knows to take a photo now. */
+  showPhotoHint?: boolean;
   className?: string;
 };
 
@@ -150,6 +152,7 @@ export function LiveScanner({
   onManualBarcode,
   onManualEntry,
   isLookingUp = false,
+  showPhotoHint = false,
   className,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -215,7 +218,7 @@ export function LiveScanner({
       detectorRef.current = detector;
 
       await detector.start(video, (code) => {
-        navigator.vibrate?.(50);
+        navigator.vibrate?.(40);
         onBarcodeRef.current(code);
       });
 
@@ -407,7 +410,7 @@ export function LiveScanner({
         ) : (
           <div className="flex items-center justify-center gap-2 py-2">
             <ScanLine size={15} className="text-muted" aria-hidden />
-            <span className="text-[13px] font-medium text-muted">Kein Barcode gefunden</span>
+            <span className="text-[13px] font-medium text-muted">Barcode vor die Kamera halten</span>
           </div>
         )
       )}
@@ -423,7 +426,7 @@ export function LiveScanner({
         {status === "running" && (
           <Button
             size="lg"
-            variant="outline"
+            variant={showPhotoHint ? "default" : "outline"}
             onClick={() => void handleShutter()}
             disabled={capturing}
             className="flex-1"

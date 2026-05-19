@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Camera, CheckCircle2, Loader2, Pencil, SearchX, XCircle } from "lucide-react";
+import { Camera, CheckCircle2, Loader2, PackageSearch, Pencil, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -95,6 +95,26 @@ export function AddFlow({
   );
   const [, startTransition] = useTransition();
   const failedBarcodesRef = useRef<Set<string>>(new Set());
+  const pendingBarcodeRef = useRef<string | null>(null);
+  const lastCandidatesRef = useRef<ProductCandidate[]>([]);
+  const pendingNavRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [photoHintMode, setPhotoHintMode] = useState(false);
+  const [slowHint, setSlowHint] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (pendingNavRef.current) clearTimeout(pendingNavRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (stage.kind !== "looking-up") return;
+    const t = setTimeout(() => setSlowHint(true), 2500);
+    return () => {
+      clearTimeout(t);
+      setSlowHint(false);
+    };
+  }, [stage.kind]);
 
   const runLookup = useCallback((barcode: string) => {
     setStage({ kind: "looking-up", barcode });
@@ -118,11 +138,13 @@ export function AddFlow({
 
       startTransition(async () => {
         const res = await lookupBarcode(barcode);
-        if (!res.ok || res.data.source === "unknown") {
-          // Network/server errors and "not found" alike: blacklist and keep scanning.
+        if (!res.ok) {
           failedBarcodesRef.current.add(barcode);
-          setStage({ kind: "scan" });
+          setStage({ kind: "lookup-error", message: res.error, barcode });
           return;
+        }
+        if (res.data.source === "unknown") {
+          failedBarcodesRef.current.add(barcode);
         }
         setStage({ kind: "preview", barcode, result: res });
       });
@@ -134,6 +156,27 @@ export function AddFlow({
     setStage({ kind: "scan" });
   }, []);
 
+  const handlePhotoMode = useCallback((barcode: string) => {
+    pendingBarcodeRef.current = barcode;
+    setPhotoHintMode(true);
+    setStage({ kind: "scan" });
+  }, []);
+
+  const handlePhotoCandidates = useCallback((candidates: ProductCandidate[]) => {
+    lastCandidatesRef.current = candidates;
+    pendingBarcodeRef.current = null;
+    setPhotoHintMode(false);
+    setStage({ kind: "photo-candidates", candidates });
+  }, []);
+
+  const handleWrongProduct = useCallback(() => {
+    if (lastCandidatesRef.current.length > 0) {
+      setStage({ kind: "photo-candidates", candidates: lastCandidatesRef.current });
+    } else {
+      setStage({ kind: "scan" });
+    }
+  }, []);
+
   const handleSubmitSuccess = useCallback(() => {
     // Fire-and-forget when we came from the shopping list: the server
     // action idempotently sets `bought_at` and revalidates /shopping, so
@@ -143,9 +186,19 @@ export function AddFlow({
     if (initial?.shoppingListItemId) {
       void markShoppingItemBought(initial.shoppingListItemId);
     }
-    toast.success("Artikel hinzugefügt");
-    router.push("/");
-  }, [router, initial]);
+    const TOAST_MS = 4000;
+    pendingNavRef.current = setTimeout(() => router.push("/"), TOAST_MS + 500);
+    toast.success("Artikel hinzugefügt", {
+      action: {
+        label: "Weiteren hinzufügen",
+        onClick: () => {
+          if (pendingNavRef.current) clearTimeout(pendingNavRef.current);
+          resetToScanner();
+        },
+      },
+      duration: TOAST_MS,
+    });
+  }, [router, initial, resetToScanner]);
 
   // FORM stage — dedicated branch to keep JSX compact.
   if (stage.kind === "form") {
@@ -158,6 +211,11 @@ export function AddFlow({
         storageLocations={storageLocations}
         onCancel={resetToScanner}
         onSuccess={handleSubmitSuccess}
+        onWrongProduct={
+          (stage.seed.kind === "vision" || stage.seed.kind === "off")
+            ? handleWrongProduct
+            : undefined
+        }
       />
     );
   }
@@ -168,12 +226,13 @@ export function AddFlow({
         <div className="relative">
           <LiveScanner
             onBarcodeDetected={handleDetected}
-            onPhotoAnalyzing={() => setStage({ kind: "photo-analyzing" })}
-            onPhotoCandidates={(candidates) => setStage({ kind: "photo-candidates", candidates })}
+            onPhotoAnalyzing={() => { setPhotoHintMode(false); setStage({ kind: "photo-analyzing" }); }}
+            onPhotoCandidates={handlePhotoCandidates}
             onPhotoError={(msg) => toast.error(msg)}
             onManualBarcode={() => setStage({ kind: "manual-barcode" })}
             onManualEntry={() => setStage({ kind: "form", seed: { kind: "manual" } })}
             isLookingUp={stage.kind === "validating-barcode"}
+            showPhotoHint={photoHintMode}
           />
           {stage.kind === "validating-barcode" && (
             <div className="absolute left-1/2 top-3 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-foreground/40 px-3 py-1 backdrop-blur-sm">
@@ -194,12 +253,26 @@ export function AddFlow({
 
       {stage.kind === "looking-up" && (
         <Card>
-          <CardContent className="flex items-center gap-3 py-4">
-            <Loader2 className="size-5 animate-spin text-muted" aria-hidden />
-            <div>
-              <p className="font-medium">Nachschlagen…</p>
-              <p className="font-mono text-xs text-muted">Barcode {stage.barcode}</p>
+          <CardContent className="flex flex-col gap-3 py-4">
+            <div className="flex items-center gap-3">
+              <Loader2 className="size-5 animate-spin text-muted" aria-hidden />
+              <div>
+                <p className="font-medium">Nachschlagen…</p>
+                <p className="font-mono text-xs text-muted">Barcode {stage.barcode}</p>
+              </div>
             </div>
+            {slowHint && (
+              <p className="text-xs text-muted-foreground">
+                Dauert etwas länger – schlechtes Netz?{" "}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => setStage({ kind: "form", seed: { kind: "manual" } })}
+                >
+                  Manuell eingeben
+                </button>
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -228,6 +301,7 @@ export function AddFlow({
           result={stage.result}
           onContinue={(seed) => setStage({ kind: "form", seed })}
           onReset={resetToScanner}
+          onPhotoMode={handlePhotoMode}
         />
       )}
 
@@ -249,6 +323,7 @@ export function AddFlow({
           categories={categories}
           onSelect={(seed) => setStage({ kind: "form", seed })}
           onReset={resetToScanner}
+          onManualEntry={() => setStage({ kind: "form", seed: { kind: "manual" } })}
         />
       )}
     </div>
@@ -306,11 +381,13 @@ function LookupPreview({
   result,
   onContinue,
   onReset,
+  onPhotoMode,
 }: {
   barcode: string;
   result: LookupResult;
   onContinue: (seed: FormSeed) => void;
   onReset: () => void;
+  onPhotoMode: (barcode: string) => void;
 }) {
   // Server action returned ok:false — treated as error here.
   if (!result.ok) {
@@ -335,32 +412,40 @@ function LookupPreview({
 
   const { data } = result;
 
-  // Unknown barcode: hand the form the barcode + empty product fields.
+  // Unknown barcode: offer photo identification or manual entry.
   if (data.source === "unknown") {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <SearchX className="size-5 text-muted" aria-hidden />
-            Unbekannter Barcode
+            <PackageSearch className="size-5 text-muted" aria-hidden />
+            Noch unbekanntes Produkt
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm">
-            Weder im Cache noch bei Open Food Facts. Du kannst das Produkt
-            manuell anlegen — Barcode bleibt erhalten.
+            Wir kennen diesen Barcode noch nicht. Du kannst ein Foto machen,
+            damit wir das Produkt erkennen – oder direkt manuell anlegen.
           </p>
           <p className="font-mono text-xs text-muted">Barcode {data.barcode}</p>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 pt-1">
             <Button
-              className="flex-1"
-              onClick={() => onContinue({ kind: "unknown", barcode: data.barcode })}
+              onClick={() => onPhotoMode(data.barcode)}
             >
-              Manuell anlegen
+              Foto aufnehmen
             </Button>
-            <Button variant="ghost" onClick={onReset}>
-              Abbrechen
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1"
+                variant="outline"
+                onClick={() => onContinue({ kind: "unknown", barcode: data.barcode })}
+              >
+                Manuell erfassen
+              </Button>
+              <Button variant="ghost" onClick={onReset}>
+                Neu scannen
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -449,11 +534,13 @@ function PhotoCandidatesPicker({
   categories,
   onSelect,
   onReset,
+  onManualEntry,
 }: {
   candidates: ProductCandidate[];
   categories: CategoryDisplay[];
   onSelect: (seed: FormSeed) => void;
   onReset: () => void;
+  onManualEntry: () => void;
 }) {
   function seedFromCandidate(c: ProductCandidate): FormSeed {
     // Derive itemCategory from CategoryKey: known food sub-type → food, else undefined.
@@ -496,9 +583,17 @@ function PhotoCandidatesPicker({
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         {candidates.length === 0 ? (
-          <p className="text-sm text-muted">
-            Kein Produkt erkannt. Bitte manuell eingeben.
-          </p>
+          <div className="flex flex-col items-center gap-3 py-4 text-center">
+            <Camera className="size-10 text-muted-foreground/50" aria-hidden />
+            <p className="text-sm font-medium">Kein Produkt erkannt</p>
+            <p className="text-xs text-muted-foreground">
+              Versuch es nochmal mit besserem Licht und halte das Etikett ins Bild.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" onClick={onReset}>Nochmal fotografieren</Button>
+              <Button variant="ghost" onClick={onManualEntry}>Manuell eingeben</Button>
+            </div>
+          </div>
         ) : (
           <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
             {candidates.map((c, i) => (
@@ -521,25 +616,25 @@ function PhotoCandidatesPicker({
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{c.name}</p>
-                    <p className="truncate text-xs text-muted">
-                      {[c.brand, categoryLabel(c.category)].filter(Boolean).join(" · ")}
-                    </p>
+                    <p className="truncate text-sm font-medium">{c.offProductName ?? c.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-xs text-muted">
+                        {[c.brand, categoryLabel(c.category)].filter(Boolean).join(" · ")}
+                      </p>
+                      <span className={cn(
+                        "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                        c.source === "vision+off"
+                          ? "bg-primary-subtle text-primary-text"
+                          : c.source === "vision"
+                            ? "bg-warning-subtle text-warning"
+                            : "bg-surface-raised text-muted",
+                      )}>
+                        {c.source === "vision+off" ? "Erkannt + OFF"
+                          : c.source === "vision" ? "Nur erkannt"
+                          : "Open Food Facts"}
+                      </span>
+                    </div>
                   </div>
-                  <span className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
-                    c.source === "vision+off"
-                      ? "bg-primary-subtle text-primary-text"
-                      : c.source === "vision"
-                        ? "bg-warning-subtle text-warning"
-                        : "bg-surface-raised text-muted",
-                  )}>
-                    {c.source === "vision+off"
-                      ? "Erkannt + Open Food Facts"
-                      : c.source === "vision"
-                        ? "Nur erkannt (kein DB-Match)"
-                        : "Open Food Facts"}
-                  </span>
                 </button>
               </li>
             ))}
@@ -549,9 +644,10 @@ function PhotoCandidatesPicker({
           <Button
             className="flex-1"
             variant="outline"
-            onClick={() => onSelect({ kind: "manual" })}
+            onClick={onManualEntry}
           >
-            <Pencil aria-hidden /> Manuell eingeben
+            <Pencil aria-hidden />
+            {candidates.length === 1 ? "Anderes Produkt – manuell eingeben" : "Manuell eingeben"}
           </Button>
           <Button variant="ghost" onClick={onReset}>
             Zurück

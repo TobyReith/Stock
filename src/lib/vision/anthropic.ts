@@ -161,12 +161,12 @@ ERKENNUNGSREGELN:
 - Lies den Produktnamen von der Verpackung (Hauptbezeichnung, keine Werbetexte).
 - Marke/Hersteller: Firmenname auf der Verpackung (z.B. Milka, Müller, Dr. Oetker).
 - Kategorie: Wähle eine aus: dairy | meat_fish | produce | frozen | canned | dry_pasta_rice | dry_baking | bread | spices | condiments | snacks | beverages | other
-- Bis zu 3 Kandidaten absteigend nach Konfidenz, falls du unsicher bist.
+- Liefere immer 2–3 Kandidaten absteigend nach Konfidenz. Selbst wenn dein Top-Pick eindeutig scheint, gib alternative Interpretationen an: ähnlich aussehende Produkte derselben Marke, Geschmacksvarianten, andere Produkt-Größen oder typische Verwechslungen. Nur bei wirklich uneindeutigem Foto darf candidates: [] zurückkommen.
 - Erkenne auch Produkte in anderen Sprachen.
 - BARCODE: Wenn auf dem Foto ein EAN- oder UPC-Barcode (8–14 Ziffern) klar lesbar ist, trage die Ziffernfolge im optionalen Feld \`barcode\` ein. Nur eintragen wenn du dir sicher bist — ein falscher Barcode ist schlimmer als keiner.
 
 CONFIDENCE-SKALA:
-- 0.90–1.00: Name + Marke klar lesbar.
+- 0.90–1.00: Name + Marke + spezifische Variante (z.B. Geschmack, Größe) klar lesbar — eindeutig identifizierbar.
 - 0.70–0.89: Name lesbar, Marke unklar oder teilweise verdeckt.
 - 0.40–0.69: Nur Teilinformationen erkennbar.
 - < 0.40: Nicht zurückmelden.
@@ -183,7 +183,7 @@ const PRODUCT_TOOL_DEFINITION = {
     properties: {
       candidates: {
         type: "array",
-        description: "Erkannte Kandidaten, absteigend nach Konfidenz (max. 3).",
+        description: "Erkannte Kandidaten, absteigend nach Konfidenz. Bitte immer 2–3 angeben, um dem User Auswahl zu geben (max. 3).",
         items: {
           type: "object",
           properties: {

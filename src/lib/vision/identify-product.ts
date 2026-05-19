@@ -94,16 +94,20 @@ async function searchOFFForVision(
 }
 
 /**
- * Picks the best OFF hit for a vision candidate by maximising shared name
- * tokens. Two passes are scored and the max is taken:
+ * Picks the best OFF hit for a vision candidate by matching name tokens
+ * (excluding brand) plus a brand-consistency check.
  *
- *  - vision name      vs OFF name            (primary)
- *  - vision brand+name vs OFF name+brand     (catches "fret Classic" / brand "Kägi"
- *                                             vs OFF "Kägi fret")
+ * Scoring: `nameOverlap` is the count of non-brand name tokens shared between
+ * vision and OFF. `brandOverlap` is the count of shared brand tokens. Final
+ * score = nameOverlap + brandOverlap * 2.
  *
- * Requires at least one shared non-trivial token (> 1 char). When the brand-
- * wildcard returns many products (all same brand) the highest-scoring name
- * match wins without any extra threshold.
+ * Rejection rules (prevent false-positive enrichment):
+ *  - Zero name overlap → reject. Brand match alone is not enough — many
+ *    products share a brand without being the same product (e.g. "Joghurt
+ *    Ferment Mild" vs "Hirse Flocken", both by Reformhaus).
+ *  - Vision has a brand AND no brand-token overlap AND name overlap < 2 →
+ *    reject. Stops the OFF brand-wildcard from grabbing unrelated products
+ *    that happen to share a single name word.
  */
 function pickBestMatch(
   candidate: { name: string; brand: string | null },
@@ -111,24 +115,40 @@ function pickBestMatch(
 ): OFFSearchHit | null {
   if (hits.length === 0) return null;
 
-  const candidateFull = candidate.brand
-    ? `${candidate.brand} ${candidate.name}`
-    : candidate.name;
+  const candidateBrandTokens = new Set(nameTokens(candidate.brand ?? ""));
 
   let bestHit: OFFSearchHit | null = null;
   let bestScore = 0;
 
   for (const hit of hits) {
-    const scoreA = sharedTokenCount(candidate.name, hit.name);
-    const scoreB = sharedTokenCount(candidateFull, `${hit.name} ${hit.brand ?? ""}`);
-    const score = Math.max(scoreA, scoreB);
+    // Name overlap counts only NON-brand tokens. Otherwise a matching brand
+    // would inflate the score and bypass the rejection guards below.
+    const hitBrandTokens = new Set(nameTokens(hit.brand ?? ""));
+    const candNameSet = new Set(
+      nameTokens(candidate.name).filter((t) => !candidateBrandTokens.has(t)),
+    );
+    const hitNameTokensFiltered = nameTokens(hit.name).filter(
+      (t) => !hitBrandTokens.has(t),
+    );
+    const nameOverlap = hitNameTokensFiltered.filter((t) => candNameSet.has(t)).length;
+    if (nameOverlap === 0) continue;
+
+    const brandOverlap = [...hitBrandTokens].filter((t) =>
+      candidateBrandTokens.has(t),
+    ).length;
+
+    if (candidateBrandTokens.size > 0 && brandOverlap === 0 && nameOverlap < 2) {
+      continue;
+    }
+
+    const score = nameOverlap + brandOverlap * 2;
     if (score > bestScore) {
       bestScore = score;
       bestHit = hit;
     }
   }
 
-  return bestScore > 0 ? bestHit : null;
+  return bestHit;
 }
 
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
@@ -183,11 +203,11 @@ export async function identifyProduct(input: VisionInput): Promise<ProductIdenti
     }),
   );
 
-  // When vision confidence is low, also surface pure OFF results so the user
-  // has more candidates to choose from.
+  // When confidence is below variant-level (< 0.85: name readable but brand/variant
+  // unclear), also surface pure OFF results so the user has more candidates to choose from.
   const topConfidence = visionCandidates[0]?.confidence ?? 0;
   let extraOff: ProductCandidate[] = [];
-  if (visionCandidates.length === 0 || topConfidence < 0.65) {
+  if (visionCandidates.length === 0 || topConfidence < 0.85) {
     const best = visionCandidates[0];
     if (best) {
       const hits = await searchOFFForVision(best.brand, best.name);
