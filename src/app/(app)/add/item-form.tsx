@@ -96,9 +96,10 @@ type Props = {
   storageLocations: StorageLocationDisplay[];
   onCancel: () => void;
   onSuccess: () => void;
+  onWrongProduct?: () => void;
 };
 
-export function ItemForm({ seed, prefill, initialItemCategory = "food", categories, storageLocations, onCancel, onSuccess }: Props) {
+export function ItemForm({ seed, prefill, initialItemCategory = "food", categories, storageLocations, onCancel, onSuccess, onWrongProduct }: Props) {
   const needsProductFields = seed.kind === "unknown" || seed.kind === "manual";
   const seedProduct = "productName" in seed ? seed : null;
   const seedCategory: string =
@@ -276,27 +277,38 @@ export function ItemForm({ seed, prefill, initialItemCategory = "food", categori
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       {/* Product preview (known path) */}
       {seedProduct && (
-        <div className="flex items-start gap-3 rounded-lg border border-border p-3">
-          {seedProduct.imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={seedProduct.imageUrl}
-              alt=""
-              className="size-16 shrink-0 rounded-lg border border-border object-contain"
-            />
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-medium">{seedProduct.productName}</p>
-            {seedProduct.brand && (
-              <p className="truncate text-sm text-muted">
-                {seedProduct.brand}
-              </p>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-start gap-3 rounded-lg border border-border p-3">
+            {seedProduct.imageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={seedProduct.imageUrl}
+                alt=""
+                className="size-16 shrink-0 rounded-lg border border-border object-contain"
+              />
             )}
-            <p className="text-xs text-muted">
-              {categories.find((c) => c.slug === seedProduct.category)?.name ??
-                getCategory(seedProduct.category).label}
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium">{seedProduct.productName}</p>
+              {seedProduct.brand && (
+                <p className="truncate text-sm text-muted">
+                  {seedProduct.brand}
+                </p>
+              )}
+              <p className="text-xs text-muted">
+                {categories.find((c) => c.slug === seedProduct.category)?.name ??
+                  getCategory(seedProduct.category).label}
+              </p>
+            </div>
           </div>
+          {onWrongProduct && (
+            <button
+              type="button"
+              onClick={onWrongProduct}
+              className="self-start text-xs text-muted-foreground underline-offset-2 hover:underline"
+            >
+              Falsches Produkt?
+            </button>
+          )}
         </div>
       )}
 
