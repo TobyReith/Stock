@@ -428,22 +428,24 @@ function LookupPreview({
             damit wir das Produkt erkennen – oder direkt manuell anlegen.
           </p>
           <p className="font-mono text-xs text-muted">Barcode {data.barcode}</p>
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-col gap-2 pt-1">
             <Button
-              className="flex-1"
               onClick={() => onPhotoMode(data.barcode)}
             >
               Foto aufnehmen
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => onContinue({ kind: "unknown", barcode: data.barcode })}
-            >
-              Manuell erfassen
-            </Button>
-            <Button variant="ghost" onClick={onReset}>
-              Neu scannen
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1"
+                variant="outline"
+                onClick={() => onContinue({ kind: "unknown", barcode: data.barcode })}
+              >
+                Manuell erfassen
+              </Button>
+              <Button variant="ghost" onClick={onReset}>
+                Neu scannen
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

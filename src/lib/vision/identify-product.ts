@@ -101,9 +101,12 @@ async function searchOFFForVision(
  *  - vision brand+name vs OFF name+brand     (catches "fret Classic" / brand "Kägi"
  *                                             vs OFF "Kägi fret")
  *
- * Requires at least one shared non-trivial token (> 1 char). When the brand-
- * wildcard returns many products (all same brand) the highest-scoring name
- * match wins without any extra threshold.
+ * Rejection rules (prevent false-positive enrichment):
+ *  - Zero shared name tokens → reject.
+ *  - Vision has a brand AND no brand-token overlap AND name overlap < 2 → reject.
+ *    Without this guard, an OFF brand-wildcard search can surface unrelated
+ *    products (e.g. a coffee vision result matched to Coca-Cola because some
+ *    free-text field shares one common word).
  */
 function pickBestMatch(
   candidate: { name: string; brand: string | null },
@@ -114,21 +117,36 @@ function pickBestMatch(
   const candidateFull = candidate.brand
     ? `${candidate.brand} ${candidate.name}`
     : candidate.name;
+  const candidateBrandTokens = new Set(nameTokens(candidate.brand ?? ""));
 
   let bestHit: OFFSearchHit | null = null;
   let bestScore = 0;
 
   for (const hit of hits) {
-    const scoreA = sharedTokenCount(candidate.name, hit.name);
-    const scoreB = sharedTokenCount(candidateFull, `${hit.name} ${hit.brand ?? ""}`);
-    const score = Math.max(scoreA, scoreB);
+    const nameOverlap = Math.max(
+      sharedTokenCount(candidate.name, hit.name),
+      sharedTokenCount(candidateFull, `${hit.name} ${hit.brand ?? ""}`),
+    );
+    if (nameOverlap === 0) continue;
+
+    const brandOverlap = nameTokens(hit.brand ?? "").filter((t) =>
+      candidateBrandTokens.has(t),
+    ).length;
+
+    // Brand sanity check: if vision saw a brand, OFF hit must share at least
+    // one brand token — unless the name overlap alone is strong (≥ 2 tokens).
+    if (candidateBrandTokens.size > 0 && brandOverlap === 0 && nameOverlap < 2) {
+      continue;
+    }
+
+    const score = nameOverlap + brandOverlap * 2;
     if (score > bestScore) {
       bestScore = score;
       bestHit = hit;
     }
   }
 
-  return bestScore > 0 ? bestHit : null;
+  return bestHit;
 }
 
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
