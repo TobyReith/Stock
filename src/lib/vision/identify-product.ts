@@ -187,7 +187,7 @@ export async function identifyProduct(input: VisionInput): Promise<ProductIdenti
   // has more candidates to choose from.
   const topConfidence = visionCandidates[0]?.confidence ?? 0;
   let extraOff: ProductCandidate[] = [];
-  if (visionCandidates.length === 0 || topConfidence < 0.65) {
+  if (visionCandidates.length === 0 || topConfidence < 0.85) {
     const best = visionCandidates[0];
     if (best) {
       const hits = await searchOFFForVision(best.brand, best.name);

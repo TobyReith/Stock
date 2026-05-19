@@ -138,11 +138,13 @@ export function AddFlow({
 
       startTransition(async () => {
         const res = await lookupBarcode(barcode);
-        if (!res.ok || res.data.source === "unknown") {
-          // Network/server errors and "not found" alike: blacklist and keep scanning.
+        if (!res.ok) {
           failedBarcodesRef.current.add(barcode);
-          setStage({ kind: "scan" });
+          setStage({ kind: "lookup-error", message: res.error, barcode });
           return;
+        }
+        if (res.data.source === "unknown") {
+          failedBarcodesRef.current.add(barcode);
         }
         setStage({ kind: "preview", barcode, result: res });
       });
@@ -634,16 +636,6 @@ function PhotoCandidatesPicker({
                 </button>
               </li>
             ))}
-            <li>
-              <button
-                type="button"
-                onClick={onManualEntry}
-                className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted"
-              >
-                <Pencil className="size-4 shrink-0" aria-hidden />
-                Keins davon – manuell eingeben
-              </button>
-            </li>
           </ul>
         )}
         <div className="flex gap-2 pt-1">
@@ -652,7 +644,8 @@ function PhotoCandidatesPicker({
             variant="outline"
             onClick={onManualEntry}
           >
-            <Pencil aria-hidden /> Manuell eingeben
+            <Pencil aria-hidden />
+            {candidates.length === 1 ? "Anderes Produkt – manuell eingeben" : "Manuell eingeben"}
           </Button>
           <Button variant="ghost" onClick={onReset}>
             Zurück
