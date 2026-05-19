@@ -616,7 +616,7 @@ function PhotoCandidatesPicker({
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{c.name}</p>
+                    <p className="truncate text-sm font-medium">{c.offProductName ?? c.name}</p>
                     <div className="flex items-center gap-1.5">
                       <p className="truncate text-xs text-muted">
                         {[c.brand, categoryLabel(c.category)].filter(Boolean).join(" · ")}

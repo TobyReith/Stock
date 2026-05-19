@@ -94,19 +94,20 @@ async function searchOFFForVision(
 }
 
 /**
- * Picks the best OFF hit for a vision candidate by maximising shared name
- * tokens. Two passes are scored and the max is taken:
+ * Picks the best OFF hit for a vision candidate by matching name tokens
+ * (excluding brand) plus a brand-consistency check.
  *
- *  - vision name      vs OFF name            (primary)
- *  - vision brand+name vs OFF name+brand     (catches "fret Classic" / brand "Kägi"
- *                                             vs OFF "Kägi fret")
+ * Scoring: `nameOverlap` is the count of non-brand name tokens shared between
+ * vision and OFF. `brandOverlap` is the count of shared brand tokens. Final
+ * score = nameOverlap + brandOverlap * 2.
  *
  * Rejection rules (prevent false-positive enrichment):
- *  - Zero shared name tokens → reject.
- *  - Vision has a brand AND no brand-token overlap AND name overlap < 2 → reject.
- *    Without this guard, an OFF brand-wildcard search can surface unrelated
- *    products (e.g. a coffee vision result matched to Coca-Cola because some
- *    free-text field shares one common word).
+ *  - Zero name overlap → reject. Brand match alone is not enough — many
+ *    products share a brand without being the same product (e.g. "Joghurt
+ *    Ferment Mild" vs "Hirse Flocken", both by Reformhaus).
+ *  - Vision has a brand AND no brand-token overlap AND name overlap < 2 →
+ *    reject. Stops the OFF brand-wildcard from grabbing unrelated products
+ *    that happen to share a single name word.
  */
 function pickBestMatch(
   candidate: { name: string; brand: string | null },
@@ -114,27 +115,28 @@ function pickBestMatch(
 ): OFFSearchHit | null {
   if (hits.length === 0) return null;
 
-  const candidateFull = candidate.brand
-    ? `${candidate.brand} ${candidate.name}`
-    : candidate.name;
   const candidateBrandTokens = new Set(nameTokens(candidate.brand ?? ""));
 
   let bestHit: OFFSearchHit | null = null;
   let bestScore = 0;
 
   for (const hit of hits) {
-    const nameOverlap = Math.max(
-      sharedTokenCount(candidate.name, hit.name),
-      sharedTokenCount(candidateFull, `${hit.name} ${hit.brand ?? ""}`),
+    // Name overlap counts only NON-brand tokens. Otherwise a matching brand
+    // would inflate the score and bypass the rejection guards below.
+    const hitBrandTokens = new Set(nameTokens(hit.brand ?? ""));
+    const candNameSet = new Set(
+      nameTokens(candidate.name).filter((t) => !candidateBrandTokens.has(t)),
     );
+    const hitNameTokensFiltered = nameTokens(hit.name).filter(
+      (t) => !hitBrandTokens.has(t),
+    );
+    const nameOverlap = hitNameTokensFiltered.filter((t) => candNameSet.has(t)).length;
     if (nameOverlap === 0) continue;
 
-    const brandOverlap = nameTokens(hit.brand ?? "").filter((t) =>
+    const brandOverlap = [...hitBrandTokens].filter((t) =>
       candidateBrandTokens.has(t),
     ).length;
 
-    // Brand sanity check: if vision saw a brand, OFF hit must share at least
-    // one brand token — unless the name overlap alone is strong (≥ 2 tokens).
     if (candidateBrandTokens.size > 0 && brandOverlap === 0 && nameOverlap < 2) {
       continue;
     }
