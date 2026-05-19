@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, CameraOff, Flashlight, FlashlightOff, KeyboardIcon, Loader2, Pencil, ScanLine } from "lucide-react";
+import { Camera, CameraOff, CheckCircle2, Flashlight, FlashlightOff, KeyboardIcon, Loader2, Pencil, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   createDetector,
   type Detector,
-  type DetectorEngine,
 } from "@/lib/barcode/detector";
 import { identifyProductFromPhoto } from "@/lib/actions/vision";
 import type { ProductCandidate } from "@/lib/vision/types";
@@ -18,7 +17,7 @@ interface ExtendedCapabilities extends MediaTrackCapabilities {
 }
 
 interface ExtendedConstraintSet extends MediaTrackConstraintSet {
-  pointOfInterest?: { x: number; y: number };
+  pointsOfInterest?: { x: number; y: number }[];
   focusMode?: string;
 }
 
@@ -41,8 +40,8 @@ interface ExtendedConstraintSet extends MediaTrackConstraintSet {
  * before the component unmounts, so the async vision call always has valid
  * pixel data.
  *
- * After 4 s without a barcode hit, a subtle hint nudges the user toward the
- * shutter.
+ * Status line below the viewport reflects scanning state in real time, driven
+ * by the `isLookingUp` prop the parent passes while a lookup is in flight.
  */
 
 type CameraStatus =
@@ -60,8 +59,88 @@ type Props = {
   onPhotoError: (message: string) => void;
   onManualBarcode: () => void;
   onManualEntry: () => void;
+  /** Parent is processing a detected barcode (lookup in flight). Drives the "Barcode erkannt" status. */
+  isLookingUp?: boolean;
   className?: string;
 };
+
+// ---------------------------------------------------------------------------
+// Smart camera selection: prefer the back camera that reports AF support.
+// Attempt 1: let the browser pick via facingMode hint and check capabilities.
+// Attempt 2: iterate all back-facing devices by label.
+// Fallback: any back-facing stream.
+// ---------------------------------------------------------------------------
+async function acquireBestBackCamera(): Promise<MediaStream> {
+  const baseVideo = {
+    width: { ideal: 1280 as number },
+    height: { ideal: 720 as number },
+  };
+
+  function hasFocus(track: MediaStreamTrack): boolean {
+    const caps = track.getCapabilities?.() as ExtendedCapabilities | undefined ?? {};
+    const modes = caps.focusMode ?? [];
+    return modes.includes("continuous") || modes.includes("single-shot");
+  }
+
+  async function engageContinuous(track: MediaStreamTrack): Promise<void> {
+    const caps = track.getCapabilities?.() as ExtendedCapabilities | undefined ?? {};
+    if ((caps.focusMode ?? []).includes("continuous")) {
+      await track.applyConstraints({
+        advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet],
+      }).catch(() => { /* best-effort */ });
+    }
+  }
+
+  // Attempt 1: browser default (facingMode hint).
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { ...baseVideo, facingMode: { ideal: "environment" } },
+      audio: false,
+    });
+    const track = stream.getVideoTracks()[0];
+    if (hasFocus(track)) {
+      await engageContinuous(track);
+      return stream;
+    }
+    track.stop();
+  } catch {
+    // Attempt 2 below.
+  }
+
+  // Attempt 2: enumerate all back cameras and find one with AF.
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const backCandidates = devices.filter(
+      (d) => d.kind === "videoinput" && d.label.toLowerCase().includes("back"),
+    );
+    for (const device of backCandidates) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { ...baseVideo, deviceId: { exact: device.deviceId } },
+          audio: false,
+        });
+        const track = stream.getVideoTracks()[0];
+        if (hasFocus(track)) {
+          await engageContinuous(track);
+          return stream;
+        }
+        track.stop();
+      } catch {
+        // Try next candidate.
+      }
+    }
+  } catch {
+    // enumerateDevices failed — fall through to final fallback.
+  }
+
+  // Fallback: any back-facing stream, AF or not.
+  return navigator.mediaDevices.getUserMedia({
+    video: { ...baseVideo, facingMode: { ideal: "environment" } },
+    audio: false,
+  });
+}
+
+// ---------------------------------------------------------------------------
 
 export function LiveScanner({
   onBarcodeDetected,
@@ -70,21 +149,23 @@ export function LiveScanner({
   onPhotoError,
   onManualBarcode,
   onManualEntry,
+  isLookingUp = false,
   className,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<Detector | null>(null);
   const [status, setStatus] = useState<CameraStatus>("idle");
-  const [engine, setEngine] = useState<DetectorEngine | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
-  const [showPhotoHint, setShowPhotoHint] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
-  const [focusMode, setFocusMode] = useState<"single-shot" | "manual" | null>(null);
-  const [focusRing, setFocusRing] = useState<{ x: number; y: number; fading: boolean } | null>(null);
-  const focusRingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [focusRing, setFocusRing] = useState<{ x: number; y: number; visible: boolean }>({
+    x: 0,
+    y: 0,
+    visible: false,
+  });
+  const focusRestoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onBarcodeRef = useRef(onBarcodeDetected);
   useEffect(() => {
@@ -102,9 +183,8 @@ export function LiveScanner({
     if (videoRef.current) videoRef.current.srcObject = null;
     setTorchOn(false);
     setTorchSupported(false);
-    setFocusMode(null);
-    setFocusRing(null);
-    if (focusRingTimerRef.current) clearTimeout(focusRingTimerRef.current);
+    setFocusRing({ x: 0, y: 0, visible: false });
+    if (focusRestoreTimerRef.current) clearTimeout(focusRestoreTimerRef.current);
   }, []);
 
   const start = useCallback(async () => {
@@ -115,29 +195,13 @@ export function LiveScanner({
     }
     setStatus("starting");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          // Helps Android Chrome keep the barcode in focus continuously.
-          // Unknown constraints are silently ignored by browsers that don't support them.
-          focusMode: { ideal: "continuous" },
-        },
-        audio: false,
-      });
+      const stream = await acquireBestBackCamera();
       streamRef.current = stream;
 
-      // Check torch and focus support after acquiring the stream.
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
-        const caps = videoTrack.getCapabilities() as ExtendedCapabilities;
+        const caps = videoTrack.getCapabilities?.() as ExtendedCapabilities | undefined ?? {};
         setTorchSupported(!!caps.torch);
-        const modes = caps.focusMode ?? [];
-        setFocusMode(
-          modes.includes("single-shot") ? "single-shot" :
-          modes.includes("manual")      ? "manual"       : null
-        );
       }
 
       const video = videoRef.current;
@@ -149,7 +213,6 @@ export function LiveScanner({
 
       const detector = await createDetector();
       detectorRef.current = detector;
-      setEngine(detector.engine);
 
       await detector.start(video, (code) => {
         navigator.vibrate?.(50);
@@ -168,21 +231,12 @@ export function LiveScanner({
 
   // Auto-start on mount. On Chrome/Android this succeeds immediately.
   // On iOS Safari getUserMedia requires a user gesture so it falls back to
-  // the manual "Kamera starten" button (status stays "idle" after the
-  // NotAllowedError → denied branch above… actually auto-start from useEffect
-  // will fail with NotAllowedError on iOS, setting status to "denied").
-  // We handle this gracefully by showing a "Kamera starten" button when denied.
+  // the manual "Kamera starten" button (status stays "denied" after auto-start
+  // fails with NotAllowedError on iOS).
   useEffect(() => {
     void start();
     return () => stop();
   }, [start, stop]);
-
-  // Show the photo-hint 4 s after the camera goes live without a barcode.
-  useEffect(() => {
-    if (status !== "running") { setShowPhotoHint(false); return; }
-    const t = setTimeout(() => setShowPhotoHint(true), 4000);
-    return () => clearTimeout(t);
-  }, [status]);
 
   const handleShutter = useCallback(async () => {
     const video = videoRef.current;
@@ -198,7 +252,6 @@ export function LiveScanner({
     if (!ctx) { onPhotoError("Canvas nicht verfügbar."); return; }
     ctx.drawImage(video, 0, 0);
 
-    // Convert to base64 (async, but canvas holds the frame already).
     let base64: string;
     try {
       base64 = await canvasToBase64(canvas);
@@ -207,7 +260,6 @@ export function LiveScanner({
       return;
     }
 
-    // Update parent state — component will unmount, but async call continues.
     setCapturing(true);
     onPhotoAnalyzing();
 
@@ -228,41 +280,46 @@ export function LiveScanner({
       await track.applyConstraints({ advanced: [{ torch: next }] });
       setTorchOn(next);
     } catch {
-      // Torch applyConstraints failed (e.g. permission revoked) — ignore.
+      // Torch applyConstraints failed — ignore.
     }
   }, [torchOn]);
 
-  const handleTapToFocus = useCallback(async (e: React.MouseEvent<HTMLVideoElement>) => {
-    if (!focusMode) return;
+  const handleTouchFocus = useCallback(async (e: React.TouchEvent<HTMLVideoElement>) => {
     const track = streamRef.current?.getVideoTracks()[0];
-    if (!track) return;
+    if (!track || track.readyState !== "live") return;
+
+    const caps = track.getCapabilities?.() as ExtendedCapabilities | undefined ?? {};
+    const focusModes = caps.focusMode ?? [];
+    if (!focusModes.includes("single-shot") && !focusModes.includes("manual")) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const pixelX = e.clientX - rect.left;
-    const pixelY = e.clientY - rect.top;
-    const normX = pixelX / rect.width;
-    const normY = pixelY / rect.height;
-
-    // Show focus ring, then fade it out after 500 ms (300 ms fade duration).
-    if (focusRingTimerRef.current) clearTimeout(focusRingTimerRef.current);
-    setFocusRing({ x: pixelX, y: pixelY, fading: false });
-    focusRingTimerRef.current = setTimeout(() => {
-      setFocusRing((prev) => (prev ? { ...prev, fading: true } : null));
-      focusRingTimerRef.current = setTimeout(() => setFocusRing(null), 300);
-    }, 500);
+    const touch = e.touches[0];
+    const x = Math.min(Math.max((touch.clientX - rect.left) / rect.width, 0), 1);
+    const y = Math.min(Math.max((touch.clientY - rect.top) / rect.height, 0), 1);
 
     try {
-      await track.applyConstraints({ advanced: [{ pointOfInterest: { x: normX, y: normY }, focusMode } as ExtendedConstraintSet] });
-      // 'single-shot' returns to continuous automatically; 'manual' needs an explicit reset.
-      if (focusMode === "manual") {
-        setTimeout(() => {
-          void track.applyConstraints({ advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet] }).catch(() => {});
-        }, 2000);
-      }
+      await track.applyConstraints({
+        advanced: [
+          { focusMode: "single-shot", pointsOfInterest: [{ x, y }] } as ExtendedConstraintSet,
+        ],
+      });
     } catch {
-      // Device does not support pointOfInterest — silently ignore.
+      return;
     }
-  }, [focusMode]);
+
+    setFocusRing({ x: touch.clientX - rect.left, y: touch.clientY - rect.top, visible: true });
+    setTimeout(() => setFocusRing((r) => ({ ...r, visible: false })), 700);
+
+    if (focusModes.includes("continuous")) {
+      if (focusRestoreTimerRef.current) clearTimeout(focusRestoreTimerRef.current);
+      focusRestoreTimerRef.current = setTimeout(() => {
+        focusRestoreTimerRef.current = null;
+        void track.applyConstraints({
+          advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet],
+        }).catch(() => {});
+      }, 1500);
+    }
+  }, []);
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
@@ -273,69 +330,40 @@ export function LiveScanner({
           className={cn(
             "h-full w-full object-cover transition-opacity",
             status === "running" ? "opacity-100" : "opacity-0",
-            focusMode !== null && status === "running" && "cursor-crosshair",
           )}
           aria-label="Kamera-Vorschau"
-          onClick={(e) => void handleTapToFocus(e)}
+          onTouchStart={(e) => void handleTouchFocus(e)}
         />
 
-        {/* Tap-to-focus ring — appears at tap position, fades out */}
-        {focusRing && (
+        {/* Touch-to-focus ring */}
+        {focusRing.visible && (
           <div
-            className={cn(
-              "pointer-events-none absolute size-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-neutral-0 transition-opacity duration-300",
-              focusRing.fading ? "opacity-0" : "opacity-100",
-            )}
+            className="pointer-events-none absolute border-2 border-primary rounded-full w-16 h-16 -translate-x-1/2 -translate-y-1/2 animate-ping"
             style={{ left: focusRing.x, top: focusRing.y }}
             aria-hidden
           />
         )}
 
-        {/* Viewfinder + shutter button (only when camera is live) */}
-        {status === "running" && (
-          <>
-            <ViewfinderOverlay />
-            {/* Torch button — top-right corner, only on devices that support it */}
-            {torchSupported && (
-              <button
-                type="button"
-                onClick={() => void toggleTorch()}
-                aria-label={torchOn ? "Taschenlampe ausschalten" : "Taschenlampe einschalten"}
-                aria-pressed={torchOn}
-                className={cn(
-                  "absolute right-3 top-3 flex size-10 items-center justify-center rounded-full transition-colors",
-                  torchOn
-                    ? "bg-warning text-warning-subtle"
-                    : "bg-foreground/40 text-neutral-0 backdrop-blur-sm",
-                )}
-              >
-                {torchOn ? (
-                  <FlashlightOff className="size-5" aria-hidden />
-                ) : (
-                  <Flashlight className="size-5" aria-hidden />
-                )}
-              </button>
+        {/* Torch button — top-right corner, only on devices that support it */}
+        {status === "running" && torchSupported && (
+          <button
+            type="button"
+            onClick={() => void toggleTorch()}
+            aria-label={torchOn ? "Taschenlampe ausschalten" : "Taschenlampe einschalten"}
+            aria-pressed={torchOn}
+            className={cn(
+              "absolute right-3 top-3 flex size-10 items-center justify-center rounded-full transition-colors",
+              torchOn
+                ? "bg-warning text-warning-subtle"
+                : "bg-foreground/40 text-neutral-0 backdrop-blur-sm",
             )}
-            {/* Shutter button — centered at the bottom */}
-            <div className="absolute inset-x-0 bottom-4 flex justify-center">
-              <button
-                type="button"
-                onClick={() => void handleShutter()}
-                disabled={capturing}
-                aria-label="Produktfoto aufnehmen"
-                className={cn(
-                  "flex size-14 items-center justify-center rounded-full border-4 border-neutral-0/80 bg-neutral-0/20 backdrop-blur-sm transition-transform active:scale-95",
-                  capturing && "opacity-50",
-                )}
-              >
-                {capturing ? (
-                  <Loader2 className="size-6 animate-spin text-neutral-0" aria-hidden />
-                ) : (
-                  <Camera className="size-6 text-neutral-0" aria-hidden />
-                )}
-              </button>
-            </div>
-          </>
+          >
+            {torchOn ? (
+              <FlashlightOff className="size-5" aria-hidden />
+            ) : (
+              <Flashlight className="size-5" aria-hidden />
+            )}
+          </button>
         )}
 
         {/* States: idle / starting / denied / unsupported / error */}
@@ -369,12 +397,19 @@ export function LiveScanner({
         )}
       </div>
 
-      {/* Photo hint — appears after 4 s without a barcode */}
-      {showPhotoHint && status === "running" && (
-        <p className="text-center text-xs text-muted">
-          <ScanLine className="mr-1 inline size-3" aria-hidden />
-          Kein Barcode gefunden — Auslöser tippen für Produkterkennung
-        </p>
+      {/* Scanner status line */}
+      {status === "running" && (
+        isLookingUp ? (
+          <div className="flex items-center justify-center gap-2 py-2">
+            <CheckCircle2 size={15} className="text-primary-text" aria-hidden />
+            <span className="text-[13px] font-medium text-primary-text">Barcode erkannt</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-2 py-2">
+            <ScanLine size={15} className="text-muted" aria-hidden />
+            <span className="text-[13px] font-medium text-muted">Kein Barcode gefunden</span>
+          </div>
+        )
       )}
 
       {/* Action buttons below the viewport */}
@@ -409,21 +444,6 @@ export function LiveScanner({
       <Button variant="outline" size="lg" onClick={onManualEntry}>
         <Pencil aria-hidden /> Ohne Barcode hinzufügen
       </Button>
-
-      {engine && status === "running" && (
-        <p className="text-center text-xs text-muted">
-          Erkennung: {engine === "native" ? "nativ" : "ZXing"}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function ViewfinderOverlay() {
-  return (
-    <div className="pointer-events-none absolute inset-0">
-      <div className="absolute inset-x-6 inset-y-1/4 rounded-lg border-2 border-neutral-0/60 [box-shadow:0_0_0_9999px_rgb(0_0_0_/_0.35)]" />
-      <div className="absolute inset-x-6 top-1/2 h-px -translate-y-1/2 bg-primary/70" />
     </div>
   );
 }
