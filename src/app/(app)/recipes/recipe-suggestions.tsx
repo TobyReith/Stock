@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useCallback, useId } from "react";
-import { ChefHat, CheckCircle2, ChevronDown, Clock, Heart, List, Loader2, Plus, RefreshCw, XCircle } from "lucide-react";
+import { ChefHat, CheckCircle2, ChevronDown, Clock, Heart, List, Plus, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { addToFavorites, removeFromFavorites } from "@/lib/actions/favorites";
 import { addShoppingItem } from "@/lib/actions/shopping";
 import type { Recipe, RecipeIngredient, RecipeFavorite, UserRecipeSettings } from "@/lib/recipes/types";
 import { CookingModal } from "./cooking-modal";
+import { RecipeLoading } from "./recipe-loading";
 import { DAILY_RECIPE_QUOTA } from "@/lib/constants/app";
 const STORAGE_KEY_RECIPES = "stock:recipes";
 
@@ -139,7 +140,7 @@ export function RecipeSuggestions({ expiringChips, quotaUsed, settings, initialF
         </Button>
       )}
 
-      {isPending && <RecipeSkeletons />}
+      {isPending && <RecipeLoading />}
 
       {noExpiring && !isPending && (
         <Card>
@@ -429,24 +430,3 @@ export function RecipeCard({
   );
 }
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
-
-function RecipeSkeletons() {
-  return (
-    <div className="flex flex-col gap-4" aria-busy aria-label="Rezepte werden generiert">
-      {[0, 1, 2].map((i) => (
-        <Card key={i}>
-          <CardContent className="flex flex-col gap-3 py-4">
-            <div className="flex items-center gap-2">
-              <Loader2 className="size-4 animate-spin text-muted" aria-hidden />
-              <div className="h-4 w-3/4 animate-pulse rounded bg-surface-raised" />
-            </div>
-            <div className="h-3 w-full animate-pulse rounded bg-surface-raised" />
-            <div className="h-3 w-2/3 animate-pulse rounded bg-surface-raised" />
-            <div className="h-3 w-1/2 animate-pulse rounded bg-surface-raised" />
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
