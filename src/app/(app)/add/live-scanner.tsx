@@ -10,7 +10,6 @@ import {
 } from "@/lib/barcode/detector";
 import { identifyProductFromPhoto } from "@/lib/actions/vision";
 import type { ProductCandidate } from "@/lib/vision/types";
-import { ScannerDebugPanel, type DebugInfo } from "@/components/scanner/scanner-debug-panel";
 
 interface ExtendedCapabilities extends MediaTrackCapabilities {
   focusMode?: string[];
@@ -21,7 +20,6 @@ interface ExtendedConstraintSet extends MediaTrackConstraintSet {
   pointsOfInterest?: { x: number; y: number }[];
   focusMode?: string;
 }
-
 
 /**
  * Unified live-camera scanner for the Add-Flow.
@@ -66,6 +64,84 @@ type Props = {
   className?: string;
 };
 
+// ---------------------------------------------------------------------------
+// Smart camera selection: prefer the back camera that reports AF support.
+// Attempt 1: let the browser pick via facingMode hint and check capabilities.
+// Attempt 2: iterate all back-facing devices by label.
+// Fallback: any back-facing stream.
+// ---------------------------------------------------------------------------
+async function acquireBestBackCamera(): Promise<MediaStream> {
+  const baseVideo = {
+    width: { ideal: 1280 as number },
+    height: { ideal: 720 as number },
+  };
+
+  function hasFocus(track: MediaStreamTrack): boolean {
+    const caps = track.getCapabilities?.() as ExtendedCapabilities | undefined ?? {};
+    const modes = caps.focusMode ?? [];
+    return modes.includes("continuous") || modes.includes("single-shot");
+  }
+
+  async function engageContinuous(track: MediaStreamTrack): Promise<void> {
+    const caps = track.getCapabilities?.() as ExtendedCapabilities | undefined ?? {};
+    if ((caps.focusMode ?? []).includes("continuous")) {
+      await track.applyConstraints({
+        advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet],
+      }).catch(() => { /* best-effort */ });
+    }
+  }
+
+  // Attempt 1: browser default (facingMode hint).
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { ...baseVideo, facingMode: { ideal: "environment" } },
+      audio: false,
+    });
+    const track = stream.getVideoTracks()[0];
+    if (hasFocus(track)) {
+      await engageContinuous(track);
+      return stream;
+    }
+    track.stop();
+  } catch {
+    // Attempt 2 below.
+  }
+
+  // Attempt 2: enumerate all back cameras and find one with AF.
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const backCandidates = devices.filter(
+      (d) => d.kind === "videoinput" && d.label.toLowerCase().includes("back"),
+    );
+    for (const device of backCandidates) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { ...baseVideo, deviceId: { exact: device.deviceId } },
+          audio: false,
+        });
+        const track = stream.getVideoTracks()[0];
+        if (hasFocus(track)) {
+          await engageContinuous(track);
+          return stream;
+        }
+        track.stop();
+      } catch {
+        // Try next candidate.
+      }
+    }
+  } catch {
+    // enumerateDevices failed — fall through to final fallback.
+  }
+
+  // Fallback: any back-facing stream, AF or not.
+  return navigator.mediaDevices.getUserMedia({
+    video: { ...baseVideo, facingMode: { ideal: "environment" } },
+    audio: false,
+  });
+}
+
+// ---------------------------------------------------------------------------
+
 export function LiveScanner({
   onBarcodeDetected,
   onPhotoAnalyzing,
@@ -84,22 +160,12 @@ export function LiveScanner({
   const [capturing, setCapturing] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
-  const [focusMode, setFocusMode] = useState<"single-shot" | null>(null);
-  const [focusRing, setFocusRing] = useState<{ x: number; y: number; fading: boolean } | null>(null);
-  const focusRingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const focusRestoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [debugInfo, setDebugInfo] = useState<DebugInfo>({
-    devices: [],
-    activeDeviceId: null,
-    activeLabel: null,
-    capabilities: null,
-    settings: null,
-    constraints: null,
-    errors: [],
+  const [focusRing, setFocusRing] = useState<{ x: number; y: number; visible: boolean }>({
+    x: 0,
+    y: 0,
+    visible: false,
   });
-  const addDebugError = useCallback((msg: string) => {
-    setDebugInfo((prev) => ({ ...prev, errors: [...prev.errors, msg] }));
-  }, []);
+  const focusRestoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onBarcodeRef = useRef(onBarcodeDetected);
   useEffect(() => {
@@ -117,9 +183,7 @@ export function LiveScanner({
     if (videoRef.current) videoRef.current.srcObject = null;
     setTorchOn(false);
     setTorchSupported(false);
-    setFocusMode(null);
-    setFocusRing(null);
-    if (focusRingTimerRef.current) clearTimeout(focusRingTimerRef.current);
+    setFocusRing({ x: 0, y: 0, visible: false });
     if (focusRestoreTimerRef.current) clearTimeout(focusRestoreTimerRef.current);
   }, []);
 
@@ -130,91 +194,14 @@ export function LiveScanner({
       return;
     }
     setStatus("starting");
-
-    const QUICKTEST_CURRENT_DEVICE_ID = "91864d9fd331801ca5cfba17824cc61708cffaee4bf15b155fbfb2641ef31146";
-
-    let quicktestDeviceId: string | undefined;
     try {
-      const allDevices = await navigator.mediaDevices.enumerateDevices();
-      const backCameras = allDevices.filter(
-        (d) => d.kind === "videoinput" && d.label.toLowerCase().includes("back"),
-      );
-      quicktestDeviceId = backCameras.find(
-        (d) => d.deviceId !== QUICKTEST_CURRENT_DEVICE_ID,
-      )?.deviceId;
-    } catch {
-      // enumerateDevices before getUserMedia may yield no labels — handled below
-    }
-
-    const videoConstraints: MediaTrackConstraints = {
-      deviceId: { exact: quicktestDeviceId ?? QUICKTEST_CURRENT_DEVICE_ID },
-      width: { ideal: 1280 },
-      height: { ideal: 720 },
-    };
-    setDebugInfo((prev) => ({
-      ...prev,
-      errors: [],
-      constraints: videoConstraints as Record<string, unknown>,
-    }));
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: videoConstraints,
-        audio: false,
-      });
+      const stream = await acquireBestBackCamera();
       streamRef.current = stream;
 
-      // Enumerate all video inputs now that permission has been granted —
-      // labels are only available after a getUserMedia call.
-      try {
-        const allDevices = await navigator.mediaDevices.enumerateDevices();
-        const videoInputs = allDevices
-          .filter((d) => d.kind === "videoinput")
-          .map((d) => ({ deviceId: d.deviceId, label: d.label, kind: d.kind }));
-        setDebugInfo((prev) => ({ ...prev, devices: videoInputs }));
-      } catch (e) {
-        addDebugError(`enumerateDevices: ${e instanceof Error ? e.message : String(e)}`);
-      }
-
-      // Check torch and focus support after acquiring the stream.
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
-        let caps: ExtendedCapabilities = {};
-        let settings: MediaTrackSettings = {};
-        try {
-          caps = videoTrack.getCapabilities() as ExtendedCapabilities;
-        } catch (e) {
-          addDebugError(`getCapabilities: ${e instanceof Error ? e.message : String(e)}`);
-        }
-        try {
-          settings = videoTrack.getSettings();
-        } catch (e) {
-          addDebugError(`getSettings: ${e instanceof Error ? e.message : String(e)}`);
-        }
-
-        setDebugInfo((prev) => ({
-          ...prev,
-          activeLabel: videoTrack.label,
-          activeDeviceId: settings.deviceId ?? null,
-          capabilities: caps as Record<string, unknown>,
-          settings: settings as Record<string, unknown>,
-        }));
-
+        const caps = videoTrack.getCapabilities?.() as ExtendedCapabilities | undefined ?? {};
         setTorchSupported(!!caps.torch);
-        const modes = caps.focusMode ?? [];
-        setFocusMode(modes.includes("single-shot") ? "single-shot" : null);
-        // Explicitly engage continuous autofocus. The `focusMode` constraint
-        // passed to getUserMedia is non-standard at the top level and gets
-        // ignored on most browsers — applyConstraints with `advanced` is the
-        // only reliable path to actually turn AF on. Without this, many
-        // Android devices stay locked at infinity and the barcode is blurry.
-        if (modes.includes("continuous")) {
-          void videoTrack.applyConstraints({
-            advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet],
-          }).catch((e: unknown) => {
-            addDebugError(`applyConstraints(continuous): ${e instanceof Error ? e.message : String(e)}`);
-          });
-        }
       }
 
       const video = videoRef.current;
@@ -234,22 +221,18 @@ export function LiveScanner({
 
       setStatus("running");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unbekannter Fehler";
-      addDebugError(`getUserMedia: ${msg}`);
       const name = err instanceof Error ? err.name : "";
       if (name === "NotAllowedError" || name === "SecurityError") setStatus("denied");
       else if (name === "NotFoundError" || name === "OverconstrainedError") setStatus("unsupported");
-      else { setStatus("error"); setErrorMsg(msg); }
+      else { setStatus("error"); setErrorMsg(err instanceof Error ? err.message : "Unbekannter Fehler"); }
       stop();
     }
-  }, [stop, addDebugError]);
+  }, [stop]);
 
   // Auto-start on mount. On Chrome/Android this succeeds immediately.
   // On iOS Safari getUserMedia requires a user gesture so it falls back to
-  // the manual "Kamera starten" button (status stays "idle" after the
-  // NotAllowedError → denied branch above… actually auto-start from useEffect
-  // will fail with NotAllowedError on iOS, setting status to "denied").
-  // We handle this gracefully by showing a "Kamera starten" button when denied.
+  // the manual "Kamera starten" button (status stays "denied" after auto-start
+  // fails with NotAllowedError on iOS).
   useEffect(() => {
     void start();
     return () => stop();
@@ -269,7 +252,6 @@ export function LiveScanner({
     if (!ctx) { onPhotoError("Canvas nicht verfügbar."); return; }
     ctx.drawImage(video, 0, 0);
 
-    // Convert to base64 (async, but canvas holds the frame already).
     let base64: string;
     try {
       base64 = await canvasToBase64(canvas);
@@ -278,7 +260,6 @@ export function LiveScanner({
       return;
     }
 
-    // Update parent state — component will unmount, but async call continues.
     setCapturing(true);
     onPhotoAnalyzing();
 
@@ -299,66 +280,46 @@ export function LiveScanner({
       await track.applyConstraints({ advanced: [{ torch: next }] });
       setTorchOn(next);
     } catch {
-      // Torch applyConstraints failed (e.g. permission revoked) — ignore.
+      // Torch applyConstraints failed — ignore.
     }
   }, [torchOn]);
 
-  const handleTapToFocus = useCallback(async (e: React.MouseEvent<HTMLVideoElement>) => {
+  const handleTouchFocus = useCallback(async (e: React.TouchEvent<HTMLVideoElement>) => {
     const track = streamRef.current?.getVideoTracks()[0];
-    if (!track || !focusMode) return;
+    if (!track || track.readyState !== "live") return;
 
-    const video = e.currentTarget;
-    const rect = video.getBoundingClientRect();
-    const pixelX = e.clientX - rect.left;
-    const pixelY = e.clientY - rect.top;
+    const caps = track.getCapabilities?.() as ExtendedCapabilities | undefined ?? {};
+    const focusModes = caps.focusMode ?? [];
+    if (!focusModes.includes("single-shot") && !focusModes.includes("manual")) return;
 
-    // Account for object-cover cropping: the video stream (e.g. 16:9) is scaled
-    // to fill the container (4:3) so one axis is clipped. Map tap coordinates
-    // into the video's intrinsic coordinate space, not just the element box.
-    let normX = pixelX / rect.width;
-    let normY = pixelY / rect.height;
-    if (video.videoWidth > 0 && video.videoHeight > 0) {
-      const videoAspect = video.videoWidth / video.videoHeight;
-      const boxAspect = rect.width / rect.height;
-      if (videoAspect > boxAspect) {
-        const renderedWidth = rect.height * videoAspect;
-        const cropX = (renderedWidth - rect.width) / 2;
-        normX = (pixelX + cropX) / renderedWidth;
-      } else {
-        const renderedHeight = rect.width / videoAspect;
-        const cropY = (renderedHeight - rect.height) / 2;
-        normY = (pixelY + cropY) / renderedHeight;
-      }
-      normX = Math.min(1, Math.max(0, normX));
-      normY = Math.min(1, Math.max(0, normY));
-    }
-
-    // Show focus ring: appear animation (~300ms), then fade out.
-    if (focusRingTimerRef.current) clearTimeout(focusRingTimerRef.current);
-    setFocusRing({ x: pixelX, y: pixelY, fading: false });
-    focusRingTimerRef.current = setTimeout(() => {
-      setFocusRing((prev) => (prev ? { ...prev, fading: true } : null));
-      focusRingTimerRef.current = setTimeout(() => setFocusRing(null), 300);
-    }, 300);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = Math.min(Math.max((touch.clientX - rect.left) / rect.width, 0), 1);
+    const y = Math.min(Math.max((touch.clientY - rect.top) / rect.height, 0), 1);
 
     try {
       await track.applyConstraints({
-        advanced: [{ focusMode: "single-shot", pointsOfInterest: [{ x: normX, y: normY }] } as ExtendedConstraintSet],
+        advanced: [
+          { focusMode: "single-shot", pointsOfInterest: [{ x, y }] } as ExtendedConstraintSet,
+        ],
       });
-      // Restore continuous autofocus after 500ms so the camera doesn't lock on the tapped point.
+    } catch {
+      return;
+    }
+
+    setFocusRing({ x: touch.clientX - rect.left, y: touch.clientY - rect.top, visible: true });
+    setTimeout(() => setFocusRing((r) => ({ ...r, visible: false })), 700);
+
+    if (focusModes.includes("continuous")) {
       if (focusRestoreTimerRef.current) clearTimeout(focusRestoreTimerRef.current);
       focusRestoreTimerRef.current = setTimeout(() => {
         focusRestoreTimerRef.current = null;
         void track.applyConstraints({
           advanced: [{ focusMode: "continuous" } as ExtendedConstraintSet],
-        }).catch((e: unknown) => {
-          addDebugError(`applyConstraints(restore continuous): ${e instanceof Error ? e.message : String(e)}`);
-        });
-      }, 500);
-    } catch (e) {
-      addDebugError(`applyConstraints(single-shot): ${e instanceof Error ? e.message : String(e)}`);
+        }).catch(() => {});
+      }, 1500);
     }
-  }, [focusMode, addDebugError]);
+  }, []);
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
@@ -369,25 +330,16 @@ export function LiveScanner({
           className={cn(
             "h-full w-full object-cover transition-opacity",
             status === "running" ? "opacity-100" : "opacity-0",
-            focusMode !== null && status === "running" && "cursor-crosshair",
           )}
           aria-label="Kamera-Vorschau"
-          onClick={(e) => void handleTapToFocus(e)}
+          onTouchStart={(e) => void handleTouchFocus(e)}
         />
 
-        {/* Tap-to-focus ring — appears at tap position, shrinks in, then fades out */}
-        {focusRing && (
+        {/* Touch-to-focus ring */}
+        {focusRing.visible && (
           <div
-            className={cn(
-              "pointer-events-none absolute w-16 h-16 rounded-full border-2 border-primary transition-opacity duration-300",
-              focusRing.fading ? "opacity-0" : "opacity-100",
-            )}
-            style={{
-              left: focusRing.x,
-              top: focusRing.y,
-              transform: "translate(-50%, -50%)",
-              animation: focusRing.fading ? undefined : "focus-ring-appear 0.3s ease-out forwards",
-            }}
+            className="pointer-events-none absolute border-2 border-primary rounded-full w-16 h-16 -translate-x-1/2 -translate-y-1/2 animate-ping"
+            style={{ left: focusRing.x, top: focusRing.y }}
             aria-hidden
           />
         )}
@@ -445,8 +397,6 @@ export function LiveScanner({
         )}
       </div>
 
-      <ScannerDebugPanel info={debugInfo} />
-
       {/* Scanner status line */}
       {status === "running" && (
         isLookingUp ? (
@@ -494,7 +444,6 @@ export function LiveScanner({
       <Button variant="outline" size="lg" onClick={onManualEntry}>
         <Pencil aria-hidden /> Ohne Barcode hinzufügen
       </Button>
-
     </div>
   );
 }
