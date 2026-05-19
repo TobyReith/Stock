@@ -102,9 +102,18 @@ export function AddFlow({
   const [slowHint, setSlowHint] = useState(false);
 
   useEffect(() => {
-    if (stage.kind !== "looking-up") { setSlowHint(false); return; }
+    return () => {
+      if (pendingNavRef.current) clearTimeout(pendingNavRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (stage.kind !== "looking-up") return;
     const t = setTimeout(() => setSlowHint(true), 2500);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      setSlowHint(false);
+    };
   }, [stage.kind]);
 
   const runLookup = useCallback((barcode: string) => {
@@ -175,7 +184,8 @@ export function AddFlow({
     if (initial?.shoppingListItemId) {
       void markShoppingItemBought(initial.shoppingListItemId);
     }
-    pendingNavRef.current = setTimeout(() => router.push("/"), 4100);
+    const TOAST_MS = 4000;
+    pendingNavRef.current = setTimeout(() => router.push("/"), TOAST_MS + 500);
     toast.success("Artikel hinzugefügt", {
       action: {
         label: "Weiteren hinzufügen",
@@ -184,7 +194,7 @@ export function AddFlow({
           resetToScanner();
         },
       },
-      duration: 4000,
+      duration: TOAST_MS,
     });
   }, [router, initial, resetToScanner]);
 
