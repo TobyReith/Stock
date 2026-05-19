@@ -410,7 +410,7 @@ export function LiveScanner({
         ) : (
           <div className="flex items-center justify-center gap-2 py-2">
             <ScanLine size={15} className="text-muted" aria-hidden />
-            <span className="text-[13px] font-medium text-muted">Kein Barcode gefunden</span>
+            <span className="text-[13px] font-medium text-muted">Barcode vor die Kamera halten</span>
           </div>
         )
       )}

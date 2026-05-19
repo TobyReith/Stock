@@ -615,24 +615,24 @@ function PhotoCandidatesPicker({
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{c.name}</p>
-                    <p className="truncate text-xs text-muted">
-                      {[c.brand, categoryLabel(c.category)].filter(Boolean).join(" · ")}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-xs text-muted">
+                        {[c.brand, categoryLabel(c.category)].filter(Boolean).join(" · ")}
+                      </p>
+                      <span className={cn(
+                        "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                        c.source === "vision+off"
+                          ? "bg-primary-subtle text-primary-text"
+                          : c.source === "vision"
+                            ? "bg-warning-subtle text-warning"
+                            : "bg-surface-raised text-muted",
+                      )}>
+                        {c.source === "vision+off" ? "Erkannt + OFF"
+                          : c.source === "vision" ? "Nur erkannt"
+                          : "Open Food Facts"}
+                      </span>
+                    </div>
                   </div>
-                  <span className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
-                    c.source === "vision+off"
-                      ? "bg-primary-subtle text-primary-text"
-                      : c.source === "vision"
-                        ? "bg-warning-subtle text-warning"
-                        : "bg-surface-raised text-muted",
-                  )}>
-                    {c.source === "vision+off"
-                      ? "Erkannt + Open Food Facts"
-                      : c.source === "vision"
-                        ? "Nur erkannt (kein DB-Match)"
-                        : "Open Food Facts"}
-                  </span>
                 </button>
               </li>
             ))}
