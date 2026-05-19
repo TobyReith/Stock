@@ -94,22 +94,22 @@ export function RecipeLoading() {
         border: "1px solid var(--color-border)",
         borderRadius: "var(--radius-lg)",
         boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
-        padding: "32px 24px 28px",
+        padding: "20px 20px 20px",
         display: "flex",
         flexDirection: "column",
-        gap: 24,
+        gap: 16,
       }}
     >
-      {/* Hero: chef hat + % + hint */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-        <div style={{ position: "relative", width: 76, height: 76 }}>
+      {/* Hero: chef hat + % side by side */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ position: "relative", width: 52, height: 52, flexShrink: 0 }}>
           <span style={{
             position: "absolute", inset: 0, borderRadius: "50%",
             background: "var(--color-primary-subtle)",
             animation: "loader-pulse 1.8s ease-in-out infinite",
           }} />
           <span style={{
-            position: "absolute", inset: -10, borderRadius: "50%",
+            position: "absolute", inset: -7, borderRadius: "50%",
             border: "1.5px solid color-mix(in srgb, var(--color-primary) 35%, transparent)",
             animation: "loader-ring 2.4s ease-out infinite",
           }} />
@@ -119,23 +119,22 @@ export function RecipeLoading() {
             color: "var(--color-primary-text)",
             animation: "loader-bob 2.4s ease-in-out infinite",
           }}>
-            <ChefHat size={36} strokeWidth={1.75} aria-hidden />
+            <ChefHat size={24} strokeWidth={1.75} aria-hidden />
           </span>
         </div>
 
-        <div style={{
-          fontFamily: "var(--font-serif)", fontSize: 56, fontWeight: 500,
-          lineHeight: 1, color: "var(--color-foreground)",
-          fontVariantNumeric: "tabular-nums", letterSpacing: "-0.03em",
-        }}>
-          {Math.round(progress)}<span style={{ fontSize: 26, color: "var(--color-muted)", marginLeft: 2 }}> %</span>
-        </div>
-
-        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 2, maxWidth: 280 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--color-foreground)" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: "var(--font-serif)", fontSize: 40, fontWeight: 500,
+            lineHeight: 1, color: "var(--color-foreground)",
+            fontVariantNumeric: "tabular-nums", letterSpacing: "-0.03em",
+          }}>
+            {Math.round(progress)}<span style={{ fontSize: 20, color: "var(--color-muted)", marginLeft: 2 }}> %</span>
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-foreground)" }}>
             Rezepte werden erstellt
           </div>
-          <div style={{ fontSize: 13, color: "var(--color-muted)", minHeight: 18 }}>
+          <div style={{ fontSize: 12, color: "var(--color-muted)", minHeight: 16 }}>
             <FadeText value={hint} />
           </div>
         </div>
