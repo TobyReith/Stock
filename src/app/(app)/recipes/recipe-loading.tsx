@@ -29,16 +29,15 @@ function useLoadingClock(duration = 14000) {
   useEffect(() => {
     let raf: number;
     function tick(now: number) {
-      const elapsed = (now - startRef.current) % (duration + 1200);
-      if (elapsed <= duration) {
+      const elapsed = now - startRef.current;
+      if (elapsed < duration) {
         const t = elapsed / duration;
         const eased = 1 - Math.pow(1 - t, 1.6);
-        setProgress(Math.min(100, eased * 100));
+        setProgress(eased * 100);
+        raf = requestAnimationFrame(tick);
       } else {
         setProgress(100);
-        if (elapsed > duration + 1000) startRef.current = now;
       }
-      raf = requestAnimationFrame(tick);
     }
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
